@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, ArrowRight, Check, Rocket, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Rocket, Loader2, MapPin, Search, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,8 @@ import { roomTypes, districts } from "@/lib/constants";
 import { cn, formatVND } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { roomsApi } from "@/features/rooms/api/roomsApi";
+import { locationsApi } from "@/features/locations/api/locationsApi";
+import type { LocationSuggestionResponse } from "@/features/locations/types/location.types";
 import {
   MoneyInput, FeeFields, ImagePicker, feesToState, stateToFees, type FeeState, type PickedImage,
 } from "../components/roomForm";
@@ -39,12 +41,93 @@ export default function PostRoom() {
     addressStreet: "",
     district: "",
     city: "Hồ Chí Minh",
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined,
   });
   const [fees, setFees] = useState<FeeState>(feesToState());
   const [amenities, setAmenities] = useState<string[]>([]);
   const [images, setImages] = useState<PickedImage[]>([]);
   const [boostsLeft, setBoostsLeft] = useState<number | null>(null);
   const [boost, setBoost] = useState(false);
+
+  // Autocomplete location state
+  const [suggestions, setSuggestions] = useState<LocationSuggestionResponse[]>([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchDebounceRef = useRef<any>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleAddressChange = (val: string) => {
+    update("addressStreet", val);
+    setForm((p) => ({ ...p, addressStreet: val, latitude: undefined, longitude: undefined }));
+
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!val || val.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setIsSearchingLocation(true);
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const results = await locationsApi.autocomplete(val.trim());
+        setSuggestions(results);
+        setShowSuggestions(results.length > 0);
+      } catch (err) {
+        console.warn("Location autocomplete error:", err);
+      } finally {
+        setIsSearchingLocation(false);
+      }
+    }, 300);
+  };
+
+  const handleSelectSuggestion = async (item: LocationSuggestionResponse) => {
+    setShowSuggestions(false);
+
+    const fullText = (item.description || item.secondaryText || "").toLowerCase();
+    const matchedDistrict = districts.find((d) => fullText.includes(d.toLowerCase()));
+    const streetName = item.mainText || item.description;
+
+    let lat = item.lat;
+    let lng = item.lng;
+
+    if (!lat || !lng) {
+      try {
+        const geo = await locationsApi.geocode(item.description);
+        if (geo?.lat && geo?.lng) {
+          lat = geo.lat;
+          lng = geo.lng;
+        }
+      } catch (err) {
+        console.warn("Geocode error for selected suggestion:", err);
+      }
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      addressStreet: streetName,
+      district: matchedDistrict || prev.district,
+      latitude: lat,
+      longitude: lng,
+    }));
+
+    if (lat && lng) {
+      toast.success("Đã xác định tọa độ GPS thành công!", {
+        description: `${streetName}${matchedDistrict ? ", " + matchedDistrict : ""}`,
+      });
+    }
+  };
 
   useEffect(() => {
     api.get<{ boostsLeft: number }>("/monetization/consumables/me")
@@ -95,6 +178,8 @@ export default function PostRoom() {
         addressStreet: form.addressStreet.trim(),
         district: form.district,
         city: form.city,
+        latitude: form.latitude,
+        longitude: form.longitude,
         amenities,
         fees: feeList,
       });
@@ -226,14 +311,56 @@ export default function PostRoom() {
 
           {step === 3 && (
             <div className="grid gap-4 sm:grid-cols-2 w-full">
-              <Field label="Địa chỉ cụ thể (số nhà, tên đường, phường)">
-                <Input
-                  value={form.addressStreet}
-                  maxLength={255}
-                  onChange={(e) => update("addressStreet", e.target.value)}
-                  placeholder="VD: 123 Tô Hiến Thành, Phường 13"
-                />
-              </Field>
+              <div className="sm:col-span-2 relative" ref={wrapperRef}>
+                <Field label="Địa chỉ cụ thể (gợi ý tự động qua Goong Maps)">
+                  <div className="relative">
+                    <Input
+                      value={form.addressStreet}
+                      maxLength={255}
+                      onChange={(e) => handleAddressChange(e.target.value)}
+                      onFocus={() => {
+                        if (suggestions.length > 0) setShowSuggestions(true);
+                      }}
+                      placeholder="Gõ để tìm kiếm: VD: 123 Tô Hiến Thành, KTX ĐHQG, Đại học FPT..."
+                      className="pr-10"
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                      {isSearchingLocation ? (
+                        <Loader2 className="size-4 animate-spin text-primary" />
+                      ) : (
+                        <Search className="size-4" />
+                      )}
+                    </div>
+                  </div>
+                </Field>
+
+                {/* Suggestions Dropdown */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-popover text-popover-foreground border rounded-xl shadow-lg overflow-hidden max-h-60 overflow-y-auto">
+                    {suggestions.map((item, idx) => (
+                      <button
+                        key={item.placeId || idx}
+                        type="button"
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-accent/60 transition-colors flex items-start gap-2.5 border-b last:border-b-0 border-border/40"
+                        onClick={() => handleSelectSuggestion(item)}
+                      >
+                        <MapPin className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-foreground truncate">
+                            {item.mainText || item.description}
+                          </p>
+                          {item.secondaryText && (
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {item.secondaryText}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <Field label="Quận/Huyện">
                 <Select value={form.district} onValueChange={(v) => update("district", v)}>
                   <SelectTrigger className="w-full"><SelectValue placeholder="Chọn quận" /></SelectTrigger>
@@ -242,9 +369,27 @@ export default function PostRoom() {
                   </SelectContent>
                 </Select>
               </Field>
-              <p className="sm:col-span-2 text-[11px] text-muted-foreground">
-                Vị trí trên bản đồ được xác định tự động từ địa chỉ. Hãy nhập đúng số nhà và tên đường.
-              </p>
+
+              <Field label="Thành phố">
+                <Input value={form.city} disabled className="bg-muted text-muted-foreground" />
+              </Field>
+
+              {/* GPS coordinates status badge */}
+              <div className="sm:col-span-2">
+                {form.latitude && form.longitude ? (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs">
+                    <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                    <span>
+                      Tọa độ GPS đã được xác thực: <strong>{form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}</strong> (ghim phòng trọ sẽ cắm chính xác trên bản đồ).
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                    <MapPin className="size-3.5 text-muted-foreground shrink-0" />
+                    Gợi ý: Nhập địa chỉ và bấm chọn từ danh sách để tự động xác thực tọa độ GPS chuẩn xác.
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
