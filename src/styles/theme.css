@@ -619,7 +619,7 @@ body[data-scroll-locked] {
   height: 100% !important;
   display: block;
   pointer-events: none;
-  background-image: url("/auth-backgorund.gif");
+  background-image: url("/auth-backgorund.webp");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
