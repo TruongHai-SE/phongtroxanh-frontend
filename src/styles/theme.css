@@ -1,0 +1,782 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --background: #ffffff;
+  --foreground: oklch(0.145 0 0);
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --card: #ffffff;
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: #059669;
+  --primary-foreground: #ffffff;
+  --secondary: oklch(0.95 0.0058 264.53);
+  --secondary-foreground: #065f46;
+  --muted: #ececf0;
+  --muted-foreground: #717182;
+  --accent: #ecfdf5;
+  --accent-foreground: #065f46;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.1);
+  --input: transparent;
+  --input-background: #f3f3f5;
+  --switch-background: #cbced4;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #059669;
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: #059669;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: #059669;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --warning: #f59e0b;
+  --warning-foreground: oklch(0.205 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* ── Emerald brand tokens (from phong-tro-xanh) ── */
+  --color-emerald-brand: #059669;
+  --color-emerald-deep: #065f46;
+  --color-emerald-dark: #064e3b;
+  --color-mint: #ecfdf5;
+  --color-sage: #d1fae5;
+  --color-ink: #0f172a;
+  --color-charcoal: #1f2937;
+  --color-slate-soft: #64748b;
+
+  /* ── Font tokens ── */
+  --font-serif: "Fraunces", ui-serif, Georgia, serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    padding-right: 0px !important;
+  }
+
+  /**
+  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
+  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
+  */
+
+  html {
+    font-size: var(--font-size);
+    /* Prevent layout shift when scrollbar appears/disappears between routes */
+    scrollbar-gutter: stable;
+    overflow-y: scroll;
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Utility classes ported from phong-tro-xanh
+   ══════════════════════════════════════════════════════════ */
+
+/* ---------- Brand display typography ---------- */
+.font-display {
+  font-family: var(--font-serif);
+  letter-spacing: -0.02em;
+}
+
+/* Brand heading utility — used on page titles & numeric highlights app-wide.
+   Maps to the same Fraunces serif as the logo so every screen shares the
+   brand voice (Tailwind size/weight utilities layered on top still win). */
+.brand {
+  font-family: var(--font-serif);
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* ---------- Reusable card surface ---------- */
+.card-surface {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 12px 32px -12px rgba(6, 95, 70, 0.12);
+}
+
+/* ---------- Buttons (Landing-specific, not shadcn) ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  border-radius: 999px;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
+  cursor: pointer;
+}
+.btn-primary {
+  background: var(--color-emerald-brand);
+  color: #fff;
+  box-shadow: 0 10px 24px -8px rgba(5, 150, 105, 0.6);
+}
+.btn-primary:hover {
+  background: var(--color-emerald-deep);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px -10px rgba(5, 150, 105, 0.7);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--color-emerald-deep);
+  border: 1.5px solid var(--color-sage);
+}
+.btn-ghost:hover {
+  background: var(--color-mint);
+  border-color: var(--color-emerald-brand);
+}
+
+/* ---------- Amenity pill ---------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: var(--color-mint);
+  color: var(--color-emerald-deep);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* ---------- Image loading skeleton + reveal ---------- */
+/* Animated shimmer shown on the <img> box until the bitmap paints, then a
+   gentle fade so photos never pop in from blank white. Used by
+   ImageWithFallback across every room/roommate/gallery image. */
+.img-skeleton {
+  background: linear-gradient(100deg, #eef2f1 30%, #dcefe6 50%, #eef2f1 70%);
+  background-size: 200% 100%;
+  animation: imgShimmer 1.3s ease-in-out infinite;
+}
+@keyframes imgShimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.img-reveal {
+  animation: imgReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes imgReveal {
+  from {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .img-skeleton {
+    animation: none;
+  }
+  .img-reveal {
+    animation: none;
+  }
+  .shimmer::after {
+    animation: none;
+  }
+}
+
+/* ---------- Premium Shimmer effect for skeleton loading ---------- */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 35%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.4) 65%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmerSweep 1.6s infinite ease-in-out;
+}
+
+.dark .shimmer::after {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.05) 35%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 65%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+@keyframes shimmerSweep {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+
+/* ---------- Scroll reveal animation ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- Soft aurora background blobs ---------- */
+.aurora {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ---------- Text selection ---------- */
+::selection {
+  background: var(--color-sage);
+  color: var(--color-emerald-dark);
+}
+
+/* ══════════════════════════════════════════════════════════
+   Layout Shift & Interaction Classes
+   ══════════════════════════════════════════════════════════ */
+
+/* Force scroll layout lock overrides for Radix-UI */
+html body[data-scroll-locked],
+html[data-scroll-locked] body,
+body[data-scroll-locked] {
+  padding-right: 0px !important;
+  margin-right: 0px !important;
+  overflow: visible !important;
+}
+
+/* 1. Press effect (Bấm lún xuống rất nhẹ) */
+.press-active {
+  transition:
+    transform 0.1s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.1s ease;
+}
+.press-active:active {
+  transform: scale(0.985);
+  opacity: 0.96;
+}
+
+/* 2. Lift effect (Bay lên rất nhẹ và tăng bóng đổ mờ) */
+.hover-lift {
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 16px -6px rgba(15, 23, 42, 0.08),
+    0 2px 6px -4px rgba(0, 0, 0, 0.04);
+}
+
+/* 3. Glow effect (Phát sáng rất dịu nhẹ) */
+.hover-glow {
+  transition: box-shadow 0.2s ease;
+}
+.hover-glow:hover {
+  box-shadow: 0 0 10px rgba(5, 150, 105, 0.18);
+}
+
+/* 4. Tilt effect (Nghiêng cực nhỏ) */
+.hover-tilt {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hover-tilt:hover {
+  transform: rotate(0.5deg);
+}
+.hover-tilt-negative {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hover-tilt-negative:hover {
+  transform: rotate(-0.5deg);
+}
+
+/* 5. Shine effect (Ánh kim lướt qua) */
+.hover-shine {
+  position: relative;
+  overflow: hidden;
+}
+.hover-shine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-20deg);
+  transition: left 0.75s ease-in-out;
+  pointer-events: none;
+}
+.hover-shine:hover::after {
+  left: 150%;
+}
+
+/* ---------- Room Thumbnail Marker on Map ---------- */
+.room-marker-container {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 2px solid #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.room-marker-image-wrapper {
+  width: 100%;
+  height: 100%;
+  border-radius: 9px;
+  overflow: hidden;
+}
+.room-marker-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.room-marker-badge {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-emerald-brand, #059669);
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid #ffffff;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.room-marker--active {
+  transform: scale(1.2);
+  border-color: var(--color-emerald-brand, #059669);
+  box-shadow: 0 6px 20px rgba(5, 150, 105, 0.35);
+  z-index: 1000;
+}
+.room-marker--active .room-marker-badge {
+  background: var(--color-emerald-deep, #065f46);
+}
+
+/* Custom Leaflet Tooltip styles */
+.leaflet-tooltip.room-map-tooltip {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 10px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  color: var(--color-foreground, #0f172a);
+  font-family: var(--font-sans, inherit);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+.leaflet-tooltip-bottom.room-map-tooltip::before {
+  border-bottom-color: rgba(255, 255, 255, 0.95);
+}
+
+/* ══════════════════════════════════════════════════════════
+   Auth Double-Slider
+   ══════════════════════════════════════════════════════════ */
+
+.auth-slider {
+  position: relative;
+  width: clamp(340px, 85vw, 760px);
+  min-height: clamp(480px, 78vh, 550px);
+  max-height: clamp(500px, 90vh, 580px);
+  background: #fff;
+  border-radius: 1.25rem;
+  box-shadow:
+    0 20px 60px -12px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* Form panels sit in the grid; each takes one column */
+.auth-slider__form-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(1rem, 2.5vh, 1.75rem) 2.25rem;
+  overflow-y: auto;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hidden panel: fully hidden so it doesn't bleed through overlay */
+.auth-slider__form-panel[inert] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Overlay panel: slides over one column */
+.auth-slider__overlay {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 50%;
+  height: 100%;
+  z-index: 10;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+
+  /* Flexbox to center the inner glass card content */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* When active (register mode), slide overlay to left column */
+.auth-slider--register .auth-slider__overlay {
+  transform: translateX(-100%);
+}
+
+/* GIF track: 200% of overlay = 100% of auth container.
+   Rendered as a background div to bypass img constraints. */
+.auth-slider__gif-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200% !important;
+  min-width: 200%;
+  max-width: none !important;
+  height: 100% !important;
+  display: block;
+  pointer-events: none;
+  background-image: url("/auth-backgorund.gif");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  /* Show the right half of the GIF in Login mode (overlay is on the right) */
+  transform: translate3d(-50%, 0, 0);
+  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+/* Register state: show the left half of the GIF (overlay is on the left) */
+.auth-slider--register .auth-slider__gif-track {
+  transform: translate3d(0, 0, 0);
+}
+
+/* Top-bottom linear gradient scrim to protect text/button readability without coloring the center of the GIF */
+.auth-slider__overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.42) 0%,
+    rgba(0, 0, 0, 0.15) 25%,
+    rgba(0, 0, 0, 0) 42%,
+    rgba(0, 0, 0, 0) 58%,
+    rgba(0, 0, 0, 0.15) 75%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Card-free overlay content distributed to top and bottom */
+.auth-slider__overlay-content {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 3rem 1.5rem;
+  box-sizing: border-box;
+  text-align: center;
+  color: #fff;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  max-width: none !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.auth-slider__overlay-content h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  line-height: 1.25;
+  text-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.85),
+    0 1px 2px rgba(0, 0, 0, 0.9);
+  letter-spacing: -0.02em;
+}
+
+.auth-slider__overlay-content p {
+  font-size: 0.85rem;
+  opacity: 0.95;
+  line-height: 1.5;
+  max-width: 280px;
+  margin-bottom: auto; /* Push the button to the absolute bottom of the container */
+  text-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.85),
+    0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+.auth-slider__overlay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 2rem;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: rgba(
+    0,
+    0,
+    0,
+    0.35
+  ); /* Soft dark backing to keep button clear over sidewalk */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.auth-slider__overlay-btn:hover {
+  background: #ffffff;
+  color: #064e3b; /* Accent green text color matching brand */
+  border-color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  text-shadow: none;
+}
+.auth-slider__overlay-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+.auth-slider__overlay-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* ── Mobile: stack vertically, no overlay ── */
+@media (max-width: 700px) {
+  .auth-slider {
+    grid-template-columns: 1fr;
+    width: 94vw;
+    max-width: 420px;
+    min-height: unset;
+    max-height: unset;
+  }
+  .auth-slider__overlay {
+    display: none;
+  }
+  .auth-slider__form-panel {
+    padding: 1.5rem 1.25rem;
+  }
+  .auth-slider__form-panel[inert] {
+    display: none;
+  }
+}
+
+/* Shake Animation utility for invalid inputs */
+.animate-shake {
+  animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  transform: translate3d(0, 0, 0);
+}
+@keyframes shake {
+  10%,
+  90% {
+    transform: translate3d(-1px, 0, 0);
+  }
+  20%,
+  80% {
+    transform: translate3d(2px, 0, 0);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate3d(-4px, 0, 0);
+  }
+  40%,
+  60% {
+    transform: translate3d(4px, 0, 0);
+  }
+}

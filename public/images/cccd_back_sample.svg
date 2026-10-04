@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 340" width="540" height="340">
+  <defs>
+    <linearGradient id="bg_back" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ebfbee"/>
+      <stop offset="50%" stop-color="#fdfbf7"/>
+      <stop offset="100%" stop-color="#e6f4ea"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Thân thẻ -->
+  <rect x="2" y="2" width="536" height="336" rx="18" fill="url(#bg_back)" stroke="#10b981" stroke-width="2.5" />
+  
+  <!-- Đặc điểm nhận dạng -->
+  <text x="36" y="38" font-family="sans-serif" font-size="10" font-weight="700" fill="#065f46">ĐẶC ĐIỂM NHẬN DẠNG / PERSONAL IDENTIFICATION:</text>
+  <text x="36" y="56" font-family="sans-serif" font-size="10.5" fill="#334155">Nốt ruồi C cách 1cm dưới sau đuôi lông mày trái</text>
+
+  <!-- Ngày cấp & Nơi cấp -->
+  <text x="36" y="86" font-family="sans-serif" font-size="10" fill="#64748b">Ngày, tháng, năm / Date, month, year: <tspan font-weight="600" fill="#0f172a">20/08/2021</tspan></text>
+  <text x="36" y="104" font-family="sans-serif" font-size="10.5" font-weight="700" fill="#065f46">CỤC TRƯỞNG CỤC CẢNH SÁT QUẢN LÝ HÀNH CHÍNH VỀ TRẬT TỰ XÃ HỘI</text>
+  <text x="36" y="118" font-family="sans-serif" font-size="9" font-style="italic" fill="#047857">DIRECTOR GENERAL OF POLICE DEPARTMENT FOR ADMINISTRATIVE MANAGEMENT OF SOCIAL ORDER</text>
+
+  <!-- Dấu vân tay mẫu -->
+  <g transform="translate(360, 26)">
+    <!-- Ngón trỏ trái -->
+    <rect x="0" y="0" width="68" height="85" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+    <ellipse cx="34" cy="42" rx="22" ry="32" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2,2"/>
+    <ellipse cx="34" cy="42" rx="16" ry="24" fill="none" stroke="#94a3b8" stroke-width="1"/>
+    <ellipse cx="34" cy="42" rx="10" ry="16" fill="none" stroke="#94a3b8" stroke-width="1"/>
+    <text x="34" y="96" font-family="sans-serif" font-size="8" font-weight="600" fill="#64748b" text-anchor="middle">NGÓN TRỎ TRÁI</text>
+
+    <!-- Ngón trỏ phải -->
+    <rect x="80" y="0" width="68" height="85" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+    <ellipse cx="114" cy="42" rx="22" ry="32" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2,2"/>
+    <ellipse cx="114" cy="42" rx="16" ry="24" fill="none" stroke="#94a3b8" stroke-width="1"/>
+    <ellipse cx="114" cy="42" rx="10" ry="16" fill="none" stroke="#94a3b8" stroke-width="1"/>
+    <text x="114" y="96" font-family="sans-serif" font-size="8" font-weight="600" fill="#64748b" text-anchor="middle">NGÓN TRỎ PHẢI</text>
+  </g>
+
+  <!-- Chữ ký số / Con dấu -->
+  <g transform="translate(180, 130)">
+    <circle cx="50" cy="40" r="32" fill="none" stroke="#dc2626" stroke-width="1.5" opacity="0.8"/>
+    <text x="50" y="38" font-family="sans-serif" font-size="8" font-weight="700" fill="#dc2626" text-anchor="middle">BỘ CÔNG AN</text>
+    <text x="50" y="48" font-family="sans-serif" font-size="7" fill="#dc2626" text-anchor="middle">★ ĐÃ DUYỆT ★</text>
+  </g>
+
+  <!-- Vùng mã máy đọc MRZ (Machine Readable Zone) -->
+  <rect x="20" y="215" width="500" height="95" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+  
+  <text x="36" y="248" font-family="'OCR-B', 'Courier New', monospace" font-size="16" font-weight="700" fill="#1e293b" letter-spacing="3.5">IDVNM079201008888&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</text>
+  <text x="36" y="274" font-family="'OCR-B', 'Courier New', monospace" font-size="16" font-weight="700" fill="#1e293b" letter-spacing="3.5">0108151M4108155VNM&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;8</text>
+  <text x="36" y="300" font-family="'OCR-B', 'Courier New', monospace" font-size="16" font-weight="700" fill="#1e293b" letter-spacing="3.5">NGUYEN&lt;&lt;VAN&lt;AN&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</text>
+
+  <!-- Huy hiệu mặt sau -->
+  <rect x="440" y="180" width="80" height="22" rx="11" fill="#ecfdf5" stroke="#10b981" stroke-width="1"/>
+  <text x="480" y="195" font-family="sans-serif" font-size="10" font-weight="700" fill="#047857" text-anchor="middle">MẶT SAU</text>
+</svg>

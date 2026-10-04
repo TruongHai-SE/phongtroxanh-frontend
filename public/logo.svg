@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- House outline -->
+  <path d="M16 8 L4 18 H8 V28 H24 V18 H28 L16 8 Z" stroke="#10b981" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+  <!-- Door -->
+  <path d="M13 28 V20 H19 V28" stroke="#10b981" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+  <!-- Leaf sprout growing from the ridge of the roof -->
+  <path d="M16 8 C18.5 4.5 22.5 5 22.5 5 C22.5 5 22 9 18.5 9.5" fill="#10b981"/>
+  <path d="M16 8 C13.5 5.5 10.5 6.5 10.5 6.5 C10.5 6.5 11 10 14 9.5" fill="#10b981"/>
+</svg>
