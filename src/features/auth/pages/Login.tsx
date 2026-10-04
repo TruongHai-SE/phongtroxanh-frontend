@@ -618,7 +618,7 @@ export default function Login() {
               </div>
 
               <div className="mt-1">
-                <div className="relative h-9 rounded-md overflow-hidden flex items-center justify-center">
+                <div className="group relative h-9 rounded-md overflow-hidden flex items-center justify-center">
                   <div
                     ref={googleBtnLoginRef}
                     onClick={triggerGoogleLogin}
@@ -630,11 +630,11 @@ export default function Login() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full gap-2 h-9 text-xs hover:bg-slate-50 transition-colors font-medium text-charcoal border-slate-200"
+                    className="w-full gap-2 h-9 text-xs font-medium text-charcoal border-slate-200 bg-white group-hover:bg-slate-100 group-hover:border-slate-300 group-hover:shadow-sm group-hover:text-black group-hover:scale-[1.005] group-active:scale-[0.99] transition-all duration-200"
                     onClick={triggerGoogleLogin}
                     tabIndex={isRegister ? -1 : 0}
                   >
-                    <svg className="size-4" viewBox="0 0 24 24">
+                    <svg className="size-4 group-hover:scale-110 transition-transform duration-200" viewBox="0 0 24 24">
                       <path
                         fill="#4285F4"
                         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
@@ -846,7 +846,7 @@ export default function Login() {
               </div>
 
               <div className="mt-0.5">
-                <div className="relative h-[34px] rounded-md overflow-hidden flex items-center justify-center">
+                <div className="group relative h-[34px] rounded-md overflow-hidden flex items-center justify-center">
                   <div
                     ref={googleBtnRegRef}
                     onClick={triggerGoogleLogin}
@@ -858,11 +858,11 @@ export default function Login() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full gap-2 h-[34px] text-xs hover:bg-slate-50 transition-colors font-medium text-charcoal border-slate-200"
+                    className="w-full gap-2 h-[34px] text-xs font-medium text-charcoal border-slate-200 bg-white group-hover:bg-slate-100 group-hover:border-slate-300 group-hover:shadow-sm group-hover:text-black group-hover:scale-[1.005] group-active:scale-[0.99] transition-all duration-200"
                     onClick={triggerGoogleLogin}
                     tabIndex={!isRegister ? -1 : 0}
                   >
-                    <svg className="size-4" viewBox="0 0 24 24">
+                    <svg className="size-4 group-hover:scale-110 transition-transform duration-200" viewBox="0 0 24 24">
                       <path
                         fill="#4285F4"
                         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
