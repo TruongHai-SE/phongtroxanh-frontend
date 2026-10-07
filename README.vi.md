@@ -72,15 +72,14 @@ flowchart TD
         RoommateFeed["Quẹt Ghép Đôi Bạn Ở Ghép (/roommates)"]
         ChatHub["Nhắn Tin Real-Time WebSocket (/chat)"]
         TenantSwap["Sàn Sang Nhượng & Hoán Đổi Phòng (/swap)"]
-        CheckIn["Quét Mã QR Check-in Nhận Phòng (/check-in)"]
-        Rentals["Hợp Đồng Thuê Của Tôi (/rentals/me)"]
+        Rentals["Hợp Đồng Thuê & Xác Nhận Nhận Phòng (/rentals/me)"]
     end
 
     subgraph LandlordPortal["Cổng Chủ Trọ (DashboardLayout)"]
         LandlordDash["Tổng Quan Quản Lý Trọ (/landlord)"]
         RoomMgmt["Đăng Tin Phòng & Tải Ảnh Cloudinary"]
         SubPackages["Nạp Gói Đăng Tin & VIP PayOS"]
-        TenantRequests["Yêu Cầu Thuê & Tạo Mã QR Check-in"]
+        TenantRequests["Yêu Cầu Thuê & Bàn Giao Phòng"]
     end
 
     subgraph AdminPortal["Trung Tâm Quản Trị Admin (DashboardLayout)"]
@@ -119,7 +118,7 @@ frontend/src/
 │   ├── misc/                            # Trang lỗi (404, 500, Offline, Access Denied), Giới thiệu
 │   ├── monetization/                    # Bảng giá gói, modal thanh toán PayOS VietQR, Callback
 │   ├── notifications/                   # Trung tâm thông báo hệ thống
-│   ├── rentals/                         # Hợp đồng thuê nhà và máy quét QR check-in
+│   ├── rentals/                         # Hợp đồng thuê nhà và xác nhận bàn giao nhận phòng
 │   ├── reports/                         # Form gửi báo cáo vi phạm phòng/người dùng
 │   ├── reviews/                         # Đánh giá 2 chiều và hiển thị điểm tín nhiệm TrustScore
 │   ├── roommates/                       # Quẹt thẻ tìm bạn cùng phòng, độ hòa hợp 8 tiêu chí

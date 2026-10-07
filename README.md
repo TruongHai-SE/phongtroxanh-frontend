@@ -72,7 +72,7 @@ flowchart TD
         RoommateFeed["Roommate Compatibility Feed (/roommates)"]
         ChatHub["STOMP Real-Time Chat (/chat)"]
         TenantSwap["Room Swap & Sublease Market (/swap)"]
-        CheckIn["QR Dynamic Check-in (/check-in)"]
+        CheckIn["Direct Lease Handover (/rentals)"]
         Rentals["My Rentals & Contracts (/rentals/me)"]
     end
 
@@ -80,7 +80,7 @@ flowchart TD
         LandlordDash["Landlord Dashboard (/landlord)"]
         RoomMgmt["Room Posting & Photo Management"]
         SubPackages["PayOS Packages & Vip Upgrade"]
-        TenantRequests["Lease Requests & Check-in QR Generation"]
+        TenantRequests["Lease Requests & Check-in Handover Confirmation"]
     end
 
     subgraph AdminPortal["Admin Control Center (DashboardLayout)"]
@@ -119,7 +119,7 @@ frontend/src/
 │   ├── misc/                            # Error pages (404, 500, Offline, Access Denied), About
 │   ├── monetization/                    # Tiered packages catalog, PayOS VietQR modal, Callback
 │   ├── notifications/                   # Notification center & read state
-│   ├── rentals/                         # Active lease management & dynamic QR check-in
+│   ├── rentals/                         # Active lease management & handover check-in confirmation
 │   ├── reports/                         # Violation reporting dialog & evidence upload
 │   ├── reviews/                         # Two-way rating submission & TrustScore visualization
 │   ├── roommates/                       # Roommate compatibility feed, swipe deck, mutual match dialog

@@ -34,7 +34,7 @@
 | F8 | **Swipe Matching** | Giao diện swipe trái/phải để chọn bạn ở cùng | Sprint 4 |
 | F9 | **Chat real-time** | Nhắn tin giữa tenant-landlord và tenant-tenant khi match | Sprint 4 |
 | F10 | **Upload CCCD** | Chủ trọ upload ảnh CCCD, admin review thủ công | Sprint 5 |
-| F11 | **Check-in xác thực thuê** | Quét QR/OTP check-in từ chủ trọ để liên kết Tenant-Room | Sprint 5 |
+| F11 | **Check-in xác thực thuê** | Xác nhận bàn giao nhận phòng (1-click hoặc OTP) để liên kết Tenant-Room | Sprint 5 |
 | F12 | **Đánh giá 2 chiều** | Chỉ mở sau check-in, đánh giá 2 chiều và cập nhật TrustScore | Sprint 5 |
 | F13 | **Hoán đổi bạn cùng phòng**| Luồng Swap roommate phân vai trò Leaseholder vs Co-tenant | Sprint 5 |
 
@@ -162,7 +162,7 @@
 | Push notification (WebSocket + browser) | Dev 2 | T5-T8 |
 | Saved/Favorite rooms API | Dev 2 | T8-T10 |
 | CCCD upload UI + verified badge display | Dev 3 | T1-T3 |
-| Check-in QR Scanner UI & Verified Review flow | Dev 3 | T3-T5 |
+| Check-in Handover Verification UI & Verified Review flow | Dev 3 | T3-T5 |
 | Swap Roommate UI (Leaseholder warnings & Approval screen) | Dev 3 | T5-T8 |
 | Favorite button + saved list | Dev 3 | T8-T10 |
 | Chuẩn bị nội dung pitch deck | Marketing 1 + BA | T1-T10 |
@@ -260,7 +260,7 @@ Mở app → Đăng nhập OTP → Chọn "Chủ trọ"
     │           → Chọn vị trí trên bản đồ
     │           → Đăng tin (miễn phí / Boost)
     │       → Sửa / Ẩn phòng
-    │       → "Tạo mã Check-in/QR phòng" ➔ Gửi cho Tenant check-in
+    │       → "Bàn giao phòng (Check-in)" ➔ Xác nhận trực tiếp hoặc mã OTP
     │       → Duyệt yêu cầu "Hoán đổi hợp đồng (Swap)" từ Leaseholder ➔ Bấm đồng ý/từ chối
     │
     ├──→ [Tab 2: Tin nhắn]
