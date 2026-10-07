@@ -54,7 +54,7 @@ Mỗi năm, Việt Nam có khoảng **1.8 triệu sinh viên** nhập học đ�
   - *Người ở ghép phụ (Co-tenant):* Chỉ cần chủ hợp đồng duyệt, hệ thống tự động thông báo chủ trọ.
 
 ### 3.3. Đánh giá & Xếp hạng hai chiều xác thực (Verified 2-Way Reviews)
-- Chỉ mở khóa đánh giá khi hệ thống xác thực **mối quan hệ thuê nhà thực tế** (qua mã check-in hoặc quét QR phòng trọ).
+- Chỉ mở khóa đánh giá khi hệ thống xác thực **mối quan hệ thuê nhà thực tế** (qua xác nhận bàn giao nhận phòng 1-click hoặc mã OTP).
 - Người thuê đánh giá chủ trọ/phòng trọ (1-5 sao + nhận xét).
 - Chủ trọ đánh giá người thuê và cập nhật điểm **TrustScore** của người thuê.
 - Hệ thống **badge uy tín**: "Chủ trọ Xanh" cho chủ trọ đạt 4.5+ sao.
