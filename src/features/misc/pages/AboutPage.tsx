@@ -162,7 +162,7 @@ export function AboutPage() {
                   </div>
                   <h3 className="text-base font-bold text-slate-800">3. Nhận trọ an toàn</h3>
                   <p className="mt-2 text-xs text-slate-500 leading-relaxed">
-                    Kết nối trực tiếp, quét mã nhận phòng và thực hiện hợp đồng điện tử tiện lợi để đảm bảo quyền lợi pháp lý đầy đủ.
+                    Kết nối trực tiếp, xác nhận nhận phòng và thực hiện hợp đồng điện tử tiện lợi để đảm bảo quyền lợi pháp lý đầy đủ.
                   </p>
                 </div>
               </div>

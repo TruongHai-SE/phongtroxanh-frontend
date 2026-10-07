@@ -270,7 +270,7 @@ STOMP Destinations:
 
 #### Rentals
 ```
-POST   /api/rentals/check-in        Tenant quét mã QR/nhập OTP check-in từ chủ trọ
+POST   /api/rentals/check-in        Xác nhận bàn giao nhận phòng (1-click hoặc nhập OTP)
 GET    /api/rentals/me              Lịch sử/Danh sách phòng đang thuê hiện tại
 PUT    /api/rentals/{id}/terminate  Chấm dứt mối quan hệ thuê phòng
 ```

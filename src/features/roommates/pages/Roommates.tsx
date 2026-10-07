@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { GraduationCap, Users, MessageCircle, Sparkles, X, CigaretteOff, Cigarette, Moon, ZapOff } from "lucide-react";
+import { GraduationCap, Users, MessageCircle, Sparkles, X, CigaretteOff, Cigarette, Moon, ZapOff, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/shared/ImageWithFallback";
 import { SwipeStage } from "@/components/shared/SwipeStage";
@@ -83,7 +83,9 @@ function BigPersonCard({ person }: { person: Roommate }) {
 
 export default function Roommates() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
+  const [isPrivateProfile, setIsPrivateProfile] = useState<boolean>(false);
+  const [isTogglingPublic, setIsTogglingPublic] = useState(false);
   const [match, setMatch] = useState<Roommate | null>(null);
   const { loaded, swipesLeft, maxSwipes, decrementSwipes, openPricing, tier } = useMonetization();
   const [allCandidates, setAllCandidates] = useState<Roommate[]>([]);
@@ -126,6 +128,9 @@ export default function Roommates() {
             isNeat: profile.isNeat ?? false,
             allowGuests: profile.allowGuests ?? false,
           };
+          if (profile.isPublic !== undefined) {
+            setIsPrivateProfile(!profile.isPublic);
+          }
           setInitialFilters(init);
           setActiveFilters(init);
         }
@@ -135,6 +140,20 @@ export default function Roommates() {
     }
     loadTenantCriteria();
   }, [user]);
+
+  const handleEnablePublic = async () => {
+    setIsTogglingPublic(true);
+    try {
+      await accountApi.updateSettings({ isPublic: true });
+      setIsPrivateProfile(false);
+      await refreshProfile();
+      toast.success("Đã bật công khai hồ sơ! Bạn đã sẵn sàng để được ghép đôi.");
+    } catch {
+      toast.error("Không thể cập nhật quyền riêng tư, vui lòng thử lại sau");
+    } finally {
+      setIsTogglingPublic(false);
+    }
+  };
 
   useEffect(() => {
     async function fetchFeed() {
@@ -309,6 +328,30 @@ export default function Roommates() {
           </p>
         </div>
       </div>
+
+      {isPrivateProfile && (
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50/90 p-4 text-amber-900 shadow-xs dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-200 animate-fade-in">
+          <div className="flex items-start sm:items-center gap-3 text-xs sm:text-sm">
+            <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-amber-200/60 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+              <EyeOff className="size-4" />
+            </div>
+            <div>
+              <p className="font-semibold text-amber-900 dark:text-amber-100">Hồ sơ tìm bạn của bạn đang ở chế độ Riêng tư (Ẩn)</p>
+              <p className="text-xs text-amber-700 dark:text-amber-300/90 mt-0.5">
+                Bạn vẫn có thể xem và quẹt người khác, nhưng hồ sơ của bạn sẽ không xuất hiện trên bảng tin để người khác tìm thấy bạn.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={handleEnablePublic}
+            disabled={isTogglingPublic}
+            className="self-end sm:self-auto h-9 shrink-0 rounded-xl bg-amber-600 px-4 text-xs font-semibold text-white hover:bg-amber-700 shadow-xs cursor-pointer"
+          >
+            {isTogglingPublic ? "Đang xử lý..." : "Bật công khai ngay"}
+          </Button>
+        </div>
+      )}
 
       <div className="grid w-full gap-4 md:gap-6 lg:grid-cols-[240px_1fr_240px]">
         <div className="hidden lg:block">

@@ -34,6 +34,9 @@ export interface UserProfileResponse {
   proximityWork?: boolean;
   proximityMarket?: boolean;
   proximityBus?: boolean;
+  isPublic?: boolean;
+  showSchool?: boolean;
+  hideActiveStatus?: boolean;
 }
 
 export interface UpdateProfileRequest {
