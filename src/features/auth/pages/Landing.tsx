@@ -40,36 +40,6 @@ const testimonials = [
   { name: "Lê Hoàng Anh", role: "Sinh viên ĐH Kinh tế", quote: "Giao diện sạch, vuốt phòng vui như chơi game mà lại tìm được chỗ ở ưng ý thật.", match: 90 },
 ];
 
-const FALLBACK_FEATURED_ROOMS = [
-  {
-    id: "33333333-0000-0000-0000-000000000001",
-    title: "Phòng Studio Ban Công Thoáng Mát, Full Nội Thất",
-    price: 4500000,
-    district: "Bình Thạnh",
-    images: [
-      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80",
-    ],
-  },
-  {
-    id: "33333333-0000-0000-0000-000000000002",
-    title: "Căn Hộ Mini Gác Lửng Cao Cấp Gần ĐH Tôn Đức Thắng",
-    price: 3800000,
-    district: "Quận 7",
-    images: [
-      "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
-    ],
-  },
-  {
-    id: "33333333-0000-0000-0000-000000000003",
-    title: "Phòng Trọ Khép Kín An Ninh, Gần ĐH Sư Phạm Kỹ Thuật",
-    price: 4200000,
-    district: "Thủ Đức",
-    images: [
-      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80",
-    ],
-  },
-];
-
 /* ── Icon helpers (inline SVG, no external deps) ── */
 
 function StepIcon({ name }: { name: "filter" | "swipe" | "home" }) {
@@ -94,7 +64,6 @@ export default function Landing() {
   const navigate = useNavigate();
   const { user, role } = useAuth();
   const { rooms, isLoading } = useRooms();
-  const displayRooms = rooms.length > 0 ? rooms.slice(0, 3) : FALLBACK_FEATURED_ROOMS;
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [stats, setStats] = useState<LandingStats | null>(null);
 
@@ -279,9 +248,9 @@ export default function Landing() {
               </div>
             ))}
           </div>
-        ) : (
+        ) : rooms.length > 0 ? (
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {displayRooms.map((r, i) => {
+            {rooms.slice(0, 3).map((r, i) => {
               const img = r.images?.[0] || (r as any).primaryImageUrl || roomImages[i % roomImages.length];
               const priceFormatted = (Number(r.price || 0) / 1_000_000).toFixed(1);
               return (
@@ -300,6 +269,13 @@ export default function Landing() {
                 </div>
               );
             })}
+          </div>
+        ) : (
+          <div className="mt-12 rounded-3xl card-surface p-12 text-center">
+            <p className="text-slate-soft">Hiện chưa có phòng nào được đăng hôm nay.</p>
+            <Link to={user ? "/discover" : "/login"} className="btn btn-ghost mt-4 inline-flex items-center gap-2">
+              Khám phá phòng trọ →
+            </Link>
           </div>
         )}
       </section>
