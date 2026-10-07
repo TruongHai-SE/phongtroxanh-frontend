@@ -63,7 +63,7 @@ export default function Landing() {
   useReveal();
   const navigate = useNavigate();
   const { user, role } = useAuth();
-  const { rooms } = useRooms();
+  const { rooms, isLoading } = useRooms();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [stats, setStats] = useState<LandingStats | null>(null);
 
@@ -235,27 +235,49 @@ export default function Landing() {
           </div>
           <Link to={user ? "/discover" : "/login"} className="btn btn-ghost px-5 py-2.5">Xem tất cả →</Link>
         </div>
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {rooms.slice(0, 3).map((r, i) => {
-            const img = r.images?.[0] || (r as any).primaryImageUrl || roomImages[i % roomImages.length];
-            const priceFormatted = (Number(r.price || 0) / 1_000_000).toFixed(1);
-            return (
-              <div
-                key={r.id}
-                className="reveal group cursor-pointer overflow-hidden rounded-3xl card-surface transition-transform hover:-translate-y-1"
-                style={{ transitionDelay: `${i * 90}ms` }}
-                onClick={() => handleRoomClick(r.id)}
-              >
-                <ImageWithFallback src={img} alt={r.title} className="aspect-[4/3] w-full object-cover transition group-hover:scale-105" />
-                <div className="space-y-1 p-5">
-                  <h3 className="line-clamp-1 text-lg font-semibold text-charcoal">{r.title}</h3>
-                  <p className="text-emerald-brand text-lg font-semibold">{priceFormatted} triệu<span className="text-sm font-normal text-slate-soft">/tháng</span></p>
-                  <p className="text-sm text-slate-soft">{r.district || "TP.HCM"}</p>
+        {isLoading ? (
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="overflow-hidden rounded-3xl card-surface animate-pulse">
+                <div className="aspect-[4/3] w-full bg-slate-200" />
+                <div className="space-y-2.5 p-5">
+                  <div className="h-5 w-3/4 rounded-lg bg-slate-200" />
+                  <div className="h-5 w-1/3 rounded-lg bg-slate-200" />
+                  <div className="h-4 w-1/2 rounded-lg bg-slate-200" />
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : rooms.length > 0 ? (
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {rooms.slice(0, 3).map((r, i) => {
+              const img = r.images?.[0] || (r as any).primaryImageUrl || roomImages[i % roomImages.length];
+              const priceFormatted = (Number(r.price || 0) / 1_000_000).toFixed(1);
+              return (
+                <div
+                  key={r.id}
+                  className="reveal group cursor-pointer overflow-hidden rounded-3xl card-surface transition-transform hover:-translate-y-1"
+                  style={{ transitionDelay: `${i * 90}ms` }}
+                  onClick={() => handleRoomClick(r.id)}
+                >
+                  <ImageWithFallback src={img} alt={r.title} className="aspect-[4/3] w-full object-cover transition group-hover:scale-105" />
+                  <div className="space-y-1 p-5">
+                    <h3 className="line-clamp-1 text-lg font-semibold text-charcoal">{r.title}</h3>
+                    <p className="text-emerald-brand text-lg font-semibold">{priceFormatted} triệu<span className="text-sm font-normal text-slate-soft">/tháng</span></p>
+                    <p className="text-sm text-slate-soft">{r.district || "TP.HCM"}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mt-12 rounded-3xl card-surface p-12 text-center">
+            <p className="text-slate-soft">Hiện chưa có phòng nào được đăng hôm nay.</p>
+            <Link to={user ? "/discover" : "/login"} className="btn btn-ghost mt-4 inline-flex items-center gap-2">
+              Khám phá phòng trọ →
+            </Link>
+          </div>
+        )}
       </section>
 
       {/* ===== TESTIMONIALS ===== */}
