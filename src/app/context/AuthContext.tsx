@@ -21,6 +21,7 @@ export interface AuthUser {
   budgetMin?: number;
   budgetMax?: number;
   schoolOrCompany?: string;
+  isPublic?: boolean;
 }
 
 const DEMO_ACCOUNTS: Record<string, AuthUser> = {
@@ -123,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           budgetMin: data.budgetMin ? Number(data.budgetMin) : undefined,
           budgetMax: data.budgetMax ? Number(data.budgetMax) : undefined,
           schoolOrCompany: data.schoolOrCompany,
+          isPublic: data.isPublic !== undefined ? Boolean(data.isPublic) : true,
         };
         setUser(authUser);
         localStorage.setItem("ptx_user", JSON.stringify(authUser));
@@ -197,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       budgetMin: userDetails.budgetMin ? Number(userDetails.budgetMin) : undefined,
       budgetMax: userDetails.budgetMax ? Number(userDetails.budgetMax) : undefined,
       schoolOrCompany: userDetails.schoolOrCompany,
+      isPublic: userDetails.isPublic !== undefined ? Boolean(userDetails.isPublic) : true,
     };
     setUser(authUser);
     localStorage.setItem("ptx_user", JSON.stringify(authUser));
@@ -229,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       trustScore: backendUser.trustScore,
       kycStatus: backendUser.kycStatus,
       isOnboarded: isOnboardedVal,
+      isPublic: backendUser.isPublic !== undefined ? Boolean(backendUser.isPublic) : true,
     };
     setUser(authUser);
     localStorage.setItem("ptx_user", JSON.stringify(authUser));

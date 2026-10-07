@@ -86,6 +86,7 @@ export default function Onboarding() {
   const [proximityWork, setProximityWork] = useState(true);
   const [proximityMarket, setProximityMarket] = useState(false);
   const [proximityBus, setProximityBus] = useState(true);
+  const [isPublic, setIsPublic] = useState(true);
 
   // CCCD state
   const [frontCccd, setFrontCccd] = useState<File | null>(null);
@@ -225,6 +226,7 @@ export default function Onboarding() {
         proximityWork,
         proximityMarket,
         proximityBus,
+        isPublic,
       });
       setOnboarded(true);
       await refreshProfile();
@@ -665,6 +667,59 @@ export default function Onboarding() {
                 {step === 3 && (
                   <div className="space-y-6">
                     <Header title="Nhu cầu ở (bắt buộc)" sub="Bộ lọc này cần hoàn tất trước khi vuốt phòng" />
+
+                    <Field label="Mục đích tìm kiếm chính">
+                      <div className="grid gap-2.5 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsPublic(true)}
+                          className={cn(
+                            "flex flex-col items-start p-3 rounded-xl border text-left transition-all cursor-pointer",
+                            isPublic
+                              ? "border-primary bg-primary/[0.04] ring-1 ring-primary/20 shadow-xs"
+                              : "border-border/80 bg-card hover:border-border hover:bg-muted/30"
+                          )}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-xs font-semibold text-foreground">Tìm phòng & Ở ghép</span>
+                            <div className={cn(
+                              "size-4 rounded-full border flex items-center justify-center transition-all",
+                              isPublic ? "border-primary bg-primary" : "border-muted-foreground/30"
+                            )}>
+                              {isPublic && <div className="size-1.5 rounded-full bg-white" />}
+                            </div>
+                          </div>
+                          <span className="text-[11px] text-muted-foreground mt-1">
+                            Công khai hồ sơ tìm bạn để ghép đôi với người có cùng thói quen
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setIsPublic(false)}
+                          className={cn(
+                            "flex flex-col items-start p-3 rounded-xl border text-left transition-all cursor-pointer",
+                            !isPublic
+                              ? "border-primary bg-primary/[0.04] ring-1 ring-primary/20 shadow-xs"
+                              : "border-border/80 bg-card hover:border-border hover:bg-muted/30"
+                          )}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-xs font-semibold text-foreground">Chỉ tìm phòng ở riêng</span>
+                            <div className={cn(
+                              "size-4 rounded-full border flex items-center justify-center transition-all",
+                              !isPublic ? "border-primary bg-primary" : "border-muted-foreground/30"
+                            )}>
+                              {!isPublic && <div className="size-1.5 rounded-full bg-white" />}
+                            </div>
+                          </div>
+                          <span className="text-[11px] text-muted-foreground mt-1">
+                            Ở một mình, ẩn hồ sơ khỏi mục tìm bạn cùng phòng
+                          </span>
+                        </button>
+                      </div>
+                    </Field>
+
                     <Field label={`Ngân sách dự kiến: ${(budget[0] / 1e6).toFixed(1)} - ${(budget[1] / 1e6).toFixed(1)} triệu/tháng`}>
                       <Slider value={budget} onValueChange={setBudget} min={500000} max={8000000} step={100000} className="py-2" />
                     </Field>

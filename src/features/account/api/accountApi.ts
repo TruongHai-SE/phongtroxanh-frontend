@@ -77,4 +77,14 @@ export const accountApi = {
   revokeDevice: (id: string): Promise<void> => {
     return api.delete<void>(`/users/me/devices/${id}`);
   },
+
+  // #25 GET /users/me/settings
+  getSettings: (): Promise<{ isPublic: boolean; showSchool: boolean; hideActiveStatus: boolean }> => {
+    return api.get("/users/me/settings");
+  },
+
+  // #26 PUT /users/me/settings
+  updateSettings: (body: { isPublic?: boolean; showSchool?: boolean; hideActiveStatus?: boolean }): Promise<any> => {
+    return api.put("/users/me/settings", body);
+  },
 };
