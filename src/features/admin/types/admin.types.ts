@@ -1,13 +1,77 @@
 export interface AdminDashboardStatsResponse {
   totalUsers: number;
-  activeUsers: number;
+  totalLandlords?: number;
+  totalTenants?: number;
   totalRooms: number;
-  pendingRooms: number;
-  pendingKyc: number;
-  openReports: number;
-  openDisputes: number;
+  activeRooms?: number;
+  totalMatches?: number;
+  totalRentals?: number;
+  activeRentals?: number;
+  pendingKycCount?: number;
+  pendingDisputesCount?: number;
   totalRevenue: number;
-  monthlyGrowthRate: number;
+  totalTransactions?: number;
+  totalReviews?: number;
+  averageRating?: number;
+  landlordAverageRating?: number;
+  verifiedUsersCount?: number;
+  monthlyGrowthRate?: number;
+  ratingDistribution?: Array<{
+    star: number;
+    count: number;
+    percentage: number;
+  }>;
+  recentReviews?: Array<{
+    id: string;
+    reviewerName: string;
+    reviewerRole: string;
+    rating: number;
+    comment: string;
+    roomTitle: string;
+    createdAt: string;
+  }>;
+  systemFeedbacks?: Array<{
+    id: string;
+    userId?: string;
+    userName: string;
+    userRole: "LANDLORD" | "TENANT";
+    rating: number;
+    category: string;
+    comment: string;
+    createdAt: string;
+  }>;
+  packageStats?: Array<{
+    planId: string;
+    planName: string;
+    revenue: number;
+    count: number;
+  }>;
+  monthlyStats?: Array<{
+    month: string;
+    newUsers: number;
+    newRentals: number;
+    revenue: number;
+  }>;
+  trustScoreDistribution?: Array<{
+    range: string;
+    count: number;
+    percentage: number;
+  }>;
+  roomTypeDistribution?: Array<{
+    name: string;
+    count: number;
+    percentage: number;
+  }>;
+  districtDistribution?: Array<{
+    name: string;
+    count: number;
+    percentage: number;
+  }>;
+  roomStatusDistribution?: Array<{
+    name: string;
+    count: number;
+    percentage: number;
+  }>;
 }
 
 export interface AdminUserResponse {

@@ -66,3 +66,15 @@ export interface ReviewStatsResponse {
   categoryAverages?: RatingCategoryAvg[];
 }
 
+export interface SystemFeedbackResponse {
+  id: string;
+  userId?: string;
+  userName: string;
+  userRole: string;
+  rating: number;
+  category: string;
+  comment: string;
+  createdAt: string;
+}
+
+

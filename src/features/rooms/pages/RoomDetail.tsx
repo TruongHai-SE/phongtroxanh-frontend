@@ -55,6 +55,7 @@ export default function RoomDetail() {
 
   // Local reviews list so new reviews show immediately
   const [localReviews, setLocalReviews] = useState<any[]>([]);
+  const [showAllReviews, setShowAllReviews] = useState(false);
 
   // Reporting modal state (Admin channel)
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -193,7 +194,7 @@ export default function RoomDetail() {
 
   const handleOpenReviewModal = async () => {
     if (!user) {
-      toast.error("Vui lòng đăng nhập để viết đánh giá phòng này.");
+      toast.error("Vui lòng đăng nhập để viết đánh giá.");
       navigate("/login");
       return;
     }
@@ -201,27 +202,12 @@ export default function RoomDetail() {
       toast.error("Tài khoản chủ trọ không thể tự viết đánh giá cho phòng trọ.");
       return;
     }
-    try {
-      const tenantRentals = await rentalsApi.getMyTenantRentals();
-      const list = Array.isArray(tenantRentals) ? tenantRentals : (tenantRentals as any)?.content || [];
-      const eligibleRental = list.find(
-        (r: any) =>
-          r.roomId === id &&
-          (r.status === "CHECKED_IN" || r.checkInAt || (r.status === "TERMINATED" && r.checkInAt))
-      );
-      if (!eligibleRental) {
-        toast.error("Chỉ người thuê đã hoàn tất nhận phòng thực tế (Check-in) mới có thể gửi đánh giá phòng này.");
-        return;
-      }
-      setIsReviewOpen(true);
-    } catch {
-      toast.error("Chỉ người thuê có hợp đồng và đã check-in thực tế mới có thể đánh giá phòng này.");
-    }
+    setIsReviewOpen(true);
   };
 
   const handleSendPublicReview = async () => {
     if (!reviewComment.trim()) {
-      toast.error("Vui lòng nhập nội dung đánh giá của bạn");
+      toast.error("Vui lòng nhập nội dung đánh giá của bạn (bắt buộc kèm nhận xét).");
       return;
     }
     if (!id) return;
@@ -250,8 +236,12 @@ export default function RoomDetail() {
       setIsReviewOpen(false);
       setReviewComment("");
     } catch (err: any) {
-      const msg = err?.response?.data?.detail || err?.response?.data?.message || "Không thể gửi đánh giá";
-      toast.error(msg);
+      const msg = err?.response?.data?.detail || err?.response?.data?.message || "";
+      if (msg.includes("Check-in") || msg.includes("hợp đồng") || msg.includes("RENTAL") || msg.includes("CHECKIN")) {
+        toast.error("Chỉ người thuê có hợp đồng và đã hoàn tất nhận phòng (Check-in) thực tế tại phòng trọ này mới có thể viết đánh giá.");
+      } else {
+        toast.error(msg || "Không thể gửi đánh giá, vui lòng thử lại.");
+      }
     } finally {
       setIsSubmittingReview(false);
     }
@@ -417,53 +407,70 @@ export default function RoomDetail() {
 
             <div className="space-y-3">
               {localReviews.length > 0 ? (
-                localReviews.map((rv: any, idx: number) => {
-                  const reviewerName = rv.reviewerName || rv.userName || "Người thuê phòng";
-                  const reviewerAvatar = rv.reviewerAvatar || rv.userAvatar || "";
-                  const rvDate = rv.createdAt ? new Date(rv.createdAt).toLocaleDateString("vi-VN") : "Gần đây";
+                <>
+                  {(showAllReviews ? localReviews : localReviews.slice(0, 3)).map((rv: any, idx: number) => {
+                    const reviewerName = rv.reviewerName || rv.userName || "Người thuê phòng";
+                    const reviewerAvatar = rv.reviewerAvatar || rv.userAvatar || "";
+                    const rvDate = rv.createdAt ? new Date(rv.createdAt).toLocaleDateString("vi-VN") : "Gần đây";
 
-                  return (
-                    <div key={rv.id || idx} className="rounded-xl ring-1 ring-border p-4 bg-card shadow-xs">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="size-9">
-                          <AvatarImage src={reviewerAvatar || undefined} />
-                          <AvatarFallback className="bg-emerald-100 text-emerald-800 text-xs font-semibold">
-                            {getInitials(reviewerName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-semibold text-slate-800">{reviewerName}</p>
-                            <Badge variant="secondary" className="gap-1 bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px]">
-                              <Check className="size-3" /> Đã ở thực tế
-                            </Badge>
+                    return (
+                      <div key={rv.id || idx} className="rounded-xl ring-1 ring-border p-4 bg-card shadow-xs">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="size-9">
+                            <AvatarImage src={reviewerAvatar || undefined} />
+                            <AvatarFallback className="bg-emerald-100 text-emerald-800 text-xs font-semibold">
+                              {getInitials(reviewerName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-semibold text-slate-800">{reviewerName}</p>
+                              <Badge variant="secondary" className="gap-1 bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px]">
+                                <Check className="size-3" /> Đã ở thực tế
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{rvDate}</p>
                           </div>
-                          <p className="text-xs text-muted-foreground">{rvDate}</p>
+                          <StarRating value={rv.rating || 5} />
                         </div>
-                        <StarRating value={rv.rating || 5} />
+
+                        {rv.tags && Array.isArray(rv.tags) && rv.tags.length > 0 && (
+                          <div className="mt-2.5 flex flex-wrap gap-1.5">
+                            {rv.tags.map((t: string) => (
+                              <Badge key={t} variant="outline" className="text-[11px] font-normal">
+                                {t}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        <p className="mt-2.5 text-sm text-slate-700 leading-relaxed">{rv.comment}</p>
+
+                        {rv.replyComment && (
+                          <div className="mt-3 rounded-lg bg-slate-50 p-2.5 border-l-2 border-primary text-xs text-slate-600">
+                            <span className="font-semibold text-slate-800">Chủ trọ phản hồi: </span>
+                            {rv.replyComment}
+                          </div>
+                        )}
                       </div>
+                    );
+                  })}
 
-                      {rv.tags && Array.isArray(rv.tags) && rv.tags.length > 0 && (
-                        <div className="mt-2.5 flex flex-wrap gap-1.5">
-                          {rv.tags.map((t: string) => (
-                            <Badge key={t} variant="outline" className="text-[11px] font-normal">
-                              {t}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-
-                      <p className="mt-2.5 text-sm text-slate-700 leading-relaxed">{rv.comment}</p>
-
-                      {rv.replyComment && (
-                        <div className="mt-3 rounded-lg bg-slate-50 p-2.5 border-l-2 border-primary text-xs text-slate-600">
-                          <span className="font-semibold text-slate-800">Chủ trọ phản hồi: </span>
-                          {rv.replyComment}
-                        </div>
-                      )}
+                  {localReviews.length > 3 && (
+                    <div className="pt-2 text-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs gap-1.5 cursor-pointer hover:bg-slate-50 border-slate-300"
+                        onClick={() => setShowAllReviews(!showAllReviews)}
+                      >
+                        {showAllReviews
+                          ? "Thu gọn đánh giá"
+                          : `Xem tất cả ${localReviews.length} đánh giá (${localReviews.length - 3} đánh giá khác)`}
+                      </Button>
                     </div>
-                  );
-                })
+                  )}
+                </>
               ) : (
                 <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
                   Chưa có đánh giá nào cho phòng này từ người thuê đã nhận phòng thực tế.
@@ -566,10 +573,10 @@ export default function RoomDetail() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-charcoal">
-              <Star className="size-5 text-amber-400 fill-amber-400" /> Đánh giá phòng trọ (Người thuê thực tế)
+              <Star className="size-5 text-amber-400 fill-amber-400" /> Đánh giá phòng trọ & Chủ trọ
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Đánh giá của bạn dựa trên hợp đồng thuê đã nhận phòng thực tế, giúp đảm bảo tính minh bạch và khách quan.
+              Chỉ người thuê có hợp đồng đã hoàn tất nhận phòng thực tế (Check-in) mới có thể gửi đánh giá và nhận xét.
             </DialogDescription>
           </DialogHeader>
 
