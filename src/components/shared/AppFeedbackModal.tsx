@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Star, MessageSquareHeart, CheckCircle2, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Star, MessageSquareHeart, CheckCircle2, X, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +23,8 @@ export function AppFeedbackModal({ open, onOpenChange }: AppFeedbackModalProps) 
   const [comment, setComment] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitted, setSubmitted] = useState<boolean>(false);
+  const [hasExisting, setHasExisting] = useState<boolean>(false);
+  const [isLoadingExisting, setIsLoadingExisting] = useState<boolean>(false);
 
   const categories = [
     { id: "app_experience", label: "Trải nghiệm ứng dụng" },
@@ -39,6 +41,30 @@ export function AppFeedbackModal({ open, onOpenChange }: AppFeedbackModalProps) 
     4: "Hài lòng & Tiện lợi (4 sao)",
     5: "Tuyệt vời, rất ấn tượng! (5 sao)",
   };
+
+  useEffect(() => {
+    if (open && user) {
+      setIsLoadingExisting(true);
+      reviewsApi
+        .getMySystemFeedback()
+        .then((fb) => {
+          if (fb && fb.rating) {
+            setRating(fb.rating);
+            if (fb.category) setCategory(fb.category);
+            if (fb.comment) setComment(fb.comment);
+            setHasExisting(true);
+          }
+        })
+        .catch(() => {
+          setHasExisting(false);
+        })
+        .finally(() => {
+          setIsLoadingExisting(false);
+        });
+    } else if (!open) {
+      setSubmitted(false);
+    }
+  }, [open, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,12 +89,15 @@ export function AppFeedbackModal({ open, onOpenChange }: AppFeedbackModalProps) 
       });
 
       setSubmitted(true);
-      toast.success(`Cảm ơn bạn đã gửi đánh giá ${rating} sao và góp ý cho Phòng Trọ Xanh!`);
+      setHasExisting(true);
+      toast.success(
+        hasExisting
+          ? `Đã cập nhật thành công đánh giá ${rating} sao của bạn!`
+          : `Cảm ơn bạn đã gửi đánh giá ${rating} sao và góp ý cho Phòng Trọ Xanh!`
+      );
 
       setTimeout(() => {
         setSubmitted(false);
-        setComment("");
-        setRating(5);
         onOpenChange(false);
       }, 1800);
     } catch {
@@ -87,7 +116,7 @@ export function AppFeedbackModal({ open, onOpenChange }: AppFeedbackModalProps) 
               <MessageSquareHeart className="size-4" />
             </div>
             <DialogTitle className="text-base font-bold text-foreground">
-              Đánh giá ứng dụng & Chủ trọ
+              {hasExisting ? "Chỉnh sửa đánh giá nền tảng" : "Đánh giá ứng dụng & Chủ trọ"}
             </DialogTitle>
           </div>
           <DialogDescription className="text-xs text-muted-foreground">
@@ -101,7 +130,9 @@ export function AppFeedbackModal({ open, onOpenChange }: AppFeedbackModalProps) 
               <CheckCircle2 className="size-6" />
             </div>
             <div>
-              <h4 className="font-bold text-base text-foreground">Đã ghi nhận đánh giá thành công!</h4>
+              <h4 className="font-bold text-base text-foreground">
+                {hasExisting ? "Đã cập nhật đánh giá thành công!" : "Đã ghi nhận đánh giá thành công!"}
+              </h4>
               <p className="text-xs text-muted-foreground mt-1 max-w-xs">
                 Hệ thống đã lưu nhận xét {rating} sao của bạn. Ý kiến đóng góp sẽ được ban quản trị phân tích để hoàn thiện nền tảng.
               </p>
@@ -109,6 +140,12 @@ export function AppFeedbackModal({ open, onOpenChange }: AppFeedbackModalProps) 
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 py-1">
+            {hasExisting && (
+              <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 text-[11px] font-medium border border-emerald-200 dark:border-emerald-800">
+                <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                <span>Bạn đã gửi đánh giá trước đó. Có thể điều chỉnh số sao và lời nhận xét để cập nhật.</span>
+              </div>
+            )}
             {/* Chấm điểm sao */}
             <div className="space-y-1.5 p-3 rounded-xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/50">
               <div className="flex items-center justify-between">
@@ -182,23 +219,27 @@ export function AppFeedbackModal({ open, onOpenChange }: AppFeedbackModalProps) 
               />
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="flex flex-row items-center justify-end gap-3 pt-3 sm:space-x-0">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => onOpenChange(false)}
-                className="text-xs cursor-pointer"
+                className="text-xs cursor-pointer px-4"
               >
                 Đóng
               </Button>
               <Button
                 type="submit"
                 size="sm"
-                disabled={isSubmitting}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs cursor-pointer gap-1.5"
+                disabled={isSubmitting || isLoadingExisting}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs cursor-pointer gap-1.5 px-4 shadow-xs"
               >
-                {isSubmitting ? "Đang gửi..." : "Gửi đánh giá & Nhận xét"}
+                {isSubmitting
+                  ? "Đang xử lý..."
+                  : hasExisting
+                  ? "Cập nhật đánh giá & Nhận xét"
+                  : "Gửi đánh giá & Nhận xét"}
               </Button>
             </DialogFooter>
           </form>

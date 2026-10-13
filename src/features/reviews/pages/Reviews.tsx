@@ -26,39 +26,6 @@ interface UiReview {
   reply?: string;
 }
 
-const defaultReviews: UiReview[] = [
-  {
-    id: "rev-1",
-    name: "Lê Thu Thảo",
-    avatar: "",
-    rating: 5,
-    date: "12/08/2026",
-    verified: true,
-    tags: ["Chủ thân thiện", "Sạch sẽ", "An ninh tốt"],
-    text: "Phòng thoáng mát, chủ trọ nhiệt tình hỗ trợ khi có sự cố. Giờ giấc hoàn toàn tự do.",
-  },
-  {
-    id: "rev-2",
-    name: "Trần Minh Quang",
-    avatar: "",
-    rating: 2,
-    date: "05/08/2026",
-    verified: false,
-    tags: ["Không đúng ảnh", "Giá điện nước cao"],
-    text: "Đến xem phòng thực tế thì thấy tường bị ẩm mốc, khác xa với ảnh đăng trên app. Chủ trọ đòi cọc trước 3 tháng.",
-  },
-  {
-    id: "rev-3",
-    name: "Nguyễn Hoàng My",
-    avatar: "",
-    rating: 4,
-    date: "28/07/2026",
-    verified: true,
-    tags: ["Vị trí tốt", "Giờ tự do"],
-    text: "Gần các trường đại học và chợ, đi lại rất thuận tiện. Ban quản lý phản hồi nhanh.",
-  }
-];
-
 const availableTags = [
   "Chủ thân thiện",
   "Đúng mô tả",
@@ -88,7 +55,7 @@ export default function Reviews() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [reviewList, setReviewList] = useState<UiReview[]>(defaultReviews);
+  const [reviewList, setReviewList] = useState<UiReview[]>([]);
   const [picked, setPicked] = useState<string[]>(["Sạch sẽ"]);
   const [myRentals, setMyRentals] = useState<any[]>([]);
 
@@ -141,9 +108,11 @@ export default function Reviews() {
             reply: rv.replyComment,
           }));
           setReviewList(mapped);
+        } else {
+          setReviewList([]);
         }
-      } catch (err) {
-        console.warn("Could not load reviews for room, using fallback:", err);
+      } catch {
+        setReviewList([]);
       }
     }
     loadReviews();

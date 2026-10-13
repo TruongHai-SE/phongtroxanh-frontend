@@ -6,7 +6,9 @@ import {
   DollarSign, Building2, UserCheck, CheckCircle2,
   CreditCard, ChevronRight, Shield, BarChart3,
   Search, MessageSquare, SlidersHorizontal, Filter, Layers, MessageSquareHeart,
+  Trash2,
 } from "lucide-react";
+import { reviewsApi } from "@/features/reviews/api/reviewsApi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -135,6 +137,7 @@ export default function AdminOverview() {
         trustScoreDistribution: d.trustScoreDistribution || [],
         ratingDistribution: d.ratingDistribution || [],
         recentReviews: d.recentReviews || [],
+        systemFeedbacks: d.systemFeedbacks || [],
         packageStats: d.packageStats || [],
         roomTypeDistribution: d.roomTypeDistribution || [],
         districtDistribution: d.districtDistribution || [],
@@ -211,6 +214,24 @@ export default function AdminOverview() {
   const [systemRoleFilter, setSystemRoleFilter] = useState<"ALL" | "LANDLORD" | "TENANT">("ALL");
   const [systemCategoryFilter, setSystemCategoryFilter] = useState<string>("ALL");
   const [selectedSystemFeedback, setSelectedSystemFeedback] = useState<SystemFeedbackItem | null>(null);
+  const [isDeletingFeedback, setIsDeletingFeedback] = useState(false);
+
+  const handleDeleteSystemFeedback = async (id: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa vĩnh viễn góp ý hệ thống này không? Thao tác này sẽ gỡ bỏ hoàn toàn khỏi cơ sở dữ liệu.")) {
+      return;
+    }
+    setIsDeletingFeedback(true);
+    try {
+      await reviewsApi.deleteSystemFeedback(id);
+      toast.success("Đã xóa góp ý hệ thống thành công!");
+      setSelectedSystemFeedback(null);
+      await fetchStats(false);
+    } catch {
+      toast.error("Không thể xóa góp ý này. Vui lòng kiểm tra lại quyền Admin!");
+    } finally {
+      setIsDeletingFeedback(false);
+    }
+  };
 
   // Load real system feedback from Backend API (PostgreSQL database)
   const systemFeedbacks = useMemo<SystemFeedbackItem[]>(() => {
@@ -711,7 +732,7 @@ export default function AdminOverview() {
                 {/* Star Distribution bars */}
                 <div className="space-y-2 pt-1 border-t">
                   <span className="text-[11px] font-medium text-muted-foreground block">
-                    Phân bố sao ({reviewScope === "LANDLORD" ? `${stats?.totalReviews ?? 25} đánh giá` : `${systemFeedbacks.length} góp ý`}):
+                    Phân bố sao ({reviewScope === "LANDLORD" ? `${stats?.totalReviews ?? 0} đánh giá` : `${systemFeedbacks.length} góp ý`}):
                   </span>
                   {(reviewScope === "LANDLORD" ? (stats?.ratingDistribution || []) : systemRatingDistribution).map((r) => (
                     <div
@@ -785,7 +806,7 @@ export default function AdminOverview() {
                           : "bg-muted/60 text-muted-foreground hover:bg-muted"
                       )}
                     >
-                      Tất cả ({reviewScope === "LANDLORD" ? (stats?.recentReviews?.length ?? 25) : systemFeedbacks.length})
+                      Tất cả ({reviewScope === "LANDLORD" ? (stats?.recentReviews?.length ?? 0) : systemFeedbacks.length})
                     </button>
                     {[5, 4, 3, 2, 1].map((s) => {
                       const count = reviewScope === "LANDLORD"
@@ -948,7 +969,7 @@ export default function AdminOverview() {
                     <span className="font-semibold text-foreground">
                       Đang hiển thị 2 đánh giá tiêu biểu
                     </span>{" "}
-                    (Tổng số {reviewScope === "LANDLORD" ? (stats?.totalReviews ?? 25) : systemFeedbacks.length} {reviewScope === "LANDLORD" ? "đánh giá chủ trọ" : "góp ý hệ thống"})
+                    (Tổng số {reviewScope === "LANDLORD" ? (stats?.totalReviews ?? 0) : systemFeedbacks.length} {reviewScope === "LANDLORD" ? "đánh giá chủ trọ" : "góp ý hệ thống"})
                   </div>
 
                   <Button
@@ -958,7 +979,7 @@ export default function AdminOverview() {
                     className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 px-3.5 font-semibold shadow-xs cursor-pointer gap-1.5 w-full sm:w-auto"
                   >
                     <SlidersHorizontal className="size-3.5" />
-                    Xem toàn bộ & Lọc chi tiết ({reviewScope === "LANDLORD" ? (stats?.totalReviews ?? 25) : systemFeedbacks.length}) &rarr;
+                    Xem toàn bộ & Lọc chi tiết ({reviewScope === "LANDLORD" ? (stats?.totalReviews ?? 0) : systemFeedbacks.length}) &rarr;
                   </Button>
                 </div>
               </div>
@@ -1452,7 +1473,18 @@ export default function AdminOverview() {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex items-center justify-between sm:justify-between w-full pt-2">
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={isDeletingFeedback}
+              className="text-xs cursor-pointer gap-1.5"
+              onClick={() => selectedSystemFeedback && handleDeleteSystemFeedback(selectedSystemFeedback.id)}
+            >
+              <Trash2 className="size-3.5" />
+              {isDeletingFeedback ? "Đang xóa..." : "Xóa góp ý này"}
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -1497,7 +1529,7 @@ export default function AdminOverview() {
                   )}
                 >
                   <Home className="size-3.5" />
-                  <span>Chủ trọ ({stats?.totalReviews ?? 25})</span>
+                  <span>Chủ trọ ({stats?.totalReviews ?? 0})</span>
                 </button>
                 <button
                   type="button"
