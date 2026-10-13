@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Star, Check, Users, Loader2, Sparkles } from "lucide-react";
+import { Star, Check, Users, Loader2, Sparkles, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { rentalsApi } from "@/features/rentals/api/rentalsApi";
 import { reviewsApi } from "@/features/reviews/api/reviewsApi";
@@ -29,6 +30,8 @@ interface ExistingReviewItem {
   tags: string[];
   text: string;
   date: string;
+  landlordReply?: string;
+  repliedAt?: string;
 }
 
 const reviewTags = [
@@ -51,6 +54,31 @@ export default function LandlordReviews() {
   const [comment, setComment] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [replyingReview, setReplyingReview] = useState<ExistingReviewItem | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+
+  const handleSendReply = async () => {
+    if (!replyingReview) return;
+    if (!replyText.trim()) {
+      toast.error("Vui lòng nhập nội dung phản hồi");
+      return;
+    }
+
+    setIsSubmittingReply(true);
+    try {
+      await reviewsApi.replyReview(replyingReview.id, { reply: replyText.trim() });
+      toast.success("Đã gửi phản hồi công khai thành công!");
+      setReplyingReview(null);
+      setReplyText("");
+      await loadData();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || err?.message || "Gửi phản hồi thất bại. Vui lòng thử lại.");
+    } finally {
+      setIsSubmittingReply(false);
+    }
+  };
 
   const toggleTag = (t: string) =>
     setPickedTags((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
@@ -94,6 +122,8 @@ export default function LandlordReviews() {
                   rating: rv.rating,
                   tags: rv.tags || ["Đúng hẹn", "Gọn gàng"],
                   text: rv.comment || "",
+                  landlordReply: rv.replyComment || (rv as any).landlordReply,
+                  repliedAt: rv.repliedAt,
                   date: rv.createdAt
                     ? new Date(rv.createdAt).toLocaleDateString("vi-VN")
                     : "Gần đây",
@@ -408,14 +438,107 @@ export default function LandlordReviews() {
                     </Badge>
                   ))}
                 </div>
-                <p className="mt-2.5 text-sm text-foreground/90 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="mt-2.5 text-sm text-foreground/90 leading-relaxed bg-slate-50 dark:bg-muted/40 p-3 rounded-xl border border-slate-100 dark:border-border">
                   {rv.text}
                 </p>
+
+                {rv.landlordReply ? (
+                  <div className="mt-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/20 p-3.5 border border-emerald-200/80 text-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-emerald-800 dark:text-emerald-300">Phản hồi của bạn (Chủ trọ):</span>
+                      {rv.repliedAt && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(rv.repliedAt).toLocaleDateString("vi-VN")}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-foreground leading-relaxed italic">"{rv.landlordReply}"</p>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs gap-1.5 cursor-pointer border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                      onClick={() => {
+                        setReplyingReview(rv);
+                        setReplyText("");
+                      }}
+                    >
+                      <MessageSquare className="size-3.5" />
+                      Phản hồi khách thuê
+                    </Button>
+                  </div>
+                )}
               </div>
             ))
           )}
         </div>
       )}
+
+      {/* Dialog Phản hồi khách thuê */}
+      <Dialog open={!!replyingReview} onOpenChange={(open) => !open && setReplyingReview(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <MessageSquare className="size-4 text-emerald-600" /> Phản hồi công khai đánh giá
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Phản hồi của bạn sẽ hiển thị công khai ngay dưới đánh giá của khách thuê {replyingReview?.tenant}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {replyingReview && (
+            <div className="space-y-3 py-2 text-xs">
+              <div className="bg-muted/40 p-3 rounded-xl border space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-foreground">{replyingReview.tenant}</span>
+                  <div className="flex items-center gap-0.5 text-amber-500">
+                    {Array.from({ length: replyingReview.rating }).map((_, i) => (
+                      <Star key={i} className="size-3 fill-amber-500 text-amber-500" />
+                    ))}
+                  </div>
+                </div>
+                <p className="text-muted-foreground italic">"{replyingReview.text}"</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">
+                  Nội dung phản hồi của chủ trọ <span className="text-destructive">*</span>
+                </label>
+                <Textarea
+                  rows={4}
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Gửi lời cảm ơn, giải thích hoặc cam kết cải thiện chất lượng phục vụ..."
+                  className="text-xs resize-none"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex flex-row items-center justify-end gap-3 pt-2 sm:space-x-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setReplyingReview(null)}
+              className="text-xs cursor-pointer"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={isSubmittingReply}
+              onClick={handleSendReply}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs cursor-pointer gap-1.5"
+            >
+              {isSubmittingReply ? "Đang gửi..." : "Gửi phản hồi công khai"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

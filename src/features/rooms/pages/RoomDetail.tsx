@@ -68,6 +68,7 @@ export default function RoomDetail() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewTags, setReviewTags] = useState<string[]>(["Đúng mô tả"]);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   // Rental registration modal state (Connect to 'Phòng của tôi')
@@ -202,6 +203,19 @@ export default function RoomDetail() {
       toast.error("Tài khoản chủ trọ không thể tự viết đánh giá cho phòng trọ.");
       return;
     }
+
+    const myExisting = localReviews.find((r: any) => r.reviewerId === user.id || r.userId === user.id);
+    if (myExisting) {
+      setEditingReviewId(myExisting.id);
+      setReviewRating(myExisting.rating || 5);
+      setReviewComment(myExisting.comment || "");
+      setReviewTags(myExisting.tags || ["Đúng mô tả"]);
+    } else {
+      setEditingReviewId(null);
+      setReviewRating(5);
+      setReviewComment("");
+      setReviewTags(["Đúng mô tả"]);
+    }
     setIsReviewOpen(true);
   };
 
@@ -214,26 +228,46 @@ export default function RoomDetail() {
 
     setIsSubmittingReview(true);
     try {
-      const res = await reviewsApi.createReview({
-        roomId: id,
-        rating: reviewRating,
-        comment: reviewComment.trim(),
-        tags: reviewTags,
-      });
+      if (editingReviewId) {
+        await reviewsApi.updateReview(editingReviewId, {
+          rating: reviewRating,
+          comment: reviewComment.trim(),
+          tags: reviewTags,
+        });
 
-      toast.success("Đã đăng đánh giá công khai cho phòng trọ này!");
-      const newReview = {
-        id: res?.id || "rv-" + Date.now(),
-        reviewerName: user?.fullName || "Bạn (Người thuê)",
-        reviewerAvatar: user?.avatarUrl || "",
-        rating: reviewRating,
-        comment: reviewComment.trim(),
-        tags: reviewTags,
-        isVerifiedStay: true,
-        createdAt: new Date().toISOString(),
-      };
-      setLocalReviews((prev) => [newReview, ...prev]);
+        toast.success("Đã cập nhật đánh giá thành công! Điểm TrustScore của chủ trọ đã được tính toán lại.");
+        setLocalReviews((prev) =>
+          prev.map((r: any) =>
+            r.id === editingReviewId
+              ? { ...r, rating: reviewRating, comment: reviewComment.trim(), tags: reviewTags }
+              : r
+          )
+        );
+      } else {
+        const res = await reviewsApi.createReview({
+          roomId: id,
+          rating: reviewRating,
+          comment: reviewComment.trim(),
+          tags: reviewTags,
+        });
+
+        toast.success("Đã đăng đánh giá công khai cho phòng trọ này!");
+        const newReview = {
+          id: res?.id || "rv-" + Date.now(),
+          reviewerId: user?.id,
+          reviewerName: user?.fullName || "Bạn (Người thuê)",
+          reviewerAvatar: user?.avatarUrl || "",
+          rating: reviewRating,
+          comment: reviewComment.trim(),
+          tags: reviewTags,
+          isVerifiedStay: true,
+          createdAt: new Date().toISOString(),
+        };
+        setLocalReviews((prev) => [newReview, ...prev]);
+      }
+
       setIsReviewOpen(false);
+      setEditingReviewId(null);
       setReviewComment("");
     } catch (err: any) {
       const msg = err?.response?.data?.detail || err?.response?.data?.message || "";
@@ -431,7 +465,25 @@ export default function RoomDetail() {
                             </div>
                             <p className="text-xs text-muted-foreground">{rvDate}</p>
                           </div>
-                          <StarRating value={rv.rating || 5} />
+                          <div className="flex items-center gap-2">
+                            <StarRating value={rv.rating || 5} />
+                            {user && (rv.reviewerId === user.id || rv.userId === user.id) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-[11px] h-6 px-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50 cursor-pointer"
+                                onClick={() => {
+                                  setEditingReviewId(rv.id);
+                                  setReviewRating(rv.rating || 5);
+                                  setReviewComment(rv.comment || "");
+                                  setReviewTags(rv.tags || ["Đúng mô tả"]);
+                                  setIsReviewOpen(true);
+                                }}
+                              >
+                                Sửa
+                              </Button>
+                            )}
+                          </div>
                         </div>
 
                         {rv.tags && Array.isArray(rv.tags) && rv.tags.length > 0 && (
@@ -573,10 +625,13 @@ export default function RoomDetail() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-charcoal">
-              <Star className="size-5 text-amber-400 fill-amber-400" /> Đánh giá phòng trọ & Chủ trọ
+              <Star className="size-5 text-amber-400 fill-amber-400" />
+              {editingReviewId ? "Chỉnh sửa đánh giá phòng & Chủ trọ" : "Đánh giá phòng trọ & Chủ trọ"}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Chỉ người thuê có hợp đồng đã hoàn tất nhận phòng thực tế (Check-in) mới có thể gửi đánh giá và nhận xét.
+              {editingReviewId
+                ? "Bạn đang cập nhật lại đánh giá của mình. Điểm TrustScore của chủ trọ sẽ tự động điều chỉnh tương ứng."
+                : "Chỉ người thuê có hợp đồng đã hoàn tất nhận phòng thực tế (Check-in) mới có thể gửi đánh giá và nhận xét."}
             </DialogDescription>
           </DialogHeader>
 
@@ -644,16 +699,20 @@ export default function RoomDetail() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="flex flex-row items-center justify-end gap-3 pt-2 sm:space-x-0">
             <Button variant="outline" onClick={() => setIsReviewOpen(false)}>
               Hủy
             </Button>
             <Button
-              className="bg-emerald-brand hover:bg-emerald-deep text-white"
+              className="bg-emerald-brand hover:bg-emerald-deep text-white cursor-pointer"
               onClick={handleSendPublicReview}
               disabled={isSubmittingReview}
             >
-              {isSubmittingReview ? "Đang gửi..." : "Đăng đánh giá công khai"}
+              {isSubmittingReview
+                ? "Đang xử lý..."
+                : editingReviewId
+                ? "Cập nhật đánh giá"
+                : "Đăng đánh giá công khai"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -699,7 +758,7 @@ export default function RoomDetail() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="flex flex-row items-center justify-end gap-3 pt-2 sm:space-x-0">
             <Button variant="outline" onClick={() => setIsReportOpen(false)}>
               Hủy
             </Button>
@@ -771,7 +830,7 @@ export default function RoomDetail() {
               />
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="flex flex-row items-center justify-end gap-3 pt-2 sm:space-x-0">
               <Button type="button" variant="outline" onClick={() => setIsRentModalOpen(false)}>
                 Hủy
               </Button>

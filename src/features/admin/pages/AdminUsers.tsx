@@ -658,7 +658,7 @@ export default function AdminUsers() {
               />
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="flex flex-row items-center justify-end gap-3 pt-2 sm:space-x-0">
             <Button variant="outline" size="sm" className="cursor-pointer text-xs" onClick={() => setEmailDialogOpen(false)}>
               Hủy
             </Button>
