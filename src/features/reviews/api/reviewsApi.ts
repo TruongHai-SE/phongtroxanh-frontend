@@ -4,6 +4,7 @@ import type {
   ReviewResponse,
   ReportReviewRequest,
   ReviewStatsResponse,
+  SystemFeedbackResponse,
 } from "../types/review.types";
 
 export const reviewsApi = {
@@ -51,5 +52,16 @@ export const reviewsApi = {
   resolveDispute: (disputeId: string, body: { approved: boolean; adminNotes?: string }): Promise<ReviewResponse> => {
     return api.post<ReviewResponse>(`/reviews/disputes/${disputeId}/resolve`, body);
   },
+
+  // #69 POST /reviews/system-feedback
+  createSystemFeedback: (body: { rating: number; category: string; comment: string }): Promise<SystemFeedbackResponse> => {
+    return api.post<SystemFeedbackResponse>("/reviews/system-feedback", body);
+  },
+
+  // #70 GET /reviews/system-feedbacks
+  getSystemFeedbacks: (params?: { page?: number; limit?: number }): Promise<PageResponse<SystemFeedbackResponse>> => {
+    return api.get<PageResponse<SystemFeedbackResponse>>("/reviews/system-feedbacks", params);
+  },
 };
+
 

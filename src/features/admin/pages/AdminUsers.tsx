@@ -238,7 +238,7 @@ export default function AdminUsers() {
     <div className="space-y-6">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="brand text-2xl font-bold tracking-tight text-foreground">Quản lý người dùng</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Quản lý người dùng</h1>
           <p className="text-sm text-muted-foreground">Theo dõi, kiểm tra danh tính và can thiệp tài khoản hệ thống</p>
         </div>
         <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-lg border">
@@ -499,70 +499,77 @@ export default function AdminUsers() {
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Hành động can thiệp tài khoản</h4>
                   <div className="space-y-2.5">
                     {/* Operational Actions */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-9 justify-center gap-1.5 cursor-pointer text-xs font-medium border-border/80 hover:bg-muted hover:text-foreground"
+                        className="h-10 px-2 justify-center gap-1.5 cursor-pointer text-xs font-medium border-border/80 hover:bg-muted hover:text-foreground"
                         onClick={() => { setEmailTarget(selectedUser); setEmailContent(""); setEmailTitle(""); setEmailDialogOpen(true); }}
                       >
-                        <Mail className="size-3.5 text-muted-foreground" /> Gửi thông báo
+                        <Mail className="size-3.5 text-muted-foreground shrink-0" />
+                        <span className="truncate">Gửi thông báo</span>
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-9 justify-center gap-1.5 cursor-pointer text-xs font-medium border-border/80 hover:bg-muted hover:text-foreground"
+                        className="h-10 px-2 justify-center gap-1.5 cursor-pointer text-xs font-medium border-border/80 hover:bg-muted hover:text-foreground"
                         onClick={() => openAction(selectedUser, "reset_password")}
                       >
-                        <KeyRound className="size-3.5 text-muted-foreground" /> Reset & gửi email mật khẩu
+                        <KeyRound className="size-3.5 text-muted-foreground shrink-0" />
+                        <span className="truncate">Đặt lại mật khẩu</span>
                       </Button>
                       {selectedUser.verified ? (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-9 justify-center gap-1.5 cursor-pointer text-xs font-medium text-amber-700 bg-amber-50/60 border-amber-200/80 hover:bg-amber-100/70"
+                          className="h-10 px-2 justify-center gap-1.5 cursor-pointer text-xs font-medium text-amber-700 bg-amber-50/60 border-amber-200/80 hover:bg-amber-100/70"
                           onClick={() => openAction(selectedUser, "revoke_verify")}
                         >
-                          <ShieldOff className="size-3.5" /> Gỡ xác minh
+                          <ShieldOff className="size-3.5 shrink-0" />
+                          <span className="truncate">Gỡ xác minh</span>
                         </Button>
                       ) : (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-9 justify-center gap-1.5 cursor-pointer text-xs font-medium text-emerald-700 bg-emerald-50/60 border-emerald-200/80 hover:bg-emerald-100/70"
+                          className="h-10 px-2 justify-center gap-1.5 cursor-pointer text-xs font-medium text-emerald-700 bg-emerald-50/60 border-emerald-200/80 hover:bg-emerald-100/70"
                           onClick={() => openAction(selectedUser, "grant_verify")}
                         >
-                          <ShieldCheck className="size-3.5" /> Cấp xác minh
+                          <ShieldCheck className="size-3.5 shrink-0" />
+                          <span className="truncate">Cấp xác minh</span>
                         </Button>
                       )}
                     </div>
 
                     {/* Safety / Restrictive Actions */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1.5 border-t">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-9 justify-center gap-1.5 cursor-pointer text-xs font-medium text-amber-700 bg-amber-50/40 border-amber-200/70 hover:bg-amber-100/60"
+                        className="h-10 px-3 justify-center gap-1.5 cursor-pointer text-xs font-medium text-amber-700 bg-amber-50/40 border-amber-200/70 hover:bg-amber-100/60"
                         onClick={() => openAction(selectedUser, "warn")}
                       >
-                        <AlertTriangle className="size-3.5" /> Gửi cảnh cáo tài khoản
+                        <AlertTriangle className="size-3.5 shrink-0" />
+                        <span>Gửi cảnh cáo tài khoản</span>
                       </Button>
                       {selectedUser.status === "locked" ? (
                         <Button
                           size="sm"
-                          className="h-9 justify-center gap-1.5 cursor-pointer text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                          className="h-10 px-3 justify-center gap-1.5 cursor-pointer text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
                           onClick={() => openAction(selectedUser, "unlock")}
                         >
-                          <Unlock className="size-3.5" /> Mở khóa tài khoản
+                          <Unlock className="size-3.5 shrink-0" />
+                          <span>Mở khóa tài khoản</span>
                         </Button>
                       ) : (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-9 justify-center gap-1.5 cursor-pointer text-xs font-medium text-rose-700 bg-rose-50/50 border-rose-200/80 hover:bg-rose-100/70"
+                          className="h-10 px-3 justify-center gap-1.5 cursor-pointer text-xs font-medium text-rose-700 bg-rose-50/50 border-rose-200/80 hover:bg-rose-100/70"
                           onClick={() => openAction(selectedUser, "lock")}
                         >
-                          <Ban className="size-3.5" /> Khóa tài khoản
+                          <Ban className="size-3.5 shrink-0" />
+                          <span>Khóa tài khoản</span>
                         </Button>
                       )}
                     </div>

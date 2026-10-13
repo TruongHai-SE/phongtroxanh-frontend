@@ -182,7 +182,7 @@ export default function Reports() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="brand text-2xl text-foreground">Quản lý báo cáo vi phạm</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Quản lý báo cáo vi phạm</h1>
         <p className="text-sm text-muted-foreground">{reports.filter((r) => r.status === "new").length} báo cáo mới cần xem xét</p>
       </div>
 
