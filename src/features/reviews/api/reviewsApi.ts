@@ -62,6 +62,24 @@ export const reviewsApi = {
   getSystemFeedbacks: (params?: { page?: number; limit?: number }): Promise<PageResponse<SystemFeedbackResponse>> => {
     return api.get<PageResponse<SystemFeedbackResponse>>("/reviews/system-feedbacks", params);
   },
+
+  // #71 PUT /reviews/{id}
+  updateReview: (
+    reviewId: string,
+    body: { rating: number; comment: string; tags?: string[]; images?: string[] }
+  ): Promise<ReviewResponse> => {
+    return api.put<ReviewResponse>(`/reviews/${reviewId}`, body);
+  },
+
+  // #72 GET /reviews/system-feedback/me
+  getMySystemFeedback: (): Promise<SystemFeedbackResponse> => {
+    return api.get<SystemFeedbackResponse>("/reviews/system-feedback/me");
+  },
+
+  // #73 DELETE /reviews/system-feedback/{id}
+  deleteSystemFeedback: (id: string): Promise<void> => {
+    return api.delete<void>(`/reviews/system-feedback/${id}`);
+  },
 };
 
 
