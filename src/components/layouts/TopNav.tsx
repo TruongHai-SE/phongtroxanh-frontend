@@ -1,4 +1,5 @@
-import { Bell, Heart, MessageCircle, Menu, LogIn, Crown } from "lucide-react";
+import { useState } from "react";
+import { Bell, Heart, MessageCircle, Menu, LogIn, Crown, Star } from "lucide-react";
 import { Link, NavLink, useNavigate, useLocation } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/app/context/AuthContext";
 import { useMonetization } from "@/app/context/MonetizationContext";
 import { useNotifications } from "@/features/notifications/hooks/useNotifications";
+import { AppFeedbackModal } from "@/components/shared/AppFeedbackModal";
 
 export function TopNav() {
   const navigate = useNavigate();
@@ -22,6 +24,7 @@ export function TopNav() {
   const { user, role, logout } = useAuth();
   const { openPricing, tier } = useMonetization();
   const { notifications, unreadCount: unread } = useNotifications();
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -207,6 +210,9 @@ export function TopNav() {
                   )}
 
                   <DropdownMenuItem onClick={() => navigate("/settings")} className="cursor-pointer hover:bg-mint/40">Cài đặt</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsFeedbackOpen(true)} className="cursor-pointer hover:bg-amber-50 text-amber-600 font-medium">
+                    <Star className="size-4 mr-1.5 fill-amber-400 text-amber-400 inline" /> Đánh giá ứng dụng
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout} className="text-destructive font-medium cursor-pointer hover:bg-destructive/5">
                     Đăng xuất
@@ -221,6 +227,9 @@ export function TopNav() {
           )}
         </div>
       </div>
+
+      {/* App & Platform Feedback Modal */}
+      <AppFeedbackModal open={isFeedbackOpen} onOpenChange={setIsFeedbackOpen} />
     </header>
   );
 }

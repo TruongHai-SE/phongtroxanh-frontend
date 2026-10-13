@@ -11,7 +11,7 @@ export default function App() {
       <MonetizationProvider>
         <RouterProvider router={router} />
         <PricingModal />
-        <Toaster position="top-right" richColors expand={true} duration={3500} closeButton />
+        <Toaster position="top-right" richColors expand={true} duration={2200} closeButton />
       </MonetizationProvider>
     </AuthProvider>
   );

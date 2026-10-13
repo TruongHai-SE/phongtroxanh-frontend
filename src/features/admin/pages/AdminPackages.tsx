@@ -149,7 +149,7 @@ export default function AdminPackages() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="brand text-2xl font-bold text-foreground">Quản lý Gói dịch vụ</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Quản lý Gói dịch vụ</h1>
             <Badge variant="outline" className="gap-1 border-primary/30 text-primary">
               <Zap className="size-3.5 fill-primary text-primary" /> Quản lý Gói Dịch Vụ
             </Badge>
@@ -277,7 +277,7 @@ export default function AdminPackages() {
       <Dialog open={isDialogOpen} onOpenChange={(o) => !o && !saving && setIsDialogOpen(false)}>
         <DialogContent className="sm:max-w-lg p-6">
           <DialogHeader>
-            <DialogTitle className="brand text-xl text-primary">
+            <DialogTitle className="text-xl font-bold text-primary">
               {isEditing ? "Chỉnh sửa gói dịch vụ" : "Tạo gói dịch vụ mới"}
             </DialogTitle>
             <DialogDescription>

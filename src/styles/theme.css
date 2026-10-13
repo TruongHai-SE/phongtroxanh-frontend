@@ -780,3 +780,61 @@ body[data-scroll-locked] {
     transform: translate3d(4px, 0, 0);
   }
 }
+
+/* Sonner Toast Entrance and Exit - Smooth Horizontal Slide & Fade */
+@keyframes sonnerToastSlideIn {
+  0% {
+    translate: 110% 0;
+    opacity: 0;
+  }
+  100% {
+    translate: 0 0;
+    opacity: 1;
+  }
+}
+
+@keyframes sonnerToastSlideOut {
+  0% {
+    translate: 0 0;
+    opacity: 1;
+  }
+  100% {
+    translate: 110% 0;
+    opacity: 0;
+  }
+}
+
+/* 1. Base Toast & Smooth Enter Animation */
+[data-sonner-toaster] [data-sonner-toast] {
+  animation: sonnerToastSlideIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: translate, opacity;
+  transition: 
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    height 0.25s ease !important;
+}
+
+/* 2. Exit Animation: Slide Out Horizontally with locked Y (No upward jump!) */
+[data-sonner-toaster] [data-sonner-toast][data-removed="true"],
+[data-sonner-toast][data-removed="true"],
+[data-sonner-toast][data-removed="true"][data-front="true"],
+[data-sonner-toast][data-removed="true"][data-front="false"] {
+  animation: sonnerToastSlideOut 0.2s cubic-bezier(0.4, 0, 1, 1) forwards !important;
+  --y: translateY(calc(var(--lift) * var(--offset))) !important;
+  transform: translateY(calc(var(--lift) * var(--offset))) !important;
+  transition: none !important;
+  pointer-events: none;
+}
+
+/* 3. When user is actively dragging/swiping toast, disable animation */
+[data-sonner-toast][data-swiping="true"] {
+  animation: none !important;
+}
+
+/* 4. Accessibility: Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toaster] [data-sonner-toast] {
+    animation: none !important;
+    transition: opacity 0.15s ease !important;
+  }
+}
+

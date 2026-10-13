@@ -223,7 +223,7 @@ export default function CccdQueue() {
     <div className="space-y-6">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="brand text-2xl font-bold tracking-tight text-foreground">Duyệt xác minh CCCD</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Duyệt xác minh CCCD</h1>
           <p className="text-sm text-muted-foreground">
             {queue.length} hồ sơ đang chờ kiểm duyệt danh tính
             <span className="ml-2 text-xs text-muted-foreground/70">· Kích hoạt tích xanh chính chủ và điểm TrustScore</span>
@@ -446,8 +446,19 @@ export default function CccdQueue() {
         </div>
       )}
 
-      {/* POPUP MODAL: Chi tiết hồ sơ CCCD (Centered Dialog thay thế Slide Sheet) */}
-      <Dialog open={modalOpen} onOpenChange={(o) => { if (!o && !zoomSrc) setModalOpen(false); }}>
+      {/* POPUP MODAL: Chi tiết hồ sơ CCCD */}
+      <Dialog
+        open={modalOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            if (zoomSrc) {
+              setZoomSrc(null);
+            } else {
+              setModalOpen(false);
+            }
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-2xl p-0 overflow-hidden rounded-2xl border bg-card shadow-2xl">
           {selected && (
             <div>
@@ -553,13 +564,23 @@ export default function CccdQueue() {
                   </Button>
                 </div>
               </div>
+
+              {/* Inline Zoom Overlay inside DialogContent to bypass Radix event trapping */}
+              <ImageZoomOverlay
+                src={zoomSrc}
+                onClose={() => setZoomSrc(null)}
+                alt="CCCD"
+                usePortal={false}
+              />
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Image Zoom Overlay */}
-      <ImageZoomOverlay src={zoomSrc} onClose={() => setZoomSrc(null)} alt="CCCD" />
+      {/* Image Zoom Overlay for outer table thumbnail clicks */}
+      {!modalOpen && (
+        <ImageZoomOverlay src={zoomSrc} onClose={() => setZoomSrc(null)} alt="CCCD" />
+      )}
 
       {/* Confirm Reject Dialog */}
       <AlertDialog open={rejectOpen} onOpenChange={setRejectOpen}>
