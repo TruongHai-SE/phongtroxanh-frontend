@@ -145,29 +145,17 @@ export default function AdminPackages() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Quản lý Gói dịch vụ</h1>
-            <Badge variant="outline" className="gap-1 border-primary/30 text-primary">
-              <Zap className="size-3.5 fill-primary text-primary" /> Quản lý Gói Dịch Vụ
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Cấu hình giá cước và quyền lợi gói cho Người thuê & Chủ trọ. Hệ thống tự động thông báo khi có điều chỉnh.
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Quản lý Gói dịch vụ</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Cấu hình giá cước và quyền lợi các gói dịch vụ dành cho Người thuê &amp; Chủ trọ ({plans.length} gói)
           </p>
         </div>
-        <Button onClick={openCreate} className="gap-2">
+        <Button onClick={openCreate} className="gap-2 cursor-pointer">
           <Plus className="size-4" /> Tạo gói mới
         </Button>
-      </div>
-
-      <div className="flex items-center gap-2 rounded-xl bg-primary/5 p-3.5 text-xs text-primary ring-1 ring-primary/20">
-        <BellRing className="size-4 shrink-0 text-primary" />
-        <span>
-          <strong>Cơ chế tự động:</strong> Mỗi khi Quản trị viên cập nhật giá hoặc quyền lợi của bất kỳ gói nào, Backend sẽ tự động phát thông báo hệ thống (Notification) tới toàn bộ người dùng để cập nhật kịp thời.
-        </span>
       </div>
 
       {isLoading ? (
