@@ -226,7 +226,7 @@ export default function CccdQueue() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Duyệt xác minh CCCD</h1>
           <p className="text-sm text-muted-foreground">
             {queue.length} hồ sơ đang chờ kiểm duyệt danh tính
-            <span className="ml-2 text-xs text-muted-foreground/70">· Kích hoạt tích xanh chính chủ và điểm TrustScore</span>
+            <span className="ml-2 text-xs text-muted-foreground/70">· Kích hoạt tích xanh chính chủ và cộng điểm uy tín</span>
           </p>
         </div>
         <Button
