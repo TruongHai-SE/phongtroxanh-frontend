@@ -85,15 +85,53 @@ export function recordTrafficSource(): TrafficSourceInfo {
 }
 
 /**
- * Get aggregated traffic sources stats for admin dashboard
+ * Get aggregated traffic sources stats for admin dashboard (100% real recorded sessions)
  */
 export function getTrafficStats() {
-  const sourcesMap: Record<string, { count: number; name: string; color: string; icon: string }> = {
-    facebook: { count: 0, name: "Facebook (Ads & Fanpage)", color: "bg-blue-600", icon: "facebook" },
-    tiktok: { count: 0, name: "TikTok (Video & Bio Link)", color: "bg-black dark:bg-zinc-800", icon: "tiktok" },
-    zalo: { count: 0, name: "Zalo (Cộng đồng sinh viên)", color: "bg-blue-500", icon: "zalo" },
-    google: { count: 0, name: "Google (Tìm kiếm tự nhiên)", color: "bg-emerald-600", icon: "google" },
-    direct: { count: 0, name: "Truy cập trực tiếp / Link chia sẻ", color: "bg-purple-600", icon: "direct" },
+  const sourcesMap: Record<
+    string,
+    { count: number; name: string; shortName: string; color: string; hex: string; icon: string }
+  > = {
+    facebook: {
+      count: 0,
+      name: "Facebook (Ads & Fanpage)",
+      shortName: "Facebook",
+      color: "bg-blue-600",
+      hex: "#2563eb",
+      icon: "facebook",
+    },
+    tiktok: {
+      count: 0,
+      name: "TikTok (Video & Bio Link)",
+      shortName: "TikTok",
+      color: "bg-zinc-900 dark:bg-zinc-700",
+      hex: "#18181b",
+      icon: "tiktok",
+    },
+    zalo: {
+      count: 0,
+      name: "Zalo (Cộng đồng sinh viên)",
+      shortName: "Zalo",
+      color: "bg-sky-500",
+      hex: "#0ea5e9",
+      icon: "zalo",
+    },
+    google: {
+      count: 0,
+      name: "Google (Tìm kiếm tự nhiên)",
+      shortName: "Google",
+      color: "bg-emerald-600",
+      hex: "#059669",
+      icon: "google",
+    },
+    direct: {
+      count: 0,
+      name: "Truy cập trực tiếp / Link",
+      shortName: "Trực tiếp",
+      color: "bg-purple-600",
+      hex: "#9333ea",
+      icon: "direct",
+    },
   };
 
   try {
@@ -118,24 +156,15 @@ export function getTrafficStats() {
     // ignore
   }
 
-  // Base sample data if clean deployment
-  const total = Object.values(sourcesMap).reduce((acc, curr) => acc + curr.count, 0);
-  if (total === 0) {
-    // Provide baseline sample distribution for dashboard preview
-    sourcesMap.facebook.count = 42;
-    sourcesMap.tiktok.count = 35;
-    sourcesMap.zalo.count = 28;
-    sourcesMap.google.count = 19;
-    sourcesMap.direct.count = 12;
-  }
-
   const finalTotal = Object.values(sourcesMap).reduce((acc, curr) => acc + curr.count, 0);
 
   return Object.entries(sourcesMap).map(([key, val]) => ({
     key,
     name: val.name,
+    shortName: val.shortName,
     count: val.count,
     color: val.color,
+    hex: val.hex,
     percentage: finalTotal > 0 ? Math.round((val.count / finalTotal) * 100) : 0,
   }));
 }

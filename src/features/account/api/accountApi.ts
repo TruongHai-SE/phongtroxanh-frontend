@@ -58,14 +58,14 @@ export const accountApi = {
     return api.get<KycStatusResponse>("/users/me/kyc/status");
   },
 
-  // #21 GET /users/me/preferences
-  getPreferences: (): Promise<UserPreferencesResponse> => {
-    return api.get<UserPreferencesResponse>("/users/me/preferences");
+  // #21 GET /users/me/matching-profile
+  getPreferences: (): Promise<any> => {
+    return api.get<any>("/users/me/matching-profile");
   },
 
-  // #22 PUT /users/me/preferences
-  updatePreferences: (body: UpdatePreferencesRequest): Promise<UserPreferencesResponse> => {
-    return api.put<UserPreferencesResponse>("/users/me/preferences", body);
+  // #22 PUT /users/me/matching-profile
+  updatePreferences: (body: any): Promise<any> => {
+    return api.put<any>("/users/me/matching-profile", body);
   },
 
   // #23 GET /users/me/devices

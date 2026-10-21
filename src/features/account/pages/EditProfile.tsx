@@ -65,8 +65,15 @@ export default function EditProfile() {
     accountApi.getPreferences()
       .then((pref) => {
         if (pref) {
-          if (pref.minPrice && pref.maxPrice) setBudget([pref.minPrice, pref.maxPrice]);
-          if (pref.preferredDistricts?.length) setSelDistricts(pref.preferredDistricts);
+          const d = pref?.data || pref;
+          if (d.budgetMin != null && d.budgetMax != null) setBudget([Number(d.budgetMin), Number(d.budgetMax)]);
+          if (d.preferredDistricts?.length) setSelDistricts(d.preferredDistricts);
+          if (d.interests?.length) setInterests(d.interests);
+          if (typeof d.earlySleeper === "boolean") setEarlySleeper(d.earlySleeper);
+          if (typeof d.isNeat === "boolean") setIsNeat(d.isNeat);
+          if (typeof d.allowGuests === "boolean") setAllowGuests(d.allowGuests);
+          if (typeof d.nonSmoking === "boolean") setNonSmoking(d.nonSmoking);
+          if (typeof d.noiseTolerance === "number") setNoiseTolerance(d.noiseTolerance);
         }
       })
       .catch(() => {});
@@ -122,11 +129,15 @@ export default function EditProfile() {
       });
 
       await accountApi.updatePreferences({
-        minPrice: budget[0],
-        maxPrice: budget[1],
+        budgetMin: budget[0],
+        budgetMax: budget[1],
         preferredDistricts: selDistricts,
-        roomTypes: ["Phòng khép kín", "Studio"],
-        amenities: ["Máy lạnh", "Wi-Fi"],
+        interests,
+        earlySleeper,
+        isNeat,
+        allowGuests,
+        nonSmoking,
+        noiseTolerance,
       });
     } catch {
       // optimistic fallback

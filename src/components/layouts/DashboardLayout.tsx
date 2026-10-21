@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Outlet, NavLink, Link, useNavigate, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
 import {
-  LayoutDashboard, Home, PlusCircle, ArrowLeftRight, BarChart3,
+  LayoutDashboard, Home, PlusCircle, ArrowLeftRight,
   ShieldCheck, Users, Flag, Bell, ChevronLeft, Star, MessageCircle, Zap,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -63,13 +63,13 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
 
   return (
     <div className="flex min-h-screen bg-secondary/30">
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-card lg:flex">
-        <div className="flex h-16 items-center px-6">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-border bg-card lg:flex">
+        <div className="flex h-14 items-center px-5">
           <Link to={variant === "landlord" ? "/landlord" : "/admin"} className="brand text-lg text-primary">
             Phòng Trọ Xanh
           </Link>
         </div>
-        <p className="px-6 pb-2 text-xs uppercase tracking-wide text-muted-foreground">
+        <p className="px-5 pb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           {variant === "landlord" ? "Chủ trọ" : "Quản trị viên"}
         </p>
         <nav className="flex-1 space-y-1 px-3">
@@ -84,9 +84,9 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
                   ? item.tab === currentTab
                   : isActive;
                 return cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                   isItemActive
-                    ? "bg-mint text-primary"
+                    ? "bg-mint text-primary font-medium"
                     : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                 );
               }}
@@ -103,7 +103,7 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-card/85 px-6 backdrop-blur">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-card/85 px-5 backdrop-blur">
           <Link to={variant === "landlord" ? "/landlord" : "/admin"} className="brand text-lg text-primary lg:hidden">
             PTX
           </Link>
@@ -144,7 +144,7 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <button className="ml-1 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-opacity duration-200 hover:opacity-85 active:scale-[0.98]">
-                  <Avatar className="size-9 ring-1 ring-border">
+                  <Avatar className="size-8 ring-1 ring-border">
                     <AvatarImage src={user?.avatarUrl || undefined} />
                     <AvatarFallback className="bg-emerald-100 text-emerald-800 font-semibold text-xs">
                       {getInitials(user?.fullName || (variant === "admin" ? "AD" : "CT"))}
@@ -169,7 +169,7 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
             </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 p-6 lg:p-8 flex flex-col min-h-[70vh]">
+        <main className="flex-1 p-4 lg:p-5 flex flex-col min-h-[70vh]">
           <AnimatePresence mode="wait">
             <PageTransition key={location.pathname}>
               <Outlet />
