@@ -30,6 +30,16 @@ export const rentalsApi = {
     return api.get<RentalResponse>(`/rentals/${id}`);
   },
 
+  // #56B POST /rentals/{id}/approve (Landlord approves rental request)
+  approveRental: (id: string): Promise<RentalResponse> => {
+    return api.post<RentalResponse>(`/rentals/${id}/approve`);
+  },
+
+  // #56C POST /rentals/{id}/cancel (Landlord rejects or Tenant cancels pending request)
+  cancelRental: (id: string, reason?: string): Promise<RentalResponse> => {
+    return api.post<RentalResponse>(`/rentals/${id}/cancel`, reason ? { reason } : {});
+  },
+
   // #57 GET /rentals/{id}/check-in-qr
   getCheckInQr: (id: string): Promise<{ qrToken: string; code: string; expiresInSeconds: number }> => {
     return api.get<any>(`/rentals/${id}/check-in-qr`);
@@ -42,8 +52,7 @@ export const rentalsApi = {
   },
 
   // #59 POST /rentals/{id}/terminate
-  terminateRental: (id: string): Promise<RentalResponse> => {
-    return api.post<RentalResponse>(`/rentals/${id}/terminate`);
+  terminateRental: (id: string, body?: { reason?: string; terminationType?: string }): Promise<RentalResponse> => {
+    return api.post<RentalResponse>(`/rentals/${id}/terminate`, body || {});
   },
 };
-

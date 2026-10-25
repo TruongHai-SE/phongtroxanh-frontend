@@ -381,7 +381,7 @@ export default function MapView() {
   }, [activeId]);
 
   return (
-    <div className="relative flex h-[calc(100vh-4rem)] w-full overflow-hidden">
+    <div className="relative flex h-[calc(100dvh-4rem)] w-full overflow-hidden">
       {/* ===== BÊN TRÁI: DANH SÁCH PHÒNG ===== */}
       <div
         className={cn(
