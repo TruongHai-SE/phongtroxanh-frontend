@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   ShieldCheck, Pencil, Award, Star, MapPin, Wallet, GraduationCap, Eye,
-  Home, CheckCircle2, Clock, Compass, Building2, PlusCircle, ArrowRight
+  Home, CheckCircle2, Clock, Compass, Building2, PlusCircle, ArrowRight, ImagePlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AmenityPill } from "@/components/shared/primitives-compat";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ImageWithFallback } from "@/components/shared/ImageWithFallback";
+import { ImageZoomOverlay } from "@/components/shared/ImageZoomOverlay";
 import { getInitials, formatVND, formatDate } from "@/lib/utils";
 import { useProfile } from "../hooks/useProfile";
 import { useTrustScore } from "@/features/reviews/hooks/useTrustScore";
@@ -26,6 +27,8 @@ export default function Profile() {
 
   const [activeRental, setActiveRental] = useState<any | null>(null);
   const [landlordRooms, setLandlordRooms] = useState<any[]>([]);
+  const [zoomSrc, setZoomSrc] = useState<string | null>(null);
+  const galleryImages = profile?.galleryImages || [];
 
   useEffect(() => {
     if (isLandlord) {
@@ -215,6 +218,44 @@ export default function Profile() {
                 </>
               )}
             </div>
+          </div>
+
+          {/* Gallery Section (Both Landlord & Tenant) */}
+          <div className="rounded-2xl bg-card p-6 ring-1 ring-border shadow-xs">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-charcoal">Bộ sưu tập ảnh hồ sơ ({galleryImages.length}/6)</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {isLandlord
+                    ? "Hình ảnh khu trọ hoặc không gian chung giúp người thuê tin tưởng hơn"
+                    : "Hình ảnh phong cách sống thực tế giúp tăng tỷ lệ ghép đôi bạn cùng phòng"}
+                </p>
+              </div>
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => navigate("/edit-profile")}>
+                <ImagePlus className="size-3.5" /> Quản lý ảnh
+              </Button>
+            </div>
+            {galleryImages.length > 0 ? (
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+                {galleryImages.map((url, idx) => (
+                  <button
+                    key={url + idx}
+                    type="button"
+                    onClick={() => setZoomSrc(url)}
+                    className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-slate-50 cursor-pointer"
+                  >
+                    <img src={url} alt={`Ảnh hồ sơ ${idx + 1}`} className="size-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 p-4 border border-dashed border-slate-200">
+                <p className="text-xs text-muted-foreground italic">Bạn chưa tải lên ảnh bộ sưu tập nào.</p>
+                <Button size="sm" variant="ghost" className="text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => navigate("/edit-profile")}>
+                  Tải ảnh lên ngay
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* ROLE-SPECIFIC MAIN BLOCKS */}
@@ -501,7 +542,7 @@ export default function Profile() {
                 <span className="font-medium text-slate-800">{profile?.phoneNumber || "Chưa cập nhật"}</span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-border/60">
-                <span className="text-slate-500">Xác thực CCCD (KYC)</span>
+                <span className="text-slate-500">Xác thực Căn cước</span>
                 {profile?.isVerified || profile?.kycStatus === "APPROVED" ? (
                   <span className="font-semibold text-emerald-600 flex items-center gap-1">
                     <CheckCircle2 className="size-3" /> Đã duyệt
@@ -545,6 +586,7 @@ export default function Profile() {
           </div>
         </div>
       </div>
+      <ImageZoomOverlay src={zoomSrc} onClose={() => setZoomSrc(null)} alt="Ảnh bộ sưu tập hồ sơ" />
     </div>
   );
 }

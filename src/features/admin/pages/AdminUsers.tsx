@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import { cn, getInitials } from "@/lib/utils";
 
 type UserStatus = "active" | "locked" | "warned";
-type ActionType = "lock" | "unlock" | "warn" | "reset_password" | "revoke_verify" | "grant_verify" | null;
+type ActionType = "lock" | "unlock" | "clear_warn" | "warn" | "reset_password" | "revoke_verify" | "grant_verify" | null;
 
 type AdminUser = {
   id: string;
@@ -34,6 +34,7 @@ type AdminUser = {
   verified: boolean;
   status: UserStatus;
   trustScore: number;
+  strikeCount: number;
   joined: string;
   reportCount: number;
 };
@@ -97,16 +98,17 @@ function PaginationBar({
 }
 
 const actionDialogConfig: Record<NonNullable<ActionType>, { title: string; desc: (n: string, e?: string) => string; confirmLabel: string; destructive?: boolean; needsReason?: boolean }> = {
-  lock: { title: "Khóa tài khoản", desc: (n) => `Tài khoản ${n} sẽ bị tạm khóa, lập tức bị đăng xuất và không thể truy cập hệ thống.`, confirmLabel: "Xác nhận khóa", destructive: true, needsReason: true },
-  unlock: { title: "Mở khóa tài khoản", desc: (n) => `Mở khóa và cho phép ${n} đăng nhập hoạt động bình thường.`, confirmLabel: "Xác nhận mở khóa" },
-  warn: { title: "Gửi cảnh cáo vi phạm", desc: (n) => `Hệ thống sẽ gửi thông báo cảnh cáo chính thức đến ${n} và cập nhật trạng thái hồ sơ.`, confirmLabel: "Gửi cảnh cáo", destructive: true, needsReason: true },
+  lock: { title: "Khóa tài khoản", desc: (n) => `Tài khoản ${n} sẽ bị khóa (mức vi phạm 3/3), ẩn toàn bộ tin đăng / hồ sơ ghép đôi đang hoạt động và đưa điểm uy tín về 0.`, confirmLabel: "Xác nhận khóa", destructive: true, needsReason: true },
+  unlock: { title: "Mở khóa & Gỡ vi phạm", desc: (n) => `Mở khóa tài khoản ${n}, đặt lại mức cảnh báo về 0/3, khôi phục hiển thị hồ sơ / phòng trọ còn hạn và tính lại điểm uy tín.`, confirmLabel: "Xác nhận mở khóa", needsReason: true },
+  clear_warn: { title: "Gỡ cảnh báo vi phạm", desc: (n) => `Xóa các lần nhắc nhở vi phạm hiện tại của ${n} (đặt lại về 0/3), khôi phục quyền đẩy hồ sơ / đẩy tin và hoàn lại điểm uy tín bị trừ.`, confirmLabel: "Xác nhận gỡ cảnh báo", needsReason: true },
+  warn: { title: "Ghi nhận nhắc nhở vi phạm", desc: (n) => `Gửi thông báo nhắc nhở vi phạm chính thức đến ${n} (+1 mức vi phạm, trừ điểm uy tín). Nếu chạm mốc 3/3 lần vi phạm, tài khoản sẽ tự động bị khóa.`, confirmLabel: "Gửi nhắc nhở", destructive: true, needsReason: true },
   reset_password: {
     title: "Đặt lại mật khẩu & Gửi Email",
     desc: (n, e) => `Hệ thống sẽ tạo mật khẩu ngẫu nhiên an toàn và gửi trực tiếp qua email đăng ký của ${n} (${e || "email tài khoản"}). Mật khẩu KHÔNG hiển thị trên màn hình quản trị để đảm bảo bảo mật và quyền riêng tư tuyệt đối cho người dùng.`,
     confirmLabel: "Tạo & Gửi mật khẩu qua email",
   },
   revoke_verify: { title: "Thu hồi xác minh", desc: (n) => `Thu hồi huy hiệu tích xanh xác minh danh tính của ${n}.`, confirmLabel: "Xác nhận thu hồi", destructive: true },
-  grant_verify: { title: "Cấp tích xanh xác minh", desc: (n) => `Cấp huy hiệu xác minh chính thức cho ${n} và cộng +30 điểm uy tín.`, confirmLabel: "Xác nhận cấp" },
+  grant_verify: { title: "Cấp tích xanh xác minh", desc: (n) => `Cấp huy hiệu xác minh chính thức cho ${n} và cộng +35 điểm uy tín.`, confirmLabel: "Xác nhận cấp" },
 };
 
 export default function AdminUsers() {
@@ -133,7 +135,7 @@ export default function AdminUsers() {
       const res = await api.get<any>("/admin/users", { page: 0, limit: 100 });
       const items = res?.content || res;
       if (Array.isArray(items) && items.length > 0) {
-        setUsers(items.map((u: any, i: number) => ({
+        const mapped: AdminUser[] = items.map((u: any, i: number) => ({
           id: u.id || `u-${i}`,
           name: u.fullName || u.email?.split("@")[0] || `User ${i + 1}`,
           avatar: u.avatarUrl || "",
@@ -142,10 +144,13 @@ export default function AdminUsers() {
           role: u.role === "LANDLORD" ? "Chủ trọ" : "Người thuê",
           verified: Boolean(u.isVerified),
           status: (u.status === "LOCKED" ? "locked" : u.status === "WARNED" ? "warned" : "active") as UserStatus,
-          trustScore: u.trustScore ?? 50,
+          trustScore: u.trustScore ?? 0,
+          strikeCount: u.strikeCount ?? 0,
           joined: u.createdAt ? new Date(u.createdAt).toLocaleDateString("vi-VN") : "01/01/2026",
           reportCount: 0,
-        })));
+        }));
+        setUsers(mapped);
+        setSelectedUser((prev) => (prev ? mapped.find((m) => m.id === prev.id) ?? prev : null));
       }
     } catch {
       // keep fallback
@@ -161,7 +166,12 @@ export default function AdminUsers() {
   const filtered = users.filter((u) => {
     const matchQ = u.name.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase());
     const matchRole = roleFilter === "all" || u.role === (roleFilter === "tenant" ? "Người thuê" : "Chủ trọ");
-    const matchTab = tab === "all" || (tab === "verified" && u.verified) || (tab === "unverified" && !u.verified) || (tab === "locked" && u.status === "locked");
+    const matchTab =
+      tab === "all" ||
+      (tab === "verified" && u.verified) ||
+      (tab === "unverified" && !u.verified) ||
+      (tab === "warned" && (u.status === "warned" || (u.strikeCount > 0 && u.status !== "locked"))) ||
+      (tab === "locked" && u.status === "locked");
     return matchQ && matchRole && matchTab;
   });
 
@@ -176,35 +186,31 @@ export default function AdminUsers() {
     setSubmittingAction(true);
 
     try {
-      if (actionType === "lock" || actionType === "unlock" || actionType === "warn") {
+      if (actionType === "lock" || actionType === "unlock" || actionType === "clear_warn" || actionType === "warn") {
         const backendStatus = actionType === "lock" ? "LOCKED" : actionType === "warn" ? "WARNED" : "ACTIVE";
         await adminApi.updateUserStatus(actionTarget.id, { status: backendStatus, reason: actionReason });
-        setUsers((prev) => prev.map((u) => u.id === actionTarget.id ? { ...u, status: (actionType === "lock" ? "locked" : actionType === "warn" ? "warned" : "active") } : u));
-        toast.success(actionType === "lock" ? `Đã khóa tài khoản ${actionTarget.name}` : actionType === "unlock" ? `Đã mở khóa cho ${actionTarget.name}` : `Đã gửi cảnh cáo đến ${actionTarget.name}`);
+        await fetchUsers();
+        toast.success(
+          actionType === "lock"
+            ? `Đã khóa tài khoản ${actionTarget.name}`
+            : actionType === "unlock"
+            ? `Đã mở khóa và gỡ vi phạm cho ${actionTarget.name}`
+            : actionType === "clear_warn"
+            ? `Đã gỡ cảnh báo vi phạm và khôi phục điểm uy tín cho ${actionTarget.name}`
+            : `Đã ghi nhận nhắc nhở vi phạm cho ${actionTarget.name}`
+        );
       } else if (actionType === "grant_verify") {
         await adminApi.verifyUser(actionTarget.id, true);
-        setUsers((prev) => prev.map((u) => u.id === actionTarget.id ? { ...u, verified: true, trustScore: Math.min(100, u.trustScore + 30) } : u));
+        await fetchUsers();
         toast.success(`Đã cấp tích xanh xác minh cho ${actionTarget.name}`);
       } else if (actionType === "revoke_verify") {
         await adminApi.verifyUser(actionTarget.id, false);
-        setUsers((prev) => prev.map((u) => u.id === actionTarget.id ? { ...u, verified: false } : u));
+        await fetchUsers();
         toast.success(`Đã thu hồi xác minh của ${actionTarget.name}`);
       } else if (actionType === "reset_password") {
         const res = await adminApi.resetUserPassword(actionTarget.id);
         const targetEmail = res?.maskedEmail || actionTarget.email || actionTarget.name;
         toast.success(`Đã tạo mật khẩu an toàn và gửi trực tiếp đến email ${targetEmail}`);
-      }
-
-      if (selectedUser?.id === actionTarget.id) {
-        setSelectedUser((prev) => {
-          if (!prev) return null;
-          if (actionType === "lock") return { ...prev, status: "locked" };
-          if (actionType === "unlock") return { ...prev, status: "active" };
-          if (actionType === "warn") return { ...prev, status: "warned" };
-          if (actionType === "grant_verify") return { ...prev, verified: true, trustScore: Math.min(100, prev.trustScore + 30) };
-          if (actionType === "revoke_verify") return { ...prev, verified: false };
-          return prev;
-        });
       }
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || "Thao tác không thành công, vui lòng thử lại.");
@@ -264,6 +270,7 @@ export default function AdminUsers() {
             <TabsTrigger value="all">Tất cả</TabsTrigger>
             <TabsTrigger value="verified">Đã xác minh</TabsTrigger>
             <TabsTrigger value="unverified">Chưa xác minh</TabsTrigger>
+            <TabsTrigger value="warned">Đang cảnh cáo</TabsTrigger>
             <TabsTrigger value="locked">Bị khóa</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -330,9 +337,21 @@ export default function AdminUsers() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={cn("text-xs font-medium px-2 py-0.5", statusCls[u.status])}>
-                        {statusLabel[u.status]}
-                      </Badge>
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge variant="outline" className={cn("text-xs font-medium px-2 py-0.5", statusCls[u.status])}>
+                          {statusLabel[u.status]}
+                        </Badge>
+                        <span className={cn(
+                          "text-[11px] font-medium",
+                          u.strikeCount >= 3 ? "text-rose-600" : u.strikeCount > 0 ? "text-amber-600" : "text-muted-foreground"
+                        )}>
+                          {u.strikeCount >= 3
+                            ? `Vi phạm ${u.strikeCount}/3`
+                            : u.strikeCount > 0
+                            ? `Nhắc nhở ${u.strikeCount}/3`
+                            : "Tuân thủ tốt (0/3)"}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell>
                       {u.verified ? (
@@ -388,12 +407,17 @@ export default function AdminUsers() {
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem className="cursor-pointer text-xs py-2 text-amber-700 hover:text-amber-800" onClick={() => openAction(u, "warn")}>
-                              <AlertTriangle className="mr-2 size-4 text-amber-600" /> Cảnh cáo tài khoản
+                              <AlertTriangle className="mr-2 size-4 text-amber-600" /> Cảnh cáo tài khoản (+1 mức)
                             </DropdownMenuItem>
+                            {(u.strikeCount > 0 || u.status === "warned") && u.status !== "locked" && (
+                              <DropdownMenuItem className="cursor-pointer text-xs py-2 text-emerald-700 hover:text-emerald-800 font-medium" onClick={() => openAction(u, "clear_warn")}>
+                                <CheckCircle2 className="mr-2 size-4 text-emerald-600" /> Gỡ cảnh báo vi phạm (Về 0/3)
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator className="my-1" />
                             {u.status === "locked" ? (
                               <DropdownMenuItem className="cursor-pointer text-xs py-2 text-emerald-700 hover:text-emerald-800 font-medium" onClick={() => openAction(u, "unlock")}>
-                                <Unlock className="mr-2 size-4 text-emerald-600" /> Mở khóa tài khoản
+                                <Unlock className="mr-2 size-4 text-emerald-600" /> Mở khóa & Gỡ vi phạm
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem className="cursor-pointer text-xs py-2 text-rose-700 hover:text-rose-800 font-medium" onClick={() => openAction(u, "lock")}>
@@ -415,11 +439,11 @@ export default function AdminUsers() {
 
       {/* POPUP MODAL: Hồ sơ người dùng (Centered Dialog thay thế Slide Sheet) */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-xl p-0 overflow-hidden rounded-2xl border bg-card shadow-2xl">
+        <DialogContent className="sm:max-w-xl max-h-[calc(100dvh-2rem)] p-0 overflow-hidden rounded-2xl border bg-card shadow-2xl">
           {selectedUser && (
-            <div>
+            <div className="flex flex-col max-h-[calc(100dvh-2rem)]">
               {/* Header profile card */}
-              <div className="p-6 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-b">
+              <div className="shrink-0 p-5 sm:p-6 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-b">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <Avatar className="size-16 ring-2 ring-emerald-600/20 shadow-sm shrink-0">
@@ -459,7 +483,7 @@ export default function AdminUsers() {
               </div>
 
               {/* Information Grid */}
-              <div className="p-6 space-y-6">
+              <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-5">
                 <div>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Thông tin liên hệ & hệ thống</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -487,8 +511,14 @@ export default function AdminUsers() {
                     <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 border">
                       <Star className="size-4 text-emerald-600 shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-[11px] text-muted-foreground">Huy hiệu tín nhiệm</p>
-                        <p className="font-medium text-foreground">{selectedUser.trustScore >= 80 ? "Người dùng xuất sắc" : selectedUser.trustScore >= 50 ? "Người dùng tiêu chuẩn" : "Cần theo dõi"}</p>
+                        <p className="text-[11px] text-muted-foreground">Mức độ tuân thủ</p>
+                        <p className="font-medium text-foreground">
+                          {selectedUser.strikeCount >= 3
+                            ? `Vi phạm ${selectedUser.strikeCount}/3 (Đã khóa)`
+                            : selectedUser.strikeCount > 0
+                            ? `Đã nhắc nhở (${selectedUser.strikeCount}/3)`
+                            : "Tốt (0/3 lần nhắc nhở)"}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -550,7 +580,7 @@ export default function AdminUsers() {
                         onClick={() => openAction(selectedUser, "warn")}
                       >
                         <AlertTriangle className="size-3.5 shrink-0" />
-                        <span>Gửi cảnh cáo tài khoản</span>
+                        <span>Gửi cảnh cáo (+1 mức)</span>
                       </Button>
                       {selectedUser.status === "locked" ? (
                         <Button
@@ -559,7 +589,7 @@ export default function AdminUsers() {
                           onClick={() => openAction(selectedUser, "unlock")}
                         >
                           <Unlock className="size-3.5 shrink-0" />
-                          <span>Mở khóa tài khoản</span>
+                          <span>Mở khóa & Gỡ vi phạm</span>
                         </Button>
                       ) : (
                         <Button
@@ -572,13 +602,24 @@ export default function AdminUsers() {
                           <span>Khóa tài khoản</span>
                         </Button>
                       )}
+                      {(selectedUser.strikeCount > 0 || selectedUser.status === "warned") && selectedUser.status !== "locked" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="sm:col-span-2 h-10 px-3 justify-center gap-1.5 cursor-pointer text-xs font-medium text-emerald-700 bg-emerald-50/60 border-emerald-200/80 hover:bg-emerald-100/70"
+                          onClick={() => openAction(selectedUser, "clear_warn")}
+                        >
+                          <CheckCircle2 className="size-3.5 shrink-0" />
+                          <span>Gỡ cảnh báo vi phạm (Đặt lại về 0/3 & Hoàn điểm uy tín)</span>
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Modal footer */}
-              <div className="px-6 py-4 bg-muted/20 border-t flex justify-end">
+              <div className="shrink-0 px-5 sm:px-6 py-3.5 bg-muted/20 border-t flex justify-end">
                 <Button variant="outline" size="sm" onClick={() => setModalOpen(false)} className="cursor-pointer text-xs">
                   Đóng hồ sơ
                 </Button>

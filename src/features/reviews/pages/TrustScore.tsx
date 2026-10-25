@@ -1,15 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
-  ShieldCheck, Star, Home, MessageCircle, Award, Check, ShieldAlert,
-  ArrowRight, History
+  ShieldCheck, Star, Home, UserCheck, Award, Check, ShieldAlert,
+  ArrowRight, History, CircleDot
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
-
 import { useAuth } from "@/app/context/AuthContext";
 
 interface TrustScoreLogItem {
@@ -30,22 +29,31 @@ export default function TrustScore() {
   const [reviewScore, setReviewScore] = useState<number>(0);
   const [rentalScore, setRentalScore] = useState<number>(0);
   const [responseScore, setResponseScore] = useState<number>(0);
+  const [strikeCount, setStrikeCount] = useState<number>(0);
+  const [penaltyScore, setPenaltyScore] = useState<number>(0);
   const [isVerified, setIsVerified] = useState<boolean>(false);
   const [userBadges, setUserBadges] = useState<string[]>([]);
   const [history, setHistory] = useState<TrustScoreLogItem[]>([]);
+  const [profileData, setProfileData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     async function loadTrustScore() {
       setIsLoading(true);
       try {
-        const data = await api.get<any>("/users/me/trust-score");
+        const [data, me] = await Promise.all([
+          api.get<any>("/users/me/trust-score"),
+          api.get<any>("/users/me").catch(() => null),
+        ]);
+        if (me) setProfileData(me);
         if (data) {
           if (typeof data.currentScore === "number") setScore(data.currentScore);
           if (typeof data.kycScore === "number") setKycScore(data.kycScore);
           if (typeof data.reviewScore === "number") setReviewScore(data.reviewScore);
           if (typeof data.rentalDurationScore === "number") setRentalScore(data.rentalDurationScore);
           if (typeof data.responseRateScore === "number") setResponseScore(data.responseRateScore);
+          if (typeof data.strikeCount === "number") setStrikeCount(data.strikeCount);
+          if (typeof data.penaltyScore === "number") setPenaltyScore(data.penaltyScore);
           if (typeof data.isVerified === "boolean") setIsVerified(data.isVerified);
           if (Array.isArray(data.badges)) setUserBadges(data.badges);
           if (Array.isArray(data.history)) setHistory(data.history);
@@ -59,66 +67,101 @@ export default function TrustScore() {
     loadTrustScore();
   }, []);
 
-  const breakdown = [
+  const hasPhoto = Boolean(
+    profileData?.avatarUrl ||
+    user?.avatarUrl ||
+    (Array.isArray(profileData?.galleryImages) && profileData.galleryImages.length > 0)
+  );
+  const hasBio = Boolean(profileData?.bio && String(profileData.bio).trim());
+  const hasSchoolOrAddress = isLandlord
+    ? Boolean(profileData?.address && String(profileData.address).trim())
+    : Boolean((profileData?.schoolOrCompany || user?.schoolOrCompany) && String(profileData?.schoolOrCompany || user?.schoolOrCompany).trim());
+  const hasPrefs = isLandlord
+    ? Boolean(Array.isArray(profileData?.preferredDistricts) && profileData.preferredDistricts.length > 0)
+    : Boolean(
+        profileData?.budgetMin != null &&
+        profileData?.budgetMax != null &&
+        Array.isArray(profileData?.preferredDistricts) &&
+        profileData.preferredDistricts.length > 0
+      );
+
+  const profileChecklist = [
     {
-      label: "Xác thực danh tính CCCD",
-      value: kycScore,
-      max: 30,
-      icon: ShieldCheck,
-      desc: "Cộng 30 điểm khi hồ sơ xác thực CCCD được phê duyệt thành công.",
+      label: isLandlord ? "Địa chỉ liên hệ khu trọ (+10đ)" : "Trường học hoặc nơi làm việc (+10đ)",
+      done: hasSchoolOrAddress,
     },
     {
-      label: "Đánh giá nhận được",
-      value: reviewScore,
-      max: 30,
-      icon: Star,
-      desc: isLandlord
-        ? "Tính toán từ các lượt đánh giá nhận được từ khách thuê đã ở phòng thực tế."
-        : "Tính toán từ các lượt đánh giá nhận được từ chủ trọ và bạn cùng phòng.",
+      label: isLandlord ? "Giới thiệu khu trọ (+10đ)" : "Lời giới thiệu bản thân (+10đ)",
+      done: hasBio,
     },
     {
-      label: isLandlord ? "Lịch sử cho thuê phòng" : "Lịch sử thuê trọ",
-      value: rentalScore,
-      max: 20,
-      icon: Home,
-      desc: isLandlord
-        ? "Tính theo số hợp đồng cho thuê phòng đã xác nhận bàn giao thành công trên hệ thống (10 điểm/hợp đồng, tối đa 20 điểm)."
-        : "Tính theo số hợp đồng thuê phòng đã xác nhận bàn giao trên hệ thống (10 điểm/hợp đồng, tối đa 20 điểm).",
+      label: isLandlord ? "Khu vực cho thuê chính (+10đ)" : "Khu vực & ngân sách tìm phòng (+10đ)",
+      done: hasPrefs,
     },
     {
-      label: "Mức độ hoàn thiện hồ sơ",
-      value: responseScore,
-      max: 20,
-      icon: MessageCircle,
-      desc: isLandlord
-        ? "Cập nhật đầy đủ thông tin chủ trọ, địa chỉ liên hệ và danh mục phòng trọ."
-        : "Cập nhật đầy đủ lời giới thiệu, trường học hoặc nơi làm việc, ngân sách dự kiến.",
+      label: "Ảnh đại diện hoặc hình ảnh giới thiệu (+5đ)",
+      done: hasPhoto,
     },
   ];
-  const pillarTotal = breakdown.reduce((sum, b) => sum + b.value, 0);
+
+  const breakdown = [
+    {
+      label: "Xác thực tài khoản",
+      value: kycScore,
+      max: 35,
+      icon: ShieldCheck,
+      desc: "Bao gồm thông tin liên hệ hợp lệ (+10 điểm) và xác thực Căn cước công dân (+25 điểm).",
+    },
+    {
+      label: "Thông tin hồ sơ",
+      value: responseScore,
+      max: 35,
+      icon: UserCheck,
+      desc: isLandlord
+        ? "Hoàn thiện địa chỉ liên hệ, lời giới thiệu khu trọ, khu vực cho thuê và hình ảnh."
+        : "Hoàn thiện trường học/nơi làm việc, lời giới thiệu bản thân, nhu cầu tìm phòng và hình ảnh.",
+      checklist: profileChecklist,
+    },
+    {
+      label: "Đánh giá & Tuân thủ cộng đồng",
+      value: reviewScore,
+      max: 15,
+      icon: Star,
+      desc: isLandlord
+        ? "Duy trì hồ sơ hoạt động tốt không vi phạm (+5 điểm) và nhận đánh giá tích cực từ người thuê (+10 điểm)."
+        : "Duy trì hồ sơ văn minh không vi phạm (+5 điểm) và nhận đánh giá tốt từ chủ trọ, bạn cùng phòng (+10 điểm).",
+    },
+    {
+      label: isLandlord ? "Hoạt động & Cho thuê phòng" : "Hoạt động & Thuê phòng",
+      value: rentalScore,
+      max: 15,
+      icon: Home,
+      desc: isLandlord
+        ? "Hoạt động thường xuyên (+5 điểm) và có phòng bàn giao cho khách thuê thành công (+10 điểm)."
+        : "Hoạt động thường xuyên (+5 điểm) và có hợp đồng nhận phòng thực tế (+10 điểm).",
+    },
+  ];
 
   const badges = [
     {
       label: "Đã xác minh",
-      desc: isVerified ? "CCCD đã được duyệt" : "Chưa hoàn tất xác thực CCCD",
+      desc: isVerified ? "Căn cước đã được xác thực" : "Chưa xác thực Căn cước",
       on: Boolean(isVerified || userBadges.includes("ĐÃ_XÁC_MINH_CCCD") || userBadges.includes("VERIFIED")),
     },
     {
-      label: isLandlord ? "Chủ trọ uy tín" : "Người thuê uy tín",
-      desc: "Đạt mốc điểm uy tín từ 80+",
+      label: isLandlord ? "Chủ trọ uy tín" : "Thành viên uy tín",
+      desc: "Đạt mốc điểm uy tín từ 80 trở lên",
       on: Boolean(score >= 80 || userBadges.includes("NGƯỜI_DÙNG_UY_TÍN_CAO") || userBadges.includes("RELIABLE_TENANT")),
     },
     {
-      label: isLandlord ? "Hồ sơ chủ trọ chuẩn mực" : "Hồ sơ chuẩn mực",
-      desc: isLandlord
-        ? "Hoàn thiện thông tin cơ sở & tương tác thường xuyên"
-        : "Hoàn thiện hồ sơ & tương tác thường xuyên",
-      on: Boolean(responseScore >= 15 || userBadges.includes("FAST_RESPONDER")),
+      label: "Hồ sơ đầy đủ",
+      desc: "Cung cấp đầy đủ thông tin giới thiệu và nhu cầu",
+      on: Boolean(responseScore >= 30 || userBadges.includes("FAST_RESPONDER")),
     },
     {
       label: isLandlord ? "Chủ trọ tích cực" : "Người thuê tích cực",
-      desc: isLandlord ? "Có lịch sử bàn giao hợp đồng cho thuê" : "Có lịch sử hợp đồng thuê phòng",
-      on: Boolean(rentalScore >= 20 || userBadges.includes("LONG_TERM")),
+      desc: isLandlord ? "Đã bàn giao phòng cho khách thuê" : "Đã có giao dịch thuê phòng thực tế",
+      on: Boolean(rentalScore >= 15 || userBadges.includes("LONG_TERM")),
     },
   ];
 
@@ -132,12 +175,12 @@ export default function TrustScore() {
         <div>
           <h1 className="brand text-3xl font-bold text-foreground">Điểm uy tín</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Điểm số đánh giá mức độ tin cậy dựa trên xác minh CCCD, lịch sử thuê phòng và đánh giá từ cộng đồng.
+            Thước đo độ tin cậy của hồ sơ giúp bạn dễ dàng kết nối với chủ trọ và bạn cùng phòng phù hợp.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate("/profile")}>
-            Về trang cá nhân
+          <Button variant="outline" size="sm" onClick={() => navigate("/edit-profile")}>
+            Chỉnh sửa hồ sơ
           </Button>
           {!isVerified && (
             <Button
@@ -145,11 +188,28 @@ export default function TrustScore() {
               className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
               onClick={() => navigate("/verify-account")}
             >
-              <ShieldCheck className="size-4" /> Xác minh CCCD ngay
+              <ShieldCheck className="size-4" /> Xác thực Căn cước
             </Button>
           )}
         </div>
       </div>
+
+      {/* Violation Notice if any */}
+      {strikeCount > 0 && (
+        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50/90 p-4 shadow-xs">
+          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-rose-100 text-rose-700">
+            <ShieldAlert className="size-5" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-rose-900">
+              Tài khoản đang có {strikeCount}/3 lần nhắc nhở vi phạm quy định cộng đồng
+            </p>
+            <p className="text-xs text-rose-700 mt-0.5">
+              Điểm uy tín hiện bị trừ <b>{penaltyScore} điểm</b>. Vui lòng đảm bảo thông tin đăng tải trung thực và tuân thủ quy định chung để tránh bị tạm ngừng tài khoản khi chạm mức 3/3.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* KYC Alert Banner */}
       {!isVerified ? (
@@ -159,9 +219,9 @@ export default function TrustScore() {
               <ShieldAlert className="size-5" />
             </div>
             <div>
-              <p className="text-sm font-bold text-amber-900">Tài khoản chưa xác thực CCCD</p>
+              <p className="text-sm font-bold text-amber-900">Tài khoản chưa xác thực Căn cước</p>
               <p className="text-xs text-amber-700 mt-0.5">
-                Nộp CCCD 2 mặt để nhận huy hiệu <b>Đã xác minh</b> và cộng ngay <b>+30 điểm uy tín</b>.
+                Xác thực Căn cước 2 mặt để nhận huy hiệu <b>Đã xác minh</b> và cộng ngay <b>+25 điểm uy tín</b>.
               </p>
             </div>
           </div>
@@ -170,7 +230,7 @@ export default function TrustScore() {
             className="shrink-0 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs"
             onClick={() => navigate("/verify-account")}
           >
-            Xác minh ngay <ArrowRight className="size-4" />
+            Xác thực ngay <ArrowRight className="size-4" />
           </Button>
         </div>
       ) : (
@@ -179,9 +239,9 @@ export default function TrustScore() {
             <ShieldCheck className="size-5" />
           </div>
           <div>
-            <p className="text-sm font-bold text-emerald-900">Tài khoản đã xác minh CCCD</p>
+            <p className="text-sm font-bold text-emerald-900">Tài khoản đã xác thực Căn cước</p>
             <p className="text-xs text-emerald-700 mt-0.5">
-              Hồ sơ của bạn hiển thị dấu tích xanh và được ưu tiên khi tìm bạn ghép phòng.
+              Hồ sơ của bạn hiển thị dấu tích xanh và được ưu tiên khi kết nối trên hệ thống.
             </p>
           </div>
         </div>
@@ -218,20 +278,20 @@ export default function TrustScore() {
 
             <div className="mt-4">
               <Badge className={`gap-1 px-3 py-1 ${score >= 70 ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-sky-600 hover:bg-sky-700 text-white"}`}>
-                <Award className="size-3.5" /> {score >= 80 ? "Uy tín xuất sắc" : score >= 70 ? "Uy tín cao" : "Uy tín trung bình"}
+                <Award className="size-3.5" /> {score >= 80 ? "Uy tín xuất sắc" : score >= 70 ? "Uy tín cao" : "Đang hoàn thiện"}
               </Badge>
             </div>
 
             <p className="mt-4 text-xs text-slate-600 leading-relaxed border-t pt-4">
               {score >= 70
-                ? "Tài khoản có độ tin cậy tốt, dễ dàng tạo thiện cảm khi liên hệ chủ trọ và tìm bạn ở ghép."
-                : "Hoàn tất xác thực CCCD và cập nhật hồ sơ để gia tăng độ uy tín cho tài khoản của bạn."}
+                ? "Hồ sơ có độ tin cậy cao, tạo sự yên tâm khi liên hệ thuê phòng và tìm bạn ở ghép."
+                : "Bổ sung lời giới thiệu, hình ảnh cá nhân và xác thực Căn cước để đạt mức Uy tín cao (75+ điểm)."}
             </p>
           </div>
 
           {/* Badges Box */}
           <div className="rounded-2xl bg-card p-6 ring-1 ring-border shadow-xs">
-            <h2 className="text-base font-bold text-charcoal mb-3">Huy hiệu</h2>
+            <h2 className="text-base font-bold text-charcoal mb-3">Danh hiệu đạt được</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
               {badges.map((b) => (
                 <div
@@ -263,11 +323,11 @@ export default function TrustScore() {
           <div className="rounded-2xl bg-card p-6 ring-1 ring-border shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-base font-bold text-charcoal">Chi tiết điểm số</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Đánh giá trực tiếp từ dữ liệu hồ sơ, hợp đồng và đánh giá hiện có</p>
+                <h2 className="text-base font-bold text-charcoal">Chi tiết điểm uy tín</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Hoàn thành các mục bên dưới để nâng cao điểm uy tín của bạn</p>
               </div>
               <Badge variant="outline" className="text-xs font-medium">
-                Tổng tiêu chí: {pillarTotal}/100
+                Tổng điểm: {score}/100
               </Badge>
             </div>
 
@@ -286,6 +346,26 @@ export default function TrustScore() {
                     </div>
                     <Progress value={percent} className="h-2 mb-2" />
                     <p className="text-xs text-slate-500 leading-snug">{b.desc}</p>
+
+                    {b.checklist && (
+                      <div className="mt-3 grid gap-1.5 sm:grid-cols-2 border-t border-slate-200/70 pt-2.5">
+                        {b.checklist.map((item) => (
+                          <div
+                            key={item.label}
+                            className={`flex items-center gap-1.5 text-xs ${
+                              item.done ? "text-emerald-700 font-medium" : "text-slate-500"
+                            }`}
+                          >
+                            {item.done ? (
+                              <Check className="size-3.5 text-emerald-600 shrink-0" />
+                            ) : (
+                              <CircleDot className="size-3.5 text-amber-500 shrink-0" />
+                            )}
+                            <span>{item.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -297,9 +377,9 @@ export default function TrustScore() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <History className="size-5 text-emerald-600" />
-                <h2 className="text-base font-bold text-charcoal">Lịch sử biến động điểm uy tín</h2>
+                <h2 className="text-base font-bold text-charcoal">Lịch sử thay đổi điểm</h2>
               </div>
-              <span className="text-xs text-muted-foreground">Ghi nhận từ hệ thống</span>
+              <span className="text-xs text-muted-foreground">Cập nhật tự động</span>
             </div>
 
             {history.length > 0 ? (
@@ -323,7 +403,7 @@ export default function TrustScore() {
                         {item.delta > 0 ? `+${item.delta}` : item.delta} điểm
                       </span>
                       <p className="text-[11px] text-slate-500 mt-1">
-                        Điểm sau thay đổi: <b className="text-slate-800">{item.finalScore}</b>
+                        Điểm sau cập nhật: <b className="text-slate-800">{item.finalScore}</b>
                       </p>
                     </div>
                   </div>
@@ -331,9 +411,9 @@ export default function TrustScore() {
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center">
-                <p className="text-xs text-slate-500">Chưa ghi nhận biến động điểm số nào.</p>
+                <p className="text-xs text-slate-500">Chưa có biến động điểm bổ sung nào.</p>
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Điểm ban đầu mặc định là 50/100. Biến động điểm sẽ được tự động ghi nhận khi bạn xác thực CCCD, hoàn tất hợp đồng thuê hoặc nhận đánh giá.
+                  Các thay đổi khi bạn xác thực Căn cước, nhận đánh giá mới hoặc hoàn tất hợp đồng sẽ hiển thị tại đây.
                 </p>
               </div>
             )}

@@ -173,9 +173,10 @@ export default function VerifyAccount() {
               navigate(-1);
             }
           }}
-          className="mb-5 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
+          className="group mb-5 inline-flex items-center gap-2 rounded-full bg-white/95 px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs ring-1 ring-slate-200/90 transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 hover:text-emerald-800 hover:ring-emerald-400/60 hover:shadow-sm active:translate-y-0 active:scale-[0.97] cursor-pointer"
         >
-          <ArrowLeft className="size-4" /> Quay lại
+          <ArrowLeft className="size-3.5 text-emerald-600 transition-transform duration-200 group-hover:-translate-x-1" />
+          <span>Quay lại</span>
         </button>
 
         <div className="rounded-2xl bg-card p-8 shadow-sm ring-1 ring-border">

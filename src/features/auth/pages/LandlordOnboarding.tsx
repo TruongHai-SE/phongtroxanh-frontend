@@ -177,6 +177,7 @@ export default function LandlordOnboarding() {
         fullName: fullName.trim(),
         phoneNumber: cleanPhone,
         address: address.trim(),
+        bio: bio.trim(),
         estimatedRoomCount: roomNum,
         primaryDistricts,
       });
@@ -211,15 +212,17 @@ export default function LandlordOnboarding() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-gradient-to-b from-mint/40 to-background">
-        <div className="mx-auto max-w-3xl px-6 py-8">
+      <div className="min-h-[100dvh] bg-gradient-to-b from-mint/40 to-background flex flex-col justify-center">
+        <div className="mx-auto w-full max-w-4xl xl:max-w-5xl px-4 sm:px-6 py-3 sm:py-4">
           {/* Top Bar: Emergency Escape & Logout */}
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-2.5 flex items-center justify-between">
             <button
+              type="button"
               onClick={() => navigate("/")}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
+              className="group inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-white/90 px-3 py-1 text-xs font-semibold text-emerald-brand shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-500/50 hover:bg-mint hover:text-emerald-deep hover:shadow-sm active:translate-y-0 active:scale-95 cursor-pointer"
             >
-              <span className="font-semibold text-emerald-brand">← Về trang chủ</span>
+              <ArrowLeft className="size-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" />
+              <span>Về trang chủ</span>
             </button>
             <button
               type="button"
@@ -227,16 +230,16 @@ export default function LandlordOnboarding() {
                 await logout();
                 navigate("/login");
               }}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+              className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-xs font-medium text-slate-600 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-red-300 hover:bg-red-50 hover:text-red-600 hover:shadow-sm active:translate-y-0 active:scale-95 cursor-pointer"
               title="Đăng xuất khỏi tài khoản hiện tại"
             >
-              <LogOut className="size-3.5" />
+              <LogOut className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               <span>Đổi tài khoản / Đăng xuất</span>
             </button>
           </div>
 
           {/* Stepper */}
-          <div className="mb-8">
+          <div className="mb-3.5">
             <div className="flex items-center justify-between text-xs">
               {steps.map((s, i) => (
                 <span key={s} className={cn("flex items-center gap-1.5", i <= step ? "text-primary font-medium" : "text-muted-foreground")}>
@@ -247,10 +250,11 @@ export default function LandlordOnboarding() {
                 </span>
               ))}
             </div>
-            <Progress value={((step + 1) / steps.length) * 100} className="mt-3 h-1.5" />
+            <Progress value={((step + 1) / steps.length) * 100} className="mt-2 h-1.5" />
           </div>
 
-          <div className="rounded-2xl bg-card p-8 shadow-sm ring-1 ring-border overflow-hidden">
+          <div className="flex flex-col rounded-2xl bg-card p-5 sm:p-6 shadow-sm ring-1 ring-border">
+            <div>
             <AnimatePresence custom={direction} mode="wait">
               <motion.div
                 key={step}
@@ -505,9 +509,10 @@ export default function LandlordOnboarding() {
                 )}
               </motion.div>
             </AnimatePresence>
+            </div>
 
             {/* Navigation buttons */}
-            <div className="mt-8 flex items-center justify-between border-t border-border/60 pt-6">
+            <div className="mt-4 shrink-0 flex items-center justify-between border-t border-border/60 pt-4 bg-card">
               <Button variant="ghost" onClick={back} className="gap-1"><ArrowLeft className="size-4" /> Quay lại</Button>
               <Button onClick={next} disabled={isSubmitting} className="gap-1">
                 {isSubmitting ? (
