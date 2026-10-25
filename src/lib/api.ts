@@ -71,6 +71,52 @@ export const tokenStorage = {
   },
 };
 
+// Single-flight lock to prevent concurrent 401 responses from firing duplicate
+// /auth/refresh-token calls (which would fail single-use token rotation in Redis).
+let refreshTokenPromise: Promise<string | null> | null = null;
+
+async function refreshAccessTokenSingleFlight(failedToken: string | null): Promise<string | null> {
+  // If another request already refreshed the token while this one was in-flight, reuse it immediately
+  const currentToken = tokenStorage.getToken();
+  if (currentToken && failedToken && currentToken !== failedToken) {
+    return currentToken;
+  }
+
+  if (refreshTokenPromise) {
+    return refreshTokenPromise;
+  }
+
+  refreshTokenPromise = (async () => {
+    try {
+      const refreshRes = await fetch(`${BASE_URL}/auth/refresh-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (refreshRes.ok) {
+        const refreshJson = await refreshRes.json();
+        const newAccessToken = refreshJson?.data?.accessToken || refreshJson?.accessToken;
+        if (newAccessToken) {
+          tokenStorage.setToken(newAccessToken);
+          return newAccessToken as string;
+        }
+      } else if (refreshRes.status === 401 || refreshRes.status === 403) {
+        // Refresh token is genuinely expired or revoked
+        tokenStorage.clear();
+      }
+      return null;
+    } catch {
+      // Network error or server restarting — do NOT clear local token storage
+      return null;
+    } finally {
+      refreshTokenPromise = null;
+    }
+  })();
+
+  return refreshTokenPromise;
+}
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -104,32 +150,22 @@ async function request<T>(
   try {
     let res = await fetch(url, config);
 
-    // Auto Token Rotation on 401 (if not already refreshing or logging in)
-    if (res.status === 401 && !endpoint.includes("/auth/refresh-token") && !endpoint.includes("/auth/login") && tokenStorage.getToken()) {
-      try {
-        const refreshRes = await fetch(`${BASE_URL}/auth/refresh-token`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-        });
-        if (refreshRes.ok) {
-          const refreshJson = await refreshRes.json();
-          const newAccessToken = refreshJson?.data?.accessToken || refreshJson?.accessToken;
-          if (newAccessToken) {
-            tokenStorage.setToken(newAccessToken);
-            headers["Authorization"] = `Bearer ${newAccessToken}`;
-            config.headers = {
-              ...headers,
-              ...(options.headers as Record<string, string> || {}),
-            };
-            // Retry the original request with new token
-            res = await fetch(url, config);
-          }
-        } else {
-          tokenStorage.clear();
-        }
-      } catch {
-        tokenStorage.clear();
+    // Auto Token Rotation on 401 (single-flight locked across parallel requests)
+    if (
+      res.status === 401 &&
+      !endpoint.includes("/auth/refresh-token") &&
+      !endpoint.includes("/auth/login") &&
+      tokenStorage.getToken()
+    ) {
+      const newAccessToken = await refreshAccessTokenSingleFlight(token);
+      if (newAccessToken) {
+        headers["Authorization"] = `Bearer ${newAccessToken}`;
+        config.headers = {
+          ...headers,
+          ...(options.headers as Record<string, string> || {}),
+        };
+        // Retry the original request with new token
+        res = await fetch(url, config);
       }
     }
 

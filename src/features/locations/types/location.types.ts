@@ -9,15 +9,19 @@ export interface LocationSuggestionResponse {
 }
 
 export interface GeocodeResponse {
-  address: string;
-  district: string;
+  address?: string;
+  formattedAddress?: string;
+  district?: string;
   lat: number;
   lng: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface ReverseGeocodeResponse {
-  address: string;
-  district: string;
-  lat: number;
-  lng: number;
+  address?: string;
+  formattedAddress?: string;
+  district?: string;
+  lat?: number;
+  lng?: number;
 }
