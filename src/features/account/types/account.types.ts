@@ -11,7 +11,11 @@ export interface UserProfileResponse {
   school?: string;
   job?: string;
   schoolOrCompany?: string;
+  birthDate?: string;
+  gender?: string;
   interests?: string[];
+  galleryImages?: string[];
+  strikeCount?: number;
   budgetMin?: number;
   budgetMax?: number;
   targetDistricts?: string[];
@@ -43,7 +47,12 @@ export interface UpdateProfileRequest {
   fullName?: string;
   phone?: string;
   bio?: string;
+  birthDate?: string;
+  gender?: string;
   school?: string;
+  schoolOrCompany?: string;
+  address?: string;
+  preferredDistricts?: string[];
   job?: string;
   interests?: string[];
   budgetMin?: number;
@@ -69,6 +78,8 @@ export interface TrustScoreResponse {
   reviewScore: number;
   rentalDurationScore: number;
   responseRateScore: number;
+  strikeCount?: number;
+  penaltyScore?: number;
   history: Array<{ id: string; delta: number; finalScore: number; reason: string; createdAt: string }>;
 }
 

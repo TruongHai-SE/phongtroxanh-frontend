@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { GraduationCap, Users, MessageCircle, Sparkles, X, CigaretteOff, Cigarette, Moon, ZapOff, EyeOff } from "lucide-react";
+import { GraduationCap, Users, MessageCircle, Sparkles, X, CigaretteOff, Cigarette, Moon, ZapOff, EyeOff, ChevronLeft, ChevronRight, Images, Rocket, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/shared/ImageWithFallback";
 import { SwipeStage } from "@/components/shared/SwipeStage";
@@ -12,9 +12,29 @@ import { useMonetization } from "@/app/context/MonetizationContext";
 import { SwipeStageSkeleton } from "@/components/ui/skeleton-loaders";
 import { matchingApi } from "../api/matchingApi";
 import { accountApi } from "@/features/account/api/accountApi";
+import { inferDistrictFromSchoolOrPlace } from "@/lib/constants";
 import { toast } from "sonner";
 
 function BigPersonCard({ person }: { person: Roommate }) {
+  const photos = useMemo(() => {
+    const list: string[] = [];
+    if (person.avatar && person.avatar.trim()) list.push(person.avatar.trim());
+    if (Array.isArray(person.galleryImages)) {
+      for (const img of person.galleryImages) {
+        if (img && img.trim() && !list.includes(img.trim())) {
+          list.push(img.trim());
+        }
+      }
+    }
+    return list;
+  }, [person.avatar, person.galleryImages]);
+
+  const [photoIdx, setPhotoIdx] = useState(0);
+
+  useEffect(() => {
+    setPhotoIdx(0);
+  }, [person.id]);
+
   const isNonSmoking = person.nonSmoking !== undefined
     ? person.nonSmoking
     : person.lifestyle?.some((l) => l.label === "Hút thuốc" && l.value === "Không") ?? true;
@@ -27,14 +47,88 @@ function BigPersonCard({ person }: { person: Roommate }) {
     ? person.isNeat
     : person.lifestyle?.some((l) => l.label === "Vệ sinh" || l.value.toLowerCase().includes("sạch")) ?? true;
 
+  const initials = (person.name || "U")
+    .split(" ")
+    .filter(Boolean)
+    .slice(-2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
+
   return (
     <div className="group relative h-full flex flex-col overflow-hidden rounded-3xl bg-card shadow-xl ring-1 ring-border hover-lift">
-      <div className="relative w-full overflow-hidden shrink-0" style={{ height: 215 }}>
-        <ImageWithFallback src={person.avatar} alt={person.name} className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.025]" />
+      <div className="relative h-[clamp(145px,22dvh,215px)] w-full overflow-hidden shrink-0 bg-slate-100">
+        {photos.length > 0 ? (
+          <>
+            <ImageWithFallback
+              src={photos[photoIdx] || photos[0]}
+              alt={`${person.name} - ảnh ${photoIdx + 1}`}
+              className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.025]"
+            />
+            {photos.length > 1 && (
+              <>
+                {/* Top story progress bars */}
+                <div className="absolute top-2.5 left-3 right-24 z-10 flex gap-1">
+                  {photos.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPhotoIdx(idx);
+                      }}
+                      className={`h-1 flex-1 rounded-full transition-all ${
+                        idx === photoIdx ? "bg-white shadow-sm" : "bg-white/45 hover:bg-white/70"
+                      }`}
+                      aria-label={`Xem ảnh ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPhotoIdx((prev) => (prev - 1 + photos.length) % photos.length);
+                  }}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 flex size-7 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition hover:bg-black/65"
+                  aria-label="Ảnh trước"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPhotoIdx((prev) => (prev + 1) % photos.length);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 flex size-7 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition hover:bg-black/65"
+                  aria-label="Ảnh tiếp theo"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+                <span className="absolute bottom-2.5 left-3 z-10 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                  <Images className="size-3" />
+                  {photoIdx + 1}/{photos.length}
+                </span>
+              </>
+            )}
+          </>
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-emerald-50 via-teal-50/70 to-slate-100 text-center">
+            <div className="flex size-16 items-center justify-center rounded-full bg-white/90 text-xl font-bold text-emerald-800 shadow-sm ring-2 ring-emerald-200/80">
+              {initials}
+            </div>
+            <span className="mt-1.5 text-[11px] font-medium text-slate-500">Chưa cập nhật ảnh</span>
+          </div>
+        )}
       </div>
-      <MatchBadge value={person.match} className="absolute right-4 top-4" />
-      <div className="flex flex-1 flex-col justify-between p-4 sm:p-5 min-w-0">
-        <div className="space-y-1 sm:space-y-1.5">
+      {person.isBoosted && (
+        <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-amber-500/95 text-white px-2.5 py-0.5 text-[11px] font-bold shadow-md backdrop-blur">
+          <Rocket className="size-3" /> Hồ sơ nổi bật
+        </span>
+      )}
+      <MatchBadge value={person.match} className="absolute right-4 top-4 z-10" />
+      <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-4 min-w-0 min-h-0 overflow-y-auto">
+        <div className="space-y-1">
           <div>
             <h3 className="text-base sm:text-lg font-semibold transition-colors duration-200 group-hover:text-primary leading-snug">{person.name}, {person.age}</h3>
             <p className="mt-0.5 inline-flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
@@ -87,7 +181,8 @@ export default function Roommates() {
   const [isPrivateProfile, setIsPrivateProfile] = useState<boolean>(false);
   const [isTogglingPublic, setIsTogglingPublic] = useState(false);
   const [match, setMatch] = useState<Roommate | null>(null);
-  const { loaded, swipesLeft, maxSwipes, decrementSwipes, openPricing, tier } = useMonetization();
+  const { loaded, swipesLeft, maxSwipes, boostsLeft, decrementSwipes, openPricing, tier, refresh: refreshMonetization } = useMonetization();
+  const [isBoostingProfile, setIsBoostingProfile] = useState(false);
   const [allCandidates, setAllCandidates] = useState<Roommate[]>([]);
   const [initialFilters, setInitialFilters] = useState<AppliedFilterCriteria | undefined>(undefined);
   const [activeFilters, setActiveFilters] = useState<{
@@ -113,9 +208,15 @@ export default function Roommates() {
       try {
         const profile = await accountApi.getProfile();
         if (profile) {
-          const prefDistrict = profile.preferredDistricts && profile.preferredDistricts.length > 0
-            ? profile.preferredDistricts[0]
-            : undefined;
+          const fallbackSchoolDistrict =
+            (profile.proximitySchool !== false || profile.proximityWork !== false) &&
+            (profile.schoolOrCompany || profile.school)
+              ? inferDistrictFromSchoolOrPlace(profile.schoolOrCompany || profile.school) || undefined
+              : undefined;
+          const prefDistrict =
+            profile.preferredDistricts && profile.preferredDistricts.length > 0
+              ? profile.preferredDistricts[0]
+              : fallbackSchoolDistrict;
           const minB = profile.budgetMin ? Number(profile.budgetMin) : undefined;
           const maxB = profile.budgetMax ? Number(profile.budgetMax) : undefined;
 
@@ -172,6 +273,7 @@ export default function Roommates() {
               school: dto.schoolOrCompany || "Đang tìm bạn ở ghép",
               bio: dto.bio || "",
               avatar: dto.avatarUrl || "",
+              galleryImages: Array.isArray(dto.galleryImages) ? dto.galleryImages.filter(Boolean) : [],
               budget: dto.budgetMax 
                 ? (dto.budgetMin 
                     ? `${(Number(dto.budgetMin) / 1e6).toFixed(1)} - ${(Number(dto.budgetMax) / 1e6).toFixed(1)} tr/tháng` 
@@ -191,6 +293,7 @@ export default function Roommates() {
               earlySleeper: dto.earlySleeper ?? false,
               isNeat: dto.isNeat ?? true,
               allowGuests: dto.allowGuests ?? false,
+              isBoosted: Boolean(dto.isBoosted),
             };
           });
           setAllCandidates(mapped);
@@ -387,10 +490,10 @@ export default function Roommates() {
             )}
           </div>
         ) : (
-          <div className="flex flex-col -mt-4 md:-mt-8">
+          <div className="flex flex-col -mt-3 md:-mt-6">
             {loaded && swipesLeft > 0 && (
-              <div className="mb-2 md:mb-3 flex justify-center">
-                <span className="inline-flex items-center gap-2 text-xs text-muted-foreground bg-card px-4 py-1.5 rounded-full border border-border shadow-xs animate-fade-in">
+              <div className="mb-1.5 md:mb-2 flex justify-center">
+                <span className="inline-flex items-center gap-2 text-xs text-muted-foreground bg-card px-4 py-1 rounded-full border border-border shadow-xs animate-fade-in">
                   <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
                   Bạn còn <strong className="text-foreground font-extrabold">{swipesLeft}/{maxSwipes}</strong> lượt ghép hôm nay.{" "}
                   {tier === "free" && (
@@ -455,10 +558,39 @@ export default function Roommates() {
             <Button
               size="sm"
               variant="outline"
-              className="mt-3 w-full hover-lift press-active hover:bg-mint hover:border-primary/30"
+              className="mt-3 w-full hover-lift press-active hover:bg-mint hover:border-primary/30 cursor-pointer"
               onClick={() => navigate("/roommate-editor")}
             >
               Cập nhật hồ sơ ghép
+            </Button>
+            <Button
+              size="sm"
+              disabled={isBoostingProfile}
+              className="mt-2 w-full gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+              onClick={async () => {
+                if (!user) return navigate("/login");
+                if (boostsLeft <= 0) {
+                  openPricing();
+                  return;
+                }
+                setIsBoostingProfile(true);
+                try {
+                  await matchingApi.boostProfile();
+                  toast.success("Đã đẩy hồ sơ tìm bạn lên đầu 24 giờ!");
+                  await refreshMonetization();
+                } catch (err: any) {
+                  toast.error(err?.message || "Không thể đẩy hồ sơ");
+                } finally {
+                  setIsBoostingProfile(false);
+                }
+              }}
+            >
+              {isBoostingProfile ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Rocket className="size-3.5" />
+              )}
+              {boostsLeft > 0 ? `Đẩy hồ sơ 24h (còn ${boostsLeft})` : "Đẩy hồ sơ lên đầu (Mua lượt)"}
             </Button>
           </div>
           <div className="rounded-2xl bg-card p-5 ring-1 ring-border shadow-sm">

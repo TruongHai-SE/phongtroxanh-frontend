@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { formatVND } from "@/lib/utils";
 import { paymentApi, parseFeatures } from "@/features/monetization/api/paymentApi";
+import { PackageTermsConsent } from "@/features/monetization/components/PackageTermsConsent";
 import type { PackagePlan, ActiveSubscription } from "@/features/monetization/types/payment.types";
 
 export default function LandlordPackages() {
@@ -12,6 +13,7 @@ export default function LandlordPackages() {
   const [boostsLeft, setBoostsLeft] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState<string | null>(null);
+  const [agreedTerms, setAgreedTerms] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -29,6 +31,10 @@ export default function LandlordPackages() {
   }, []);
 
   const buy = async (plan: PackagePlan) => {
+    if (!agreedTerms) {
+      toast.error("Vui lòng đồng ý với điều khoản sử dụng gói dịch vụ trước khi thanh toán.");
+      return;
+    }
     setPaying(plan.id);
     try {
       await paymentApi.checkout(plan.id);
@@ -81,6 +87,8 @@ export default function LandlordPackages() {
         <p>Dùng lượt khi đăng phòng mới hoặc trong mục “Phòng của tôi”.</p>
       </div>
 
+      <PackageTermsConsent role="landlord" agreed={agreedTerms} onAgreeChange={setAgreedTerms} />
+
       {plans.length === 0 ? (
         <p className="text-center text-sm text-muted-foreground py-10">Hiện chưa có gói nào dành cho chủ trọ.</p>
       ) : (
@@ -100,11 +108,11 @@ export default function LandlordPackages() {
                   {f.boosts > 0 && (
                     <li className="flex gap-2"><Check className="size-4 text-primary shrink-0 mt-0.5" /> Cộng {f.boosts} lượt đẩy tin vào tài khoản</li>
                   )}
-                  <li className="flex gap-2"><Check className="size-4 text-primary shrink-0 mt-0.5" /> Thanh toán một lần qua payOS (QR ngân hàng)</li>
+                  <li className="flex gap-2"><Check className="size-4 text-primary shrink-0 mt-0.5" /> Thanh toán một lần qua mã QR ngân hàng</li>
                   <li className="flex gap-2"><Check className="size-4 text-primary shrink-0 mt-0.5" /> Lượt chưa dùng được giữ lại trong tài khoản</li>
                 </ul>
-                <Button className="mt-6 w-full gap-2" disabled={paying !== null} onClick={() => buy(plan)}>
-                  {paying === plan.id ? <><Loader2 className="size-4 animate-spin" /> Đang chuyển đến payOS...</> : active ? "Mua thêm" : "Mua gói"}
+                <Button className="mt-6 w-full gap-2" disabled={paying !== null || !agreedTerms} onClick={() => buy(plan)}>
+                  {paying === plan.id ? <><Loader2 className="size-4 animate-spin" /> Đang tạo mã thanh toán...</> : active ? "Mua thêm" : "Mua gói"}
                 </Button>
               </div>
             );

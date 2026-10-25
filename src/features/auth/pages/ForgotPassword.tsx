@@ -154,9 +154,10 @@ export default function ForgotPassword() {
             <div className="text-center pt-2">
               <Link
                 to="/login"
-                className="inline-flex items-center gap-1 text-sm text-emerald-brand hover:underline font-medium"
+                className="group inline-flex items-center gap-1.5 text-sm text-emerald-brand hover:text-emerald-deep font-semibold transition-all duration-200"
               >
-                <ArrowLeft className="size-3.5" /> Quay lại đăng nhập
+                <ArrowLeft className="size-3.5 transition-transform duration-200 group-hover:-translate-x-1" />
+                <span className="group-hover:underline underline-offset-4">Quay lại đăng nhập</span>
               </Link>
             </div>
           </motion.div>

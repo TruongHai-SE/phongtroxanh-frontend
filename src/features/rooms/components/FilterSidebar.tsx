@@ -177,8 +177,8 @@ export function FilterSidebar({
   };
 
   return (
-    <div className="space-y-4 rounded-2xl bg-card p-4 ring-1 ring-border shadow-xs">
-      <div className="flex items-center justify-between gap-1">
+    <div className="flex flex-col lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] rounded-2xl bg-card p-4 ring-1 ring-border shadow-xs">
+      <div className="flex items-center justify-between gap-1 shrink-0 pb-2.5 border-b border-border/40">
         <div className="flex items-center gap-1.5 font-medium text-foreground text-sm whitespace-nowrap">
           <SlidersHorizontal className="size-3.5 text-primary shrink-0" />
           <h3 className="font-semibold text-sm">Bộ lọc tìm kiếm</h3>
@@ -193,6 +193,7 @@ export function FilterSidebar({
         </button>
       </div>
 
+      <div className="flex-1 overflow-y-auto space-y-3.5 py-2.5 pr-0.5 min-h-0">
       {/* 1. Keyword search (Near school, company, street) */}
       <div className="space-y-1">
         <Label htmlFor="filter-keyword" className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
@@ -414,15 +415,18 @@ export function FilterSidebar({
           </div>
         </div>
       )}
+      </div>
 
       {/* Apply filter button */}
-      <Button
-        className="w-full cursor-pointer shadow-xs gap-2 font-medium text-xs h-8 mt-1"
-        onClick={handleApply}
-        disabled={isLoading}
-      >
-        {isLoading ? "Đang tìm phòng..." : "Áp dụng bộ lọc"}
-      </Button>
+      <div className="shrink-0 pt-2.5 border-t border-border/50 bg-card">
+        <Button
+          className="w-full cursor-pointer shadow-xs gap-2 font-medium text-xs h-8.5"
+          onClick={handleApply}
+          disabled={isLoading}
+        >
+          {isLoading ? "Đang tìm phòng..." : "Áp dụng bộ lọc"}
+        </Button>
+      </div>
     </div>
   );
 }

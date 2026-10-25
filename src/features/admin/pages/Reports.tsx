@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   Search, Check, Trash2, ShieldAlert, ZoomIn, AlertTriangle, Ban, X,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ type Report = {
   id: string; target: string; targetType: "room" | "user";
   type: string; reporter: string; time: string;
   status: ReportStatus; severity: Severity; detail: string;
+  targetStrikeCount?: number;
   evidence?: string[]; evidenceUrls?: string[];
   history?: { action: string; by: string; time: string }[];
 };
@@ -46,9 +47,9 @@ const severityDot: Record<Severity, string> = { critical: "bg-red-500", medium: 
 
 const actionConfig: Record<NonNullable<ReportAction>, { title: string; desc: string; confirmLabel: string; destructive?: boolean; needsNote?: boolean }> = {
   resolve: { title: "Đánh dấu đã xử lý", desc: "Báo cáo sẽ được đóng lại là đã giải quyết xong.", confirmLabel: "Hoàn tất xử lý" },
-  warn: { title: "Gửi cảnh cáo", desc: "Email cảnh cáo chính thức sẽ gửi đến đối tượng bị báo cáo.", confirmLabel: "Gửi cảnh cáo", destructive: true, needsNote: true },
-  remove_content: { title: "Gỡ nội dung vi phạm", desc: "Nội dung bị gỡ ngay lập tức, đối tượng nhận thông báo cảnh cáo.", confirmLabel: "Xác nhận gỡ nội dung", destructive: true, needsNote: true },
-  ban: { title: "Khóa tài khoản đối tượng", desc: "Tài khoản đối tượng bị khóa. Hành động nghiêm trọng, cần ghi rõ lý do.", confirmLabel: "Xác nhận khóa tài khoản", destructive: true, needsNote: true },
+  warn: { title: "Ghi nhận nhắc nhở vi phạm", desc: "Hệ thống sẽ gửi thông báo nhắc nhở, trừ điểm uy tín và cộng +1 mức vi phạm (tự động khóa nếu chạm mốc 3/3).", confirmLabel: "Gửi nhắc nhở", destructive: true, needsNote: true },
+  remove_content: { title: "Gỡ nội dung vi phạm", desc: "Nội dung vi phạm (tin đăng phòng trọ hoặc lời giới thiệu hồ sơ / tin sang nhượng của người thuê) bị gỡ ngay lập tức, đối tượng nhận +1 mức vi phạm và bị trừ điểm uy tín.", confirmLabel: "Xác nhận gỡ nội dung", destructive: true, needsNote: true },
+  ban: { title: "Khóa tài khoản đối tượng", desc: "Tài khoản đối tượng bị khóa ngay lập tức (mức vi phạm 3/3), ẩn mọi tin đăng và đưa điểm uy tín về 0.", confirmLabel: "Xác nhận khóa tài khoản", destructive: true, needsNote: true },
   dismiss: { title: "Bỏ qua báo cáo", desc: "Báo cáo không có căn cứ hợp lệ. Người báo cáo sẽ được thông báo.", confirmLabel: "Xác nhận bỏ qua" },
 };
 
@@ -98,7 +99,7 @@ function PaginationBar({
 
 export default function Reports() {
   const [reports, setReports] = useState<Report[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [modalReport, setModalReport] = useState<Report | null>(null);
   const [activeAction, setActiveAction] = useState<ReportAction>(null);
   const [actionTarget, setActionTarget] = useState<Report | null>(null);
@@ -110,33 +111,35 @@ export default function Reports() {
   const [searchQ, setSearchQ] = useState("");
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    const fetchReports = async () => {
-      setLoading(true);
-      try {
-        const res = await api.get<any>("/admin/reports", { page: 0, limit: 50 });
-        const items = res?.content || res;
-        if (Array.isArray(items) && items.length > 0) {
-          setReports(items.map((r: any, i: number) => ({
-            id: String(r.id || `rp-${i}`),
-            target: r.targetType === "ROOM" ? `Phòng trọ #${String(r.targetId || "").slice(0, 8)}` : `Người dùng #${String(r.targetId || "").slice(0, 8)}`,
-            targetType: (r.targetType?.toLowerCase() === "user" ? "user" : "room") as "room" | "user",
-            type: r.reportType || "Báo cáo vi phạm",
-            reporter: `Người dùng #${String(r.reporterId || "").slice(0, 8)}`,
-            time: r.createdAt ? new Date(r.createdAt).toLocaleDateString("vi-VN") : "Hôm nay",
-            status: (r.status?.toLowerCase() === "resolved" ? "resolved" : r.status?.toLowerCase() === "dismissed" ? "dismissed" : r.status?.toLowerCase() === "processing" ? "processing" : "new") as ReportStatus,
-            severity: (r.severity?.toLowerCase() === "critical" ? "critical" : r.severity?.toLowerCase() === "low" ? "low" : "medium") as Severity,
-            detail: r.detail || "Không có nội dung mô tả bổ sung",
-            evidence: r.evidenceImages?.length ? r.evidenceImages : [roomImages[i % roomImages.length]],
-            history: [],
-          })));
-        }
-      } catch {
-        // fallback to seed
-      } finally {
-        setLoading(false);
+  const fetchReports = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get<any>("/admin/reports", { page: 0, limit: 50 });
+      const items = res?.content || res;
+      if (Array.isArray(items) && items.length > 0) {
+        setReports(items.map((r: any, i: number) => ({
+          id: String(r.id || `rp-${i}`),
+          target: r.targetType === "ROOM" ? `Phòng trọ #${String(r.targetId || "").slice(0, 8)}` : `Người dùng #${String(r.targetId || "").slice(0, 8)}`,
+          targetType: (r.targetType?.toLowerCase() === "user" ? "user" : "room") as "room" | "user",
+          type: r.reportType || "Báo cáo vi phạm",
+          reporter: `Người dùng #${String(r.reporterId || "").slice(0, 8)}`,
+          time: r.createdAt ? new Date(r.createdAt).toLocaleDateString("vi-VN") : "Hôm nay",
+          status: (r.status?.toLowerCase() === "resolved" ? "resolved" : r.status?.toLowerCase() === "dismissed" ? "dismissed" : r.status?.toLowerCase() === "processing" ? "processing" : "new") as ReportStatus,
+          severity: (r.severity?.toLowerCase() === "critical" ? "critical" : r.severity?.toLowerCase() === "low" ? "low" : "medium") as Severity,
+          detail: r.detail || "Không có nội dung mô tả bổ sung",
+          targetStrikeCount: r.targetStrikeCount ?? 0,
+          evidence: r.evidenceImages?.length ? r.evidenceImages : [roomImages[i % roomImages.length]],
+          history: [],
+        })));
       }
-    };
+    } catch {
+      // fallback to seed
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchReports();
   }, []);
 
@@ -169,10 +172,11 @@ export default function Reports() {
       // optimistic fallback
     }
 
-    const newStatus: ReportStatus = activeAction === "resolve" ? "resolved" : activeAction === "dismiss" ? "dismissed" : "processing";
+    const newStatus: ReportStatus = (activeAction === "resolve" || activeAction === "warn" || activeAction === "remove_content" || activeAction === "ban") ? "resolved" : "dismissed";
+    const nextStrike = activeAction === "ban" ? 3 : (activeAction === "warn" || activeAction === "remove_content") ? Math.min(3, (actionTarget.targetStrikeCount ?? 0) + 1) : (actionTarget.targetStrikeCount ?? 0);
     const historyEntry = { action: actionConfig[activeAction].confirmLabel, by: "Admin", time: "Vừa xong" };
-    setReports((prev) => prev.map((r) => r.id === actionTarget.id ? { ...r, status: newStatus, history: [...(r.history ?? []), historyEntry] } : r));
-    if (modalReport?.id === actionTarget.id) setModalReport((p) => p ? { ...p, status: newStatus, history: [...(p.history ?? []), historyEntry] } : p);
+    setReports((prev) => prev.map((r) => r.id === actionTarget.id ? { ...r, status: newStatus, targetStrikeCount: nextStrike, history: [...(r.history ?? []), historyEntry] } : r));
+    if (modalReport?.id === actionTarget.id) setModalReport((p) => p ? { ...p, status: newStatus, targetStrikeCount: nextStrike, history: [...(p.history ?? []), historyEntry] } : p);
     toast(`${actionConfig[activeAction].confirmLabel} — ${actionTarget.target}`);
     setActiveAction(null);
   };
@@ -238,6 +242,9 @@ export default function Reports() {
                   <p className="text-xs text-muted-foreground mt-0.5">{r.type} · {r.reporter} · {r.time}</p>
                 </div>
                 <div className="flex gap-1.5 shrink-0 items-center">
+                  <Badge variant="outline" className="text-[10px] px-1.5">
+                    Vi phạm: {r.targetStrikeCount ?? 0}/3
+                  </Badge>
                   <Badge className={cn("text-[10px] px-1.5", severityCls[r.severity])}>{severityLabel[r.severity]}</Badge>
                   <Badge className={cn("text-[10px] px-1.5", statusCls[r.status])}>{statusLabel[r.status]}</Badge>
                 </div>
@@ -250,16 +257,14 @@ export default function Reports() {
         <PaginationBar page={page} totalPages={totalPages} total={filtered.length} onPage={setPage} />
       </div>
 
-      {/* Report detail modal — modal={!zoomSrc} removes Radix capture-phase DismissableLayer when zoom is shown,
-          fixing the "first click does nothing" bug caused by Radix intercepting pointerdown in capture phase */}
       <Dialog open={!!modalReport} onOpenChange={(open) => { if (!open && !zoomSrc) setModalReport(null); }} modal={!zoomSrc}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0 [&>button:last-child]:hidden">
+        <DialogContent className="max-w-2xl max-h-[calc(100dvh-2.5rem)] overflow-hidden rounded-2xl p-0 gap-0 flex flex-col [&>button:last-child]:hidden">
           {modalReport && (() => {
             const r = modalReport;
             const actionable = isActionable(r);
             return (
               <>
-                <div className="sticky top-0 z-20 bg-background border-b px-6 py-4">
+                <div className="shrink-0 bg-background border-b px-6 py-4">
                   <div className="flex items-start gap-3">
                     <ShieldAlert className="size-5 text-destructive shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
@@ -268,9 +273,11 @@ export default function Reports() {
                         <Badge className={severityCls[r.severity]}>{severityLabel[r.severity]}</Badge>
                         <Badge className={statusCls[r.status]}>{statusLabel[r.status]}</Badge>
                         <Badge variant="outline" className="text-xs">{r.targetType === "room" ? "Phòng trọ" : "Người dùng"}</Badge>
+                        <Badge variant="outline" className={cn("text-xs", (r.targetStrikeCount ?? 0) >= 2 ? "border-rose-300 text-rose-700 bg-rose-50" : "border-amber-200 text-amber-800 bg-amber-50")}>
+                          Mức vi phạm hiện tại: {r.targetStrikeCount ?? 0}/3
+                        </Badge>
                       </div>
                     </div>
-                    {/* Explicit close — DialogContent's auto-X is hidden behind sticky z-10 */}
                     <DialogClose asChild>
                       <button
                         className="shrink-0 size-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
@@ -281,7 +288,7 @@ export default function Reports() {
                     </DialogClose>
                   </div>
                 </div>
-                <div className="px-6 py-5 space-y-5">
+                <div className="flex-1 overflow-y-auto min-h-0 px-6 py-5 space-y-5">
                   <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm rounded-xl bg-secondary/40 p-4">
                     <dt className="text-muted-foreground whitespace-nowrap">Loại vi phạm</dt><dd className="font-medium">{r.type}</dd>
                     <dt className="text-muted-foreground whitespace-nowrap">Người báo cáo</dt><dd>{r.reporter} · <span className="text-muted-foreground">{r.time}</span></dd>
@@ -332,14 +339,14 @@ export default function Reports() {
                       </Button>
                       <div className="grid grid-cols-2 gap-2">
                         <Button variant="outline" className="gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 cursor-pointer" onClick={() => openAction(r, "warn")}>
-                          <AlertTriangle className="size-4" /> Cảnh cáo
+                          <AlertTriangle className="size-4" /> Nhắc nhở (+1 mức)
                         </Button>
                         <Button variant="outline" className="gap-2 border-orange-300 text-orange-700 hover:bg-orange-50 cursor-pointer" onClick={() => openAction(r, "remove_content")}>
-                          <Trash2 className="size-4" /> Gỡ nội dung
+                          <Trash2 className="size-4" /> Gỡ nội dung (+1 mức)
                         </Button>
                       </div>
                       <Button variant="destructive" className="w-full gap-2 cursor-pointer" onClick={() => openAction(r, "ban")}>
-                        <Ban className="size-4" /> Khóa tài khoản đối tượng
+                        <Ban className="size-4" /> Khóa tài khoản đối tượng (3/3)
                       </Button>
                       <Button variant="ghost" className="w-full gap-2 text-muted-foreground hover:text-foreground cursor-pointer" onClick={() => openAction(r, "dismiss")}>
                         <X className="size-4" /> Bỏ qua báo cáo
@@ -357,7 +364,6 @@ export default function Reports() {
         </DialogContent>
       </Dialog>
 
-      {/* Portal zoom at z-9999 - modal={!zoomSrc} disables FocusScope trap so first interaction works */}
       <ImageZoomOverlay src={zoomSrc} onClose={() => setZoomSrc(null)} alt="Bằng chứng" />
 
       <AlertDialog open={!!activeAction} onOpenChange={(open) => !open && setActiveAction(null)}>
@@ -383,8 +389,6 @@ export default function Reports() {
           </>)}
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Portal zoom — renders at document.body above Dialog */}
     </div>
   );
 }

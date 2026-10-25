@@ -26,8 +26,8 @@ export default function RoleSelect() {
             key={c.id}
             onClick={() => setRole(c.id)}
             className={cn(
-              "relative rounded-2xl border-2 p-5 text-left transition",
-              role === c.id ? "border-primary bg-mint/50" : "border-border hover:border-primary/40",
+              "relative rounded-2xl border-2 p-5 text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer",
+              role === c.id ? "border-primary bg-mint/50 shadow-xs" : "border-border hover:border-primary/50 hover:bg-mint/20",
             )}
           >
             {role === c.id && (

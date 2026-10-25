@@ -99,9 +99,9 @@ function AuthShell({ children }: { children: React.ReactNode }) {
           <div className="mb-3 flex justify-start">
             <Link
               to="/"
-              className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[10px] font-semibold text-charcoal shadow-xs ring-1 ring-border transition hover:bg-slate-50"
+              className="group inline-flex items-center gap-2 rounded-full bg-white/95 backdrop-blur-md px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200/90 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-emerald-50/95 hover:text-emerald-800 hover:ring-emerald-400/60 hover:shadow-[0_6px_16px_-4px_rgba(5,150,105,0.22)] active:translate-y-0 active:scale-[0.97]"
             >
-              <ArrowLeft className="size-3 text-emerald-brand" />
+              <ArrowLeft className="size-3.5 text-emerald-600 transition-transform duration-200 ease-out group-hover:-translate-x-1" />
               Quay lại trang chủ
             </Link>
           </div>
@@ -507,9 +507,9 @@ export default function Login() {
         >
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[10px] font-semibold text-charcoal shadow-xs ring-1 ring-border transition hover:bg-slate-50"
+            className="group inline-flex items-center gap-2 rounded-full bg-white/95 backdrop-blur-md px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200/90 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-emerald-50/95 hover:text-emerald-800 hover:ring-emerald-400/60 hover:shadow-[0_6px_16px_-4px_rgba(5,150,105,0.22)] active:translate-y-0 active:scale-[0.97]"
           >
-            <ArrowLeft className="size-3 text-emerald-brand" />
+            <ArrowLeft className="size-3.5 text-emerald-600 transition-transform duration-200 ease-out group-hover:-translate-x-1" />
             Quay lại trang chủ
           </Link>
         </div>
@@ -527,7 +527,7 @@ export default function Login() {
           >
             <Link
               to="/"
-              className="brand mb-2 block text-center text-lg text-emerald-deep font-bold"
+              className="brand mb-2 block text-center text-lg text-emerald-deep font-bold transition-all duration-200 hover:text-emerald-600 hover:scale-[1.01]"
             >
               Phòng Trọ Xanh
             </Link>
@@ -558,7 +558,7 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="pl-9 h-9 text-xs"
+                    className="pl-9 h-9 text-xs transition-all duration-200 hover:border-emerald-400/60 hover:bg-emerald-50/30 focus:bg-white"
                     required
                     autoComplete="username"
                     tabIndex={isRegister ? -1 : 0}
@@ -573,7 +573,7 @@ export default function Login() {
                   </Label>
                   <Link
                     to="/forgot-password"
-                    className="text-[10px] text-primary font-medium hover:underline cursor-pointer"
+                    className="text-[11px] text-emerald-600 font-semibold transition-all duration-200 hover:text-emerald-800 hover:translate-x-0.5 underline-offset-4 hover:underline cursor-pointer"
                     tabIndex={isRegister ? -1 : 0}
                   >
                     Quên mật khẩu?
@@ -588,7 +588,7 @@ export default function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="pl-9 h-9 text-xs"
+                    className="pl-9 h-9 text-xs transition-all duration-200 hover:border-emerald-400/60 hover:bg-emerald-50/30 focus:bg-white"
                     required
                     autoComplete="current-password"
                     tabIndex={isRegister ? -1 : 0}
@@ -599,7 +599,7 @@ export default function Login() {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full h-9 text-xs mt-1 bg-emerald-brand hover:bg-emerald-deep text-white flex items-center justify-center gap-1.5"
+                className="w-full h-9 text-xs mt-1 bg-emerald-brand hover:bg-emerald-deep text-white flex items-center justify-center gap-1.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(5,150,105,0.55)] active:translate-y-0 active:scale-[0.98]"
                 tabIndex={isRegister ? -1 : 0}
               >
                 {isSubmitting && <Loader2 className="size-3.5 animate-spin" />}
@@ -715,7 +715,7 @@ export default function Login() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Nguyễn Văn A"
-                    className="pl-9 h-[34px] text-xs"
+                    className="pl-9 h-[34px] text-xs transition-all duration-200 hover:border-emerald-400/60 hover:bg-emerald-50/30 focus:bg-white"
                     required
                     tabIndex={!isRegister ? -1 : 0}
                   />
@@ -736,7 +736,7 @@ export default function Login() {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="0912345678"
-                    className="pl-9 h-[34px] text-xs"
+                    className="pl-9 h-[34px] text-xs transition-all duration-200 hover:border-emerald-400/60 hover:bg-emerald-50/30 focus:bg-white"
                     required
                     tabIndex={!isRegister ? -1 : 0}
                   />
@@ -758,7 +758,7 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="email@example.com"
-                    className="pl-9 h-[34px] text-xs"
+                    className="pl-9 h-[34px] text-xs transition-all duration-200 hover:border-emerald-400/60 hover:bg-emerald-50/30 focus:bg-white"
                     required
                     tabIndex={!isRegister ? -1 : 0}
                   />
@@ -777,7 +777,7 @@ export default function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Tối thiểu 6 ký tự"
-                    className="pl-9 h-[34px] text-xs"
+                    className="pl-9 h-[34px] text-xs transition-all duration-200 hover:border-emerald-400/60 hover:bg-emerald-50/30 focus:bg-white"
                     required
                     tabIndex={!isRegister ? -1 : 0}
                   />
@@ -827,7 +827,7 @@ export default function Login() {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full h-[34px] text-xs mt-1.5 bg-emerald-brand hover:bg-emerald-deep text-white flex items-center justify-center gap-1.5"
+                className="w-full h-[34px] text-xs mt-1.5 bg-emerald-brand hover:bg-emerald-deep text-white flex items-center justify-center gap-1.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(5,150,105,0.55)] active:translate-y-0 active:scale-[0.98]"
                 tabIndex={!isRegister ? -1 : 0}
               >
                 {isSubmitting && <Loader2 className="size-3.5 animate-spin" />}
