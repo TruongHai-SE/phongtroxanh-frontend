@@ -19,6 +19,7 @@ import { SwipeStage } from "@/components/shared/SwipeStage";
 import { FilterSidebar, type RoomFilterState } from "@/features/rooms/components/FilterSidebar";
 import { MatchBadge } from "@/components/shared/primitives-compat";
 import { formatVND, cn } from "@/lib/utils";
+import { inferDistrictFromSchoolOrPlace } from "@/lib/constants";
 import type { Room } from "../types/room.types";
 import { useRooms } from "../hooks/useRooms";
 import { roomsApi } from "../api/roomsApi";
@@ -77,7 +78,7 @@ function BigRoomCard({
 
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-3xl bg-card shadow-xl ring-1 ring-border hover-lift select-none">
-      <div className="relative grid grid-cols-3 grid-rows-2 gap-1 overflow-hidden shrink-0" style={{ height: 230 }}>
+      <div className="relative grid h-[clamp(145px,22dvh,225px)] grid-cols-3 grid-rows-2 gap-1 overflow-hidden shrink-0">
         <ImageWithFallback
           src={images[0]}
           alt={titleVal}
@@ -127,8 +128,8 @@ function BigRoomCard({
         {matchVal != null && <MatchBadge value={matchVal} className="absolute bottom-3 right-3" />}
       </div>
 
-      <div className="flex flex-1 flex-col justify-between p-4 sm:p-5 min-w-0">
-        <div className="space-y-1.5 sm:space-y-2">
+      <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-4 min-w-0 min-h-0 overflow-y-auto">
+        <div className="space-y-1 sm:space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded bg-mint text-emerald-brand uppercase tracking-wider">
               {typeLabel}
@@ -259,9 +260,15 @@ export default function Discover() {
       try {
         const profile = await accountApi.getProfile();
         if (profile) {
-          const prefDistrict = profile.preferredDistricts && profile.preferredDistricts.length > 0
-            ? profile.preferredDistricts[0]
-            : undefined;
+          const fallbackSchoolDistrict =
+            (profile.proximitySchool !== false || profile.proximityWork !== false) &&
+            (profile.schoolOrCompany || profile.school)
+              ? inferDistrictFromSchoolOrPlace(profile.schoolOrCompany || profile.school) || undefined
+              : undefined;
+          const prefDistrict =
+            profile.preferredDistricts && profile.preferredDistricts.length > 0
+              ? profile.preferredDistricts[0]
+              : fallbackSchoolDistrict;
           const prefRoomType = profile.preferredRoomType || undefined;
           const minP = profile.budgetMin ? Number(profile.budgetMin) : undefined;
           const maxP = profile.budgetMax ? Number(profile.budgetMax) : undefined;
@@ -525,10 +532,10 @@ export default function Discover() {
             </Button>
           </div>
         ) : (
-          <div className="flex flex-col -mt-4 md:-mt-8">
+          <div className="flex flex-col -mt-3 md:-mt-6">
             {loaded && swipesLeft > 0 && (
-              <div className="mb-2 md:mb-3 flex justify-center">
-                <span className="inline-flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-200/60 shadow-sm animate-fade-in">
+              <div className="mb-1.5 md:mb-2 flex justify-center">
+                <span className="inline-flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-4 py-1 rounded-full border border-slate-200/60 shadow-sm animate-fade-in">
                   <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                   Bạn còn <strong className="text-slate-900 font-extrabold">{swipesLeft}/{maxSwipes}</strong> lượt vuốt hôm nay.{" "}
                   {tier === "free" && (

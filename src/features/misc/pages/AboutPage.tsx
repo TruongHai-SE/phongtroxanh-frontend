@@ -340,6 +340,29 @@ export function AboutPage() {
                     Khoản tiền đặt cọc giữ chỗ phòng trọ sẽ được tự động hoàn lại 100% về tài khoản ví của bạn nếu chủ nhà từ chối hoặc hủy giao dịch trước ngày nhận phòng cam kết. Nếu có tranh chấp phát sinh trong quá trình nhận phòng thực tế, bộ phận hỗ trợ khách hàng sẽ làm trọng tài xử lý công bằng.
                   </p>
                 </div>
+
+                <div className="space-y-3 border-t border-slate-100 pt-6">
+                  <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <ShieldCheck className="size-4 text-emerald-brand" /> 4. Quy định xử lý vi phạm 3 cấp độ & Điều khoản gói dịch vụ trả phí
+                  </h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Để bảo vệ người thuê và các chủ trọ uy tín, Phòng Trọ Xanh áp dụng quy trình kiểm soát chất lượng 3 cấp độ dựa trên bằng chứng báo cáo đã được xác minh:
+                  </p>
+                  <ul className="space-y-1.5 text-xs text-slate-600 pl-4 list-disc">
+                    <li>
+                      <strong>Nhắc nhở lần 1:</strong> Gỡ nội dung sai quy định (nếu có), trừ 15 điểm uy tín và gửi thông báo nhắc nhở chính thức.
+                    </li>
+                    <li>
+                      <strong>Cảnh báo lần 2:</strong> Gỡ nội dung sai phạm, trừ 25 điểm uy tín và hạn chế quyền ưu tiên hiển thị.
+                    </li>
+                    <li>
+                      <strong>Ngừng cung cấp dịch vụ (Vi phạm lần 3):</strong> Khóa tài khoản, ẩn toàn bộ tin đăng đang hoạt động và đưa điểm uy tín về 0.
+                    </li>
+                  </ul>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    <strong>Chính sách đối với gói dịch vụ trả phí:</strong> Căn cứ Điều 423, Điều 428 Bộ luật Dân sự 2015 và Nghị định 52/2013/NĐ-CP (sửa đổi bởi Nghị định 85/2021/NĐ-CP) về nghĩa vụ cung cấp thông tin trung thực trên nền tảng thương mại điện tử, trường hợp tài khoản bị ngừng cung cấp dịch vụ do đạt mức vi phạm lần 3 (đăng phòng ảo, thu sai phí cam kết, thông tin sai sự thật hoặc quấy rối thành viên khác), hệ thống sẽ <strong>không hoàn lại phí các gói dịch vụ đã mua hoặc đang còn hạn</strong>. Người dùng có quyền gửi phản hồi kèm minh chứng thực tế trong vòng 07 ngày kể từ khi nhận thông báo.
+                  </p>
+                </div>
               </div>
             </div>
           )}

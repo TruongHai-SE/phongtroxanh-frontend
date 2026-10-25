@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { formatVND } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { paymentApi, parseFeatures } from "../api/paymentApi";
+import { PackageTermsConsent } from "./PackageTermsConsent";
 import type { PackagePlan, ActiveSubscription } from "../types/payment.types";
 
-/** Tenant plans, loaded from the server and paid via payOS. */
+/** Tenant plans, loaded from the server and paid via QR bank transfer. */
 export function PricingModal() {
   const { isPricingOpen, closePricing, swipesLeft, maxSwipes, boostsLeft, refresh } = useMonetization();
   const [plans, setPlans] = useState<PackagePlan[]>([]);
@@ -16,6 +17,7 @@ export function PricingModal() {
   const [loading, setLoading] = useState(false);
   const [paying, setPaying] = useState<string | null>(null);
   const [boosting, setBoosting] = useState(false);
+  const [agreedTerms, setAgreedTerms] = useState(false);
 
   useEffect(() => {
     if (!isPricingOpen) return;
@@ -32,6 +34,10 @@ export function PricingModal() {
   if (!isPricingOpen) return null;
 
   const buy = async (id: string) => {
+    if (!agreedTerms) {
+      toast.error("Vui lòng đồng ý với điều khoản sử dụng gói dịch vụ trước khi thanh toán.");
+      return;
+    }
     setPaying(id);
     try {
       await paymentApi.checkout(id);
@@ -100,8 +106,8 @@ export function PricingModal() {
                       )}
                     </ul>
                     {!free && (
-                      <Button className="mt-5 w-full gap-2" disabled={paying !== null} onClick={() => buy(plan.id)}>
-                        {paying === plan.id ? <><Loader2 className="size-4 animate-spin" /> Đang chuyển đến payOS...</> : sub ? "Gia hạn" : "Mua gói"}
+                      <Button className="mt-5 w-full gap-2" disabled={paying !== null || !agreedTerms} onClick={() => buy(plan.id)}>
+                        {paying === plan.id ? <><Loader2 className="size-4 animate-spin" /> Đang tạo mã thanh toán...</> : sub ? "Gia hạn" : "Mua gói"}
                       </Button>
                     )}
                   </div>
@@ -109,6 +115,8 @@ export function PricingModal() {
               })}
             </div>
           )}
+
+          <PackageTermsConsent role="tenant" agreed={agreedTerms} onAgreeChange={setAgreedTerms} />
 
           {boostsLeft > 0 && (
             <div className="flex items-center gap-3 rounded-2xl bg-mint/50 p-4 ring-1 ring-primary/20">
@@ -120,7 +128,7 @@ export function PricingModal() {
             </div>
           )}
 
-          <p className="text-center text-[11px] text-muted-foreground">Thanh toán qua payOS (QR ngân hàng). Quyền lợi được cộng sau khi ngân hàng xác nhận.</p>
+          <p className="text-center text-[11px] text-muted-foreground">Thanh toán qua mã QR ngân hàng. Quyền lợi được cộng ngay sau khi giao dịch được xác nhận.</p>
         </div>
       </div>
     </div>

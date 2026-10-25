@@ -7,3 +7,42 @@ html {
   scrollbar-gutter: stable;
 }
 
+button:not(:disabled),
+[role="button"]:not(:disabled),
+label:has(input[type="checkbox"]),
+label:has(input[type="radio"]) {
+  cursor: pointer;
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity, translate, scale;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+button:not(:disabled):not([role="combobox"]):not([data-slot]):hover,
+label:has(input[type="checkbox"]):hover,
+label:has(input[type="radio"]):hover {
+  translate: 0 -1.5px;
+}
+
+button:not(:disabled):active,
+[role="button"]:not(:disabled):active,
+label:has(input[type="checkbox"]):active,
+label:has(input[type="radio"]):active {
+  scale: 0.975;
+}
+
+/* Slim, rounded scrollbar so modals and inner scroll areas never clip border-radius */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.28);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.45);
+}
+

@@ -9,10 +9,12 @@ export function useNotifications() {
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const fetchNotifications = useCallback(async () => {
-    setIsLoading(true);
-    setIsError(false);
-    setErrorMessage(null);
+  const fetchNotifications = useCallback(async (silent = false) => {
+    if (!silent) {
+      setIsLoading(true);
+      setIsError(false);
+      setErrorMessage(null);
+    }
     try {
       const res = await notificationsApi.getNotifications();
       const list = Array.isArray(res) ? res : (res?.content || []);
@@ -34,20 +36,33 @@ export function useNotifications() {
       setNotifications(items);
       setUnreadCount(items.filter((n) => n.unread).length);
     } catch (err: any) {
-      setIsError(true);
-      setErrorMessage(err.message || "Không thể tải danh sách thông báo.");
-      setNotifications([]);
+      if (!silent) {
+        setIsError(true);
+        setErrorMessage(err.message || "Không thể tải danh sách thông báo.");
+        setNotifications([]);
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    fetchNotifications();
+    fetchNotifications(false);
+    // Real-time notification polling every 8 seconds
+    const timer = setInterval(() => {
+      fetchNotifications(true);
+    }, 8000);
+    return () => clearInterval(timer);
   }, [fetchNotifications]);
 
   const markAsRead = async (id: string) => {
-    await notificationsApi.markAsRead(id);
+    try {
+      await notificationsApi.markAsRead(id);
+    } catch {
+      // optimistic UI fallback
+    }
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true, unread: false } : n))
     );
@@ -55,7 +70,11 @@ export function useNotifications() {
   };
 
   const markAllAsRead = async () => {
-    await notificationsApi.markAllAsRead();
+    try {
+      await notificationsApi.markAllAsRead();
+    } catch {
+      // optimistic UI fallback
+    }
     setNotifications((prev) =>
       prev.map((n) => ({ ...n, read: true, unread: false }))
     );
@@ -71,7 +90,7 @@ export function useNotifications() {
     isError,
     isEmpty,
     errorMessage,
-    refetch: fetchNotifications,
+    refetch: () => fetchNotifications(false),
     markAsRead,
     markAllAsRead,
   };

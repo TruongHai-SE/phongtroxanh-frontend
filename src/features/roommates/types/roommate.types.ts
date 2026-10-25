@@ -15,6 +15,7 @@ export interface Roommate {
   school: string;
   match: number;
   avatar: string;
+  galleryImages?: string[];
   bio: string;
   interests: string[];
   budget: string;
@@ -29,6 +30,7 @@ export interface Roommate {
   isNeat?: boolean;
   allowGuests?: boolean;
   nonSmoking?: boolean;
+  isBoosted?: boolean;
 }
 
 export interface MatchingFilterParams {

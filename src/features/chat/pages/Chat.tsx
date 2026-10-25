@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { Send, Image as ImageIcon, CheckCheck, MessageCircle, Wifi, WifiOff, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { chatSocket } from "../services/chatSocket";
 import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/app/context/AuthContext";
 import { tokenStorage } from "@/lib/api";
+import { toast } from "sonner";
 
 const quickReplies = ["Phòng còn trống không ạ?", "Cho mình xem thêm ảnh nhé", "Khi nào xem phòng được?"];
 
@@ -131,6 +132,7 @@ export default function Chat() {
           id: String(m.id),
           me: m.senderId === user?.id || m.senderId === "me" || m.isMe || false,
           text: m.content || "",
+          attachmentUrl: m.attachmentUrl,
           time: m.createdAt
             ? new Date(m.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
             : "Vừa xong",
@@ -204,15 +206,18 @@ export default function Chat() {
     return () => clearInterval(interval);
   }, [activeId, loadMessages]);
 
-  const send = async (text: string) => {
-    if (!text.trim() || !active) return;
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const send = async (text: string, attachmentUrl?: string) => {
+    if ((!text.trim() && !attachmentUrl) || !active) return;
+    const contentText = text.trim() || "📷 Đã gửi một hình ảnh";
     const tempId = "temp-" + Date.now();
-    const newMsg = { id: tempId, me: true, text: text.trim(), time: "Vừa xong" };
+    const newMsg = { id: tempId, me: true, text: contentText, attachmentUrl, time: "Vừa xong" };
 
     setConvos((cs) =>
       cs.map((c) =>
         c.id === active.id
-          ? { ...c, messages: [...c.messages, newMsg], last: text.trim() }
+          ? { ...c, messages: [...c.messages, newMsg], last: contentText }
           : c
       )
     );
@@ -221,7 +226,7 @@ export default function Chat() {
     // Send to backend via REST (automatically broadcasts to STOMP WebSocket and Redis)
     if (active.id && !active.id.startsWith("conv-")) {
       try {
-        const sent = await chatApi.sendMessage(active.id, { content: text.trim() });
+        const sent = await chatApi.sendMessage(active.id, { content: contentText, attachmentUrl });
         if (sent && sent.id) {
           // Replace temp ID with real ID
           setConvos((cs) =>
@@ -243,6 +248,22 @@ export default function Chat() {
     }
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !active) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ảnh đính kèm không được vượt quá 5MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : undefined;
+      send(`📷 [Hình ảnh: ${file.name}]`, dataUrl);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
   const filteredConvos = convos.filter((c) => {
     if (activeTab === "room") return c.type === "room";
     if (activeTab === "mate") return c.type === "roommate";
@@ -250,7 +271,7 @@ export default function Chat() {
   });
 
   return (
-    <div className="grid h-[calc(100vh-4rem)] grid-cols-1 md:grid-cols-[340px_1fr]">
+    <div className="grid h-[calc(100dvh-4rem)] grid-cols-1 md:grid-cols-[340px_1fr]">
       {/* Conversation list */}
       <div className="flex flex-col border-r border-border bg-card">
         <div className="p-4 border-b border-border/50">
@@ -265,8 +286,8 @@ export default function Chat() {
               )}
               title={
                 wsConnected
-                  ? "Đang kết nối Real-time WebSocket (Thời gian thực)"
-                  : "Đang duy trì kết nối tự động cập nhật (Polling)"
+                  ? "Đang kết nối tin nhắn trực tuyến"
+                  : "Đang duy trì kết nối tự động cập nhật"
               }
             >
               {wsConnected ? (
@@ -390,6 +411,13 @@ export default function Chat() {
                       m.me ? "bg-mint text-foreground" : "bg-card ring-1 ring-border"
                     )}
                   >
+                    {m.attachmentUrl && (
+                      <img
+                        src={m.attachmentUrl}
+                        alt="Đính kèm"
+                        className="mb-2 max-h-56 rounded-xl object-cover border border-border"
+                      />
+                    )}
                     <p className="break-words">{m.text}</p>
                     <p
                       className={cn(
@@ -419,7 +447,21 @@ export default function Chat() {
               ))}
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageSelect}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0 text-muted-foreground cursor-pointer"
+                title="Đính kèm hình ảnh"
+                onClick={() => fileInputRef.current?.click()}
+              >
                 <ImageIcon className="size-5" />
               </Button>
               <Input

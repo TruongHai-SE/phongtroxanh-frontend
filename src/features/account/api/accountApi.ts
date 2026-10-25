@@ -30,6 +30,18 @@ export const accountApi = {
     return api.upload<AvatarUploadResponse>("/users/me/avatar", formData);
   },
 
+  uploadGalleryImage: (file: File): Promise<{ galleryImages: string[] }> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.upload<{ galleryImages: string[] }>("/users/me/gallery", formData);
+  },
+
+  deleteGalleryImage: (imageUrl: string): Promise<{ galleryImages: string[] }> => {
+    return api.delete<{ galleryImages: string[] }>(
+      `/users/me/gallery?imageUrl=${encodeURIComponent(imageUrl)}`
+    );
+  },
+
   // #16 POST /users/me/fcm-token
   registerFcmToken: (body: FcmTokenRequest): Promise<void> => {
     return api.post<void>("/users/me/fcm-token", body);

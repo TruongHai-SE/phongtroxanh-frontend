@@ -73,14 +73,14 @@ export default function RoomDetail() {
 
   // Rental registration modal state (Connect to 'Phòng của tôi')
   const [isRentModalOpen, setIsRentModalOpen] = useState(false);
-  const [rentStartDate, setRentStartDate] = useState(() => {
+  const [viewingDate, setViewingDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
     return d.toISOString().split("T")[0];
   });
-  const [rentEndDate, setRentEndDate] = useState(() => {
+  const [rentStartDate, setRentStartDate] = useState(() => {
     const d = new Date();
-    d.setMonth(d.getMonth() + 6);
+    d.setDate(d.getDate() + 3);
     return d.toISOString().split("T")[0];
   });
   const [rentMessage, setRentMessage] = useState("");
@@ -297,19 +297,31 @@ export default function RoomDetail() {
   const handleConfirmRent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (viewingDate < todayStr) {
+      toast.error("Ngày hẹn gặp xem phòng không được nhỏ hơn ngày hôm nay.");
+      return;
+    }
+    if (rentStartDate < viewingDate) {
+      toast.error("Ngày dự kiến dọn vào ở phải từ ngày hẹn gặp xem phòng trở đi.");
+      return;
+    }
+
     setIsSubmittingRent(true);
     try {
       await rentalsApi.createRental({
         roomId: id,
+        viewingDate,
         startDate: rentStartDate,
-        endDate: rentEndDate,
-        message: rentMessage || "Tôi muốn đăng ký thuê phòng này.",
+        message: rentMessage.trim() || "Em muốn hẹn gặp xem phòng và đăng ký thuê phòng này ạ.",
       });
-      toast.success("Đăng ký thuê phòng thành công! Phòng đã được thêm vào mục 'Phòng của tôi'.");
+      toast.success("Đã gửi yêu cầu xem & thuê phòng cho chủ trọ! Khi chủ trọ duyệt, hệ thống sẽ báo ngay cho bạn.");
       setIsRentModalOpen(false);
       navigate("/rentals/me");
     } catch (err: any) {
-      toast.error(err.message || "Không thể gửi yêu cầu thuê phòng.");
+      const msg = err?.response?.data?.detail || err?.response?.data?.message || err?.message;
+      toast.error(msg || "Không thể gửi yêu cầu xem & thuê phòng.");
     } finally {
       setIsSubmittingRent(false);
     }
@@ -331,7 +343,7 @@ export default function RoomDetail() {
       </div>
 
       {/* Gallery with Zoom on Click */}
-      <div className="relative grid grid-cols-1 gap-2 md:grid-cols-4 md:grid-rows-2 h-[380px] rounded-2xl overflow-hidden mb-6 group/gallery">
+      <div className="relative grid grid-cols-1 gap-2 md:grid-cols-4 md:grid-rows-2 h-[clamp(230px,36dvh,380px)] rounded-2xl overflow-hidden mb-5 group/gallery">
         <div 
           onClick={() => setLightboxIndex(0)}
           className="md:col-span-2 md:row-span-2 relative h-full cursor-zoom-in group overflow-hidden"
@@ -544,7 +556,7 @@ export default function RoomDetail() {
               className="mt-4 w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shadow-sm hover-lift"
               onClick={handleOpenRentModal}
             >
-              <KeyRound className="size-4" /> Đăng ký thuê phòng này
+              <KeyRound className="size-4" /> Yêu cầu xem & thuê phòng
             </Button>
 
             <Button
@@ -779,10 +791,10 @@ export default function RoomDetail() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
               <KeyRound className="size-5 text-emerald-600" />
-              Đăng ký thuê phòng
+              Yêu cầu xem & thuê phòng
             </DialogTitle>
             <DialogDescription>
-              Gửi yêu cầu thuê phòng tới chủ trọ. Khi gửi thành công, phòng sẽ được lưu vào mục <strong>Phòng của tôi</strong> để bạn theo dõi hợp đồng và thanh toán cọc.
+              Đặt lịch hẹn gặp xem phòng trực tiếp và cho chủ trọ biết ngày dự kiến dọn vào ở để chủ trọ xem hồ sơ & phản hồi.
             </DialogDescription>
           </DialogHeader>
 
@@ -791,31 +803,41 @@ export default function RoomDetail() {
               <p className="text-sm font-semibold text-slate-800 line-clamp-1">{title}</p>
               <p className="text-xs text-muted-foreground">{district}, TP.HCM</p>
               <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 mt-1">
-                <span className="text-xs text-slate-600">Giá thuê:</span>
+                <span className="text-xs text-slate-600">Giá phòng tham khảo:</span>
                 <span className="text-sm font-bold text-emerald-600">{formatVND(price)}/tháng</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-slate-700">Ngày bắt đầu ở</label>
+                <label className="text-xs font-semibold text-slate-700">Ngày hẹn gặp xem phòng</label>
                 <input
                   type="date"
                   required
-                  className="mt-1 w-full rounded-lg border border-border bg-background p-2 text-sm text-foreground"
+                  min={new Date().toISOString().split("T")[0]}
+                  className="mt-1 w-full rounded-lg border border-border bg-background p-2 text-sm text-foreground cursor-pointer"
+                  value={viewingDate}
+                  onChange={(e) => {
+                    const nextView = e.target.value;
+                    setViewingDate(nextView);
+                    if (rentStartDate < nextView) {
+                      setRentStartDate(nextView);
+                    }
+                  }}
+                />
+                <span className="mt-0.5 block text-[11px] text-muted-foreground">Hẹn gặp chủ trọ xem thực tế</span>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-700">Ngày dự kiến dọn vào ở</label>
+                <input
+                  type="date"
+                  required
+                  min={viewingDate || new Date().toISOString().split("T")[0]}
+                  className="mt-1 w-full rounded-lg border border-border bg-background p-2 text-sm text-foreground cursor-pointer"
                   value={rentStartDate}
                   onChange={(e) => setRentStartDate(e.target.value)}
                 />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Thời hạn dự kiến</label>
-                <input
-                  type="date"
-                  required
-                  className="mt-1 w-full rounded-lg border border-border bg-background p-2 text-sm text-foreground"
-                  value={rentEndDate}
-                  onChange={(e) => setRentEndDate(e.target.value)}
-                />
+                <span className="mt-0.5 block text-[11px] text-muted-foreground">Để chủ trọ nắm lịch trống</span>
               </div>
             </div>
 
@@ -826,7 +848,7 @@ export default function RoomDetail() {
                 rows={3}
                 value={rentMessage}
                 onChange={(e) => setRentMessage(e.target.value)}
-                placeholder="Ví dụ: Em là sinh viên năm 3, dự kiến chuyển vào đầu tháng sau..."
+                placeholder="Ví dụ: Em muốn qua xem phòng vào chiều mai, nếu hợp em dọn vào cuối tuần này ạ..."
               />
             </div>
 
@@ -839,7 +861,7 @@ export default function RoomDetail() {
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer"
                 disabled={isSubmittingRent}
               >
-                {isSubmittingRent ? "Đang gửi..." : "Xác nhận gửi yêu cầu"}
+                {isSubmittingRent ? "Đang gửi..." : "Gửi yêu cầu xem & thuê phòng"}
               </Button>
             </DialogFooter>
           </form>

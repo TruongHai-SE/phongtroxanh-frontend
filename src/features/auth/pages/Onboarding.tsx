@@ -15,7 +15,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { interestOptions, districts, roomTypes } from "@/lib/constants";
+import { interestOptions, districts, roomTypes, validateSchoolOrCompany, inferDistrictFromSchoolOrPlace } from "@/lib/constants";
+import { SchoolOrWorkplaceInput } from "@/components/shared/SchoolOrWorkplaceInput";
+import { Textarea } from "@/components/ui/textarea";
 import { ImageWithFallback } from "@/components/shared/ImageWithFallback";
 import { cn, getInitials } from "@/lib/utils";
 import { PageTransition } from "@/components/layouts/PageTransition";
@@ -62,6 +64,7 @@ export default function Onboarding() {
   const [birthDate, setBirthDate] = useState("");
   const [gender, setGender] = useState<string>("female");
   const [schoolOrCompany, setSchoolOrCompany] = useState("");
+  const [bio, setBio] = useState("");
 
   // Tự động điền thông tin người dùng khi đã load xong từ hệ thống
   useEffect(() => {
@@ -69,6 +72,23 @@ export default function Onboarding() {
       if (!fullName && user.fullName) setFullName(user.fullName);
       if (!avatarUrl && user.avatarUrl) setAvatarUrl(user.avatarUrl);
     }
+    accountApi.getProfile()
+      .then((u) => {
+        if (u) {
+          if (!fullName && u.fullName) setFullName(u.fullName);
+          if (!avatarUrl && u.avatarUrl) setAvatarUrl(u.avatarUrl);
+          if (u.schoolOrCompany || u.school) {
+            const sc = u.schoolOrCompany || u.school || "";
+            setSchoolOrCompany((prev) => prev || sc);
+            const inferred = inferDistrictFromSchoolOrPlace(sc);
+            if (inferred) {
+              setDetectedSchoolDistrict(inferred);
+              setSelDistricts((prev) => (prev.length > 0 ? prev : [inferred]));
+            }
+          }
+        }
+      })
+      .catch(() => {});
   }, [user]);
 
   const [interests, setInterests] = useState<string[]>([]);
@@ -81,12 +101,20 @@ export default function Onboarding() {
 
   const [budget, setBudget] = useState([1500000, 3500000]);
   const [selDistricts, setSelDistricts] = useState<string[]>([]);
+  const [detectedSchoolDistrict, setDetectedSchoolDistrict] = useState<string | undefined>(undefined);
   const [preferredRoomType, setPreferredRoomType] = useState<string>(roomTypes[1] || "PHONG_KHEP_KIN");
   const [proximitySchool, setProximitySchool] = useState(true);
   const [proximityWork, setProximityWork] = useState(true);
   const [proximityMarket, setProximityMarket] = useState(false);
   const [proximityBus, setProximityBus] = useState(true);
   const [isPublic, setIsPublic] = useState(true);
+
+  const handleSchoolDistrictDetected = (dist: string) => {
+    setDetectedSchoolDistrict(dist);
+    if (proximitySchool || proximityWork) {
+      setSelDistricts((prev) => (prev.includes(dist) ? prev : [...prev, dist]));
+    }
+  };
 
   // CCCD state
   const [frontCccd, setFrontCccd] = useState<File | null>(null);
@@ -177,11 +205,9 @@ export default function Onboarding() {
         }
       }
 
-      const trimmedSchool = schoolOrCompany.trim();
-      if (!trimmedSchool) {
-        newErrors.schoolOrCompany = "Vui lòng nhập trường học hoặc nơi làm việc";
-      } else if (/^\d+$/.test(trimmedSchool)) {
-        newErrors.schoolOrCompany = "Tên trường học hoặc nơi làm việc không thể chỉ toàn chữ số";
+      const schoolError = validateSchoolOrCompany(schoolOrCompany);
+      if (schoolError) {
+        newErrors.schoolOrCompany = schoolError;
       }
     } else if (currentStep === 1) {
       if (interests.length < 3) {
@@ -210,6 +236,7 @@ export default function Onboarding() {
       await authApi.tenantOnboarding({
         fullName: fullName.trim(),
         schoolOrCompany: schoolOrCompany.trim(),
+        bio: bio.trim(),
         birthDate,
         gender: gender.toUpperCase() as any,
         interests,
@@ -253,15 +280,17 @@ export default function Onboarding() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-gradient-to-b from-mint/40 to-background flex flex-col justify-center py-4 px-4 sm:py-6">
-        <div className="mx-auto w-full max-w-3xl">
+      <div className="min-h-[100dvh] bg-gradient-to-b from-mint/40 to-background flex flex-col justify-center py-2.5 px-4 sm:px-6">
+        <div className="mx-auto w-full max-w-4xl xl:max-w-5xl">
           {/* Top Bar: Emergency Escape & Logout */}
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-2.5 flex items-center justify-between">
             <button
+              type="button"
               onClick={() => navigate("/")}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
+              className="group inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-white/90 px-3 py-1 text-xs font-semibold text-emerald-brand shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-500/50 hover:bg-mint hover:text-emerald-deep hover:shadow-sm active:translate-y-0 active:scale-95 cursor-pointer"
             >
-              <span className="font-semibold text-emerald-brand">← Về trang chủ</span>
+              <ArrowLeft className="size-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" />
+              <span>Về trang chủ</span>
             </button>
             <button
               type="button"
@@ -269,16 +298,16 @@ export default function Onboarding() {
                 await logout();
                 navigate("/login");
               }}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-2.5 py-0.5 text-xs font-medium text-slate-600 shadow-xs transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+              className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-xs font-medium text-slate-600 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-red-300 hover:bg-red-50 hover:text-red-600 hover:shadow-sm active:translate-y-0 active:scale-95 cursor-pointer"
               title="Đăng xuất khỏi tài khoản hiện tại"
             >
-              <LogOut className="size-3" />
+              <LogOut className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               <span>Đổi tài khoản / Đăng xuất</span>
             </button>
           </div>
 
           {/* Stepper */}
-          <div className="mb-4">
+          <div className="mb-3">
             <div className="flex items-center justify-between text-xs">
               {steps.map((s, i) => (
                 <span key={s} className={cn("flex items-center gap-1.5", i <= step ? "text-primary font-medium" : "text-muted-foreground")}>
@@ -289,10 +318,11 @@ export default function Onboarding() {
                 </span>
               ))}
             </div>
-            <Progress value={((step + 1) / steps.length) * 100} className="mt-2 h-1" />
+            <Progress value={((step + 1) / steps.length) * 100} className="mt-1.5 h-1" />
           </div>
 
-          <div className="rounded-2xl bg-card p-5 sm:p-6 shadow-sm ring-1 ring-border overflow-hidden">
+          <div className="flex flex-col rounded-2xl bg-card p-4 sm:p-6 shadow-sm ring-1 ring-border">
+            <div>
             <AnimatePresence custom={direction} mode="wait">
               <motion.div
                 key={step}
@@ -376,13 +406,21 @@ export default function Onboarding() {
                         </Select>
                       </Field>
                       <Field label="Trường / Nơi làm việc *" error={errors.schoolOrCompany}>
-                        <Input
+                        <SchoolOrWorkplaceInput
                           value={schoolOrCompany}
-                          onChange={(e) => {
-                            setSchoolOrCompany(e.target.value);
+                          onChange={(val) => {
+                            setSchoolOrCompany(val);
                             if (errors.schoolOrCompany) setErrors(prev => ({ ...prev, schoolOrCompany: "" }));
                           }}
-                          placeholder="Ví dụ: ĐH Kinh tế TP.HCM hoặc Công ty VNG"
+                          onDistrictDetected={handleSchoolDistrictDetected}
+                        />
+                      </Field>
+                      <Field label="Giới thiệu ngắn về bạn (khuyến khích +10đ uy tín)" className="sm:col-span-2">
+                        <Textarea
+                          rows={2}
+                          value={bio}
+                          onChange={(e) => setBio(e.target.value)}
+                          placeholder="Ví dụ: Mình là sinh viên năm 3, tính tình vui vẻ, sạch sẽ, muốn tìm phòng yên tĩnh hoặc bạn ở ghép hợp gu..."
                         />
                       </Field>
                     </div>
@@ -405,8 +443,8 @@ export default function Onboarding() {
                               if (errors.interests) setErrors(prev => ({ ...prev, interests: "" }));
                             }}
                             className={cn(
-                              "rounded-full border px-4 py-2 text-sm transition",
-                              on ? "border-primary bg-mint text-primary font-medium shadow-sm" : "border-border text-muted-foreground hover:border-primary/40",
+                              "rounded-full border px-4 py-2 text-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xs active:translate-y-0",
+                              on ? "border-primary bg-mint text-primary font-medium shadow-sm" : "border-border text-muted-foreground hover:border-primary/50 hover:bg-mint/40 hover:text-foreground",
                             )}
                           >
                             {opt}
@@ -665,66 +703,79 @@ export default function Onboarding() {
 
                 {/* STEP 3: ROOM PREFERENCES */}
                 {step === 3 && (
-                  <div className="space-y-6">
+                  <div className="space-y-3.5">
                     <Header title="Nhu cầu ở (bắt buộc)" sub="Bộ lọc này cần hoàn tất trước khi vuốt phòng" />
 
-                    <Field label="Mục đích tìm kiếm chính">
-                      <div className="grid gap-2.5 sm:grid-cols-2">
-                        <button
-                          type="button"
-                          onClick={() => setIsPublic(true)}
-                          className={cn(
-                            "flex flex-col items-start p-3 rounded-xl border text-left transition-all cursor-pointer",
-                            isPublic
-                              ? "border-primary bg-primary/[0.04] ring-1 ring-primary/20 shadow-xs"
-                              : "border-border/80 bg-card hover:border-border hover:bg-muted/30"
-                          )}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-xs font-semibold text-foreground">Tìm phòng & Ở ghép</span>
-                            <div className={cn(
-                              "size-4 rounded-full border flex items-center justify-center transition-all",
-                              isPublic ? "border-primary bg-primary" : "border-muted-foreground/30"
-                            )}>
-                              {isPublic && <div className="size-1.5 rounded-full bg-white" />}
+                    <div className="grid gap-3.5 lg:grid-cols-[1.2fr_1fr] lg:items-start">
+                      <Field label="Mục đích tìm kiếm chính">
+                        <div className="grid gap-2.5 sm:grid-cols-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsPublic(true)}
+                            className={cn(
+                              "flex flex-col items-start p-2.5 rounded-xl border text-left transition-all cursor-pointer",
+                              isPublic
+                                ? "border-primary bg-primary/[0.04] ring-1 ring-primary/20 shadow-xs"
+                                : "border-border/80 bg-card hover:border-border hover:bg-muted/30"
+                            )}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span className="text-xs font-semibold text-foreground">Tìm phòng & Ở ghép</span>
+                              <div className={cn(
+                                "size-4 rounded-full border flex items-center justify-center transition-all",
+                                isPublic ? "border-primary bg-primary" : "border-muted-foreground/30"
+                              )}>
+                                {isPublic && <div className="size-1.5 rounded-full bg-white" />}
+                              </div>
                             </div>
-                          </div>
-                          <span className="text-[11px] text-muted-foreground mt-1">
-                            Công khai hồ sơ tìm bạn để ghép đôi với người có cùng thói quen
-                          </span>
-                        </button>
+                            <span className="text-[11px] text-muted-foreground mt-0.5">
+                              Công khai hồ sơ tìm bạn để ghép đôi với người có cùng thói quen
+                            </span>
+                          </button>
 
-                        <button
-                          type="button"
-                          onClick={() => setIsPublic(false)}
-                          className={cn(
-                            "flex flex-col items-start p-3 rounded-xl border text-left transition-all cursor-pointer",
-                            !isPublic
-                              ? "border-primary bg-primary/[0.04] ring-1 ring-primary/20 shadow-xs"
-                              : "border-border/80 bg-card hover:border-border hover:bg-muted/30"
-                          )}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-xs font-semibold text-foreground">Chỉ tìm phòng ở riêng</span>
-                            <div className={cn(
-                              "size-4 rounded-full border flex items-center justify-center transition-all",
-                              !isPublic ? "border-primary bg-primary" : "border-muted-foreground/30"
-                            )}>
-                              {!isPublic && <div className="size-1.5 rounded-full bg-white" />}
+                          <button
+                            type="button"
+                            onClick={() => setIsPublic(false)}
+                            className={cn(
+                              "flex flex-col items-start p-2.5 rounded-xl border text-left transition-all cursor-pointer",
+                              !isPublic
+                                ? "border-primary bg-primary/[0.04] ring-1 ring-primary/20 shadow-xs"
+                                : "border-border/80 bg-card hover:border-border hover:bg-muted/30"
+                            )}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span className="text-xs font-semibold text-foreground">Chỉ tìm phòng ở riêng</span>
+                              <div className={cn(
+                                "size-4 rounded-full border flex items-center justify-center transition-all",
+                                !isPublic ? "border-primary bg-primary" : "border-muted-foreground/30"
+                              )}>
+                                {!isPublic && <div className="size-1.5 rounded-full bg-white" />}
+                              </div>
                             </div>
-                          </div>
-                          <span className="text-[11px] text-muted-foreground mt-1">
-                            Ở một mình, ẩn hồ sơ khỏi mục tìm bạn cùng phòng
-                          </span>
-                        </button>
+                            <span className="text-[11px] text-muted-foreground mt-0.5">
+                              Ở một mình, ẩn hồ sơ khỏi mục tìm bạn cùng phòng
+                            </span>
+                          </button>
+                        </div>
+                      </Field>
+
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                        <Field label={`Ngân sách dự kiến: ${(budget[0] / 1e6).toFixed(1)} - ${(budget[1] / 1e6).toFixed(1)} triệu/tháng`}>
+                          <Slider value={budget} onValueChange={setBudget} min={500000} max={8000000} step={100000} className="py-1.5" />
+                        </Field>
+                        <Field label="Loại phòng ưu tiên">
+                          <Select value={preferredRoomType} onValueChange={setPreferredRoomType}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {roomTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </Field>
                       </div>
-                    </Field>
+                    </div>
 
-                    <Field label={`Ngân sách dự kiến: ${(budget[0] / 1e6).toFixed(1)} - ${(budget[1] / 1e6).toFixed(1)} triệu/tháng`}>
-                      <Slider value={budget} onValueChange={setBudget} min={500000} max={8000000} step={100000} className="py-2" />
-                    </Field>
                     <Field label="Khu vực mong muốn *" error={errors.districts}>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1.5">
                         {districts.map((d) => {
                           const on = selDistricts.includes(d);
                           return (
@@ -736,8 +787,8 @@ export default function Onboarding() {
                                 if (errors.districts) setErrors(prev => ({ ...prev, districts: "" }));
                               }}
                               className={cn(
-                                "rounded-full border px-3 py-1.5 text-sm transition",
-                                on ? "border-primary bg-mint text-primary font-medium shadow-sm" : "border-border text-muted-foreground hover:border-primary/40",
+                                "rounded-full border px-3 py-1 text-xs sm:text-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xs active:translate-y-0 cursor-pointer",
+                                on ? "border-primary bg-mint text-primary font-medium shadow-xs" : "border-border text-muted-foreground hover:border-primary/50 hover:bg-mint/40 hover:text-foreground",
                               )}
                             >
                               {d}
@@ -746,36 +797,92 @@ export default function Onboarding() {
                         })}
                       </div>
                       {selDistricts.length === 0 && (
-                        <p className="text-xs text-amber-600 mt-1">Vui lòng chọn ít nhất 1 quận/huyện bạn muốn ở</p>
+                        <p className="text-xs text-amber-600 mt-0.5">Vui lòng chọn ít nhất 1 quận/huyện bạn muốn ở</p>
                       )}
                     </Field>
-                    <Field label="Loại phòng ưu tiên">
-                      <Select value={preferredRoomType} onValueChange={setPreferredRoomType}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {roomTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </Field>
+
                     <Field label="Ưu tiên vị trí gần">
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <label className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2 text-sm cursor-pointer">
-                          <input type="checkbox" checked={proximitySchool} onChange={(e) => setProximitySchool(e.target.checked)} className="accent-primary" />
-                          Gần trường học
+                      <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
+                        <label className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2 text-xs sm:text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={proximitySchool}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setProximitySchool(checked);
+                              const dist = detectedSchoolDistrict || inferDistrictFromSchoolOrPlace(schoolOrCompany);
+                              if (checked && dist) {
+                                setSelDistricts((prev) => (prev.includes(dist) ? prev : [...prev, dist]));
+                              }
+                            }}
+                            className="accent-primary"
+                          />
+                          <span className="truncate">
+                            Gần trường học
+                            {(detectedSchoolDistrict || inferDistrictFromSchoolOrPlace(schoolOrCompany))
+                              ? ` (${detectedSchoolDistrict || inferDistrictFromSchoolOrPlace(schoolOrCompany)})`
+                              : ""}
+                          </span>
                         </label>
-                        <label className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2 text-sm cursor-pointer">
-                          <input type="checkbox" checked={proximityWork} onChange={(e) => setProximityWork(e.target.checked)} className="accent-primary" />
-                          Gần chỗ làm
+                        <label className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2 text-xs sm:text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={proximityWork}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setProximityWork(checked);
+                              const dist = detectedSchoolDistrict || inferDistrictFromSchoolOrPlace(schoolOrCompany);
+                              if (checked && dist) {
+                                setSelDistricts((prev) => (prev.includes(dist) ? prev : [...prev, dist]));
+                              }
+                            }}
+                            className="accent-primary"
+                          />
+                          <span className="truncate">
+                            Gần chỗ làm
+                            {(detectedSchoolDistrict || inferDistrictFromSchoolOrPlace(schoolOrCompany))
+                              ? ` (${detectedSchoolDistrict || inferDistrictFromSchoolOrPlace(schoolOrCompany)})`
+                              : ""}
+                          </span>
                         </label>
-                        <label className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2 text-sm cursor-pointer">
+                        <label className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2 text-xs sm:text-sm cursor-pointer">
                           <input type="checkbox" checked={proximityMarket} onChange={(e) => setProximityMarket(e.target.checked)} className="accent-primary" />
-                          Gần chợ / siêu thị
+                          <span className="truncate">Gần chợ / siêu thị</span>
                         </label>
-                        <label className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2 text-sm cursor-pointer">
+                        <label className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2 text-xs sm:text-sm cursor-pointer">
                           <input type="checkbox" checked={proximityBus} onChange={(e) => setProximityBus(e.target.checked)} className="accent-primary" />
-                          Gần trạm xe buýt
+                          <span className="truncate">Gần trạm xe buýt</span>
                         </label>
                       </div>
+
+                      {(proximitySchool || proximityWork) && (
+                        <div className="mt-2 rounded-xl border border-primary/20 bg-mint/30 p-2.5">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="text-xs text-foreground">
+                              <span className="font-semibold text-primary">Trường học / Nơi làm việc của bạn:</span>{" "}
+                              {detectedSchoolDistrict || inferDistrictFromSchoolOrPlace(schoolOrCompany) ? (
+                                <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary ml-1">
+                                  Tự động ưu tiên: {detectedSchoolDistrict || inferDistrictFromSchoolOrPlace(schoolOrCompany)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">Chọn địa điểm bên dưới để tự động khoanh vùng Quận gần nhất</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="mt-1.5">
+                            <SchoolOrWorkplaceInput
+                              value={schoolOrCompany}
+                              onChange={(val) => {
+                                setSchoolOrCompany(val);
+                                const inferred = inferDistrictFromSchoolOrPlace(val);
+                                if (inferred) handleSchoolDistrictDetected(inferred);
+                              }}
+                              onDistrictDetected={handleSchoolDistrictDetected}
+                              placeholder="Nhập tên trường học hoặc công ty để tự động gợi ý Quận gần nhất..."
+                            />
+                          </div>
+                        </div>
+                      )}
                     </Field>
                   </div>
                 )}
@@ -851,7 +958,7 @@ export default function Onboarding() {
                             <span title="Đã tải CCCD"><ShieldCheck className="size-4 text-primary shrink-0" /></span>
                           ) : (
                             <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 shrink-0">
-                              Chưa KYC
+                              Chưa xác minh
                             </span>
                           )}
                         </div>
@@ -874,8 +981,9 @@ export default function Onboarding() {
                 )}
               </motion.div>
             </AnimatePresence>
+            </div>
 
-            <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3.5">
+            <div className="shrink-0 mt-3 flex items-center justify-between border-t border-border/60 pt-3 bg-card">
               <Button variant="ghost" onClick={back} className="gap-1"><ArrowLeft className="size-4" /> Quay lại</Button>
               <Button onClick={next} disabled={isSubmitting} className="gap-1">
                 {isSubmitting ? (

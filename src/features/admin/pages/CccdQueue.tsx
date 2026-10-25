@@ -459,11 +459,11 @@ export default function CccdQueue() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-2xl p-0 overflow-hidden rounded-2xl border bg-card shadow-2xl">
+        <DialogContent className="sm:max-w-2xl max-h-[calc(100dvh-2rem)] p-0 overflow-hidden rounded-2xl border bg-card shadow-2xl">
           {selected && (
-            <div>
+            <div className="flex flex-col max-h-[calc(100dvh-2rem)]">
               {/* Header profile */}
-              <div className="p-6 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-b">
+              <div className="shrink-0 p-5 sm:p-6 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-b">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <Avatar className="size-14 ring-2 ring-emerald-600/20 shadow-sm shrink-0">
@@ -495,7 +495,7 @@ export default function CccdQueue() {
               </div>
 
               {/* Document Image Previews */}
-              <div className="p-6 space-y-4">
+              <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Ảnh chụp giấy tờ đính kèm
@@ -542,7 +542,7 @@ export default function CccdQueue() {
               </div>
 
               {/* Modal Actions */}
-              <div className="px-6 py-4 bg-muted/20 border-t flex items-center justify-between gap-3">
+              <div className="shrink-0 px-5 sm:px-6 py-3.5 bg-muted/20 border-t flex items-center justify-between gap-3">
                 <Button variant="outline" size="sm" onClick={() => setModalOpen(false)} className="cursor-pointer text-xs">
                   Đóng
                 </Button>

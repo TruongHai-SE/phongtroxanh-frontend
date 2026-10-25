@@ -3,14 +3,14 @@ import { Skeleton } from "./skeleton";
 export function RoomCardSkeleton() {
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-3xl bg-card shadow-xl ring-1 ring-border">
-      {/* Gallery placeholder matching BigRoomCard grid (height: 230px) */}
-      <div className="relative grid w-full gap-1 overflow-hidden shrink-0 grid-cols-3 grid-rows-2" style={{ height: 230 }}>
+      {/* Gallery placeholder matching BigRoomCard grid */}
+      <div className="relative grid h-[clamp(145px,22dvh,225px)] w-full gap-1 overflow-hidden shrink-0 grid-cols-3 grid-rows-2">
         <Skeleton className="size-full rounded-none col-span-2 row-span-2" />
         <Skeleton className="size-full rounded-none" />
         <Skeleton className="size-full rounded-none" />
       </div>
 
-      <div className="flex flex-1 flex-col justify-between p-4 sm:p-5">
+      <div className="flex flex-1 flex-col justify-between p-4 sm:p-5 min-h-0 overflow-hidden">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             {/* Room type label placeholder */}
@@ -52,7 +52,7 @@ export function RoommateCardSkeleton() {
   return (
     <div className="relative h-full flex flex-col overflow-hidden rounded-3xl bg-card shadow-xl ring-1 ring-border">
       {/* Avatar block placeholder */}
-      <div className="relative w-full overflow-hidden shrink-0" style={{ height: 230 }}>
+      <div className="relative h-[clamp(145px,22dvh,215px)] w-full overflow-hidden shrink-0">
         <Skeleton className="size-full rounded-none" />
       </div>
 
@@ -101,7 +101,7 @@ export function RoomDetailSkeleton() {
       </div>
 
       {/* Gallery skeleton */}
-      <div className="relative grid gap-2 overflow-hidden rounded-2xl md:grid-cols-4 md:grid-rows-2" style={{ height: 420 }}>
+      <div className="relative grid h-[clamp(230px,36dvh,380px)] gap-2 overflow-hidden rounded-2xl md:grid-cols-4 md:grid-rows-2">
         <Skeleton className="size-full rounded-none md:col-span-2 md:row-span-2" />
         <Skeleton className="size-full rounded-none md:col-span-2" />
         <Skeleton className="size-full rounded-none" />
@@ -182,14 +182,14 @@ export function RoomDetailSkeleton() {
 
 export function SwipeStageSkeleton({ variant = "room" }: { variant?: "room" | "roommate" }) {
   return (
-    <div className="flex flex-col items-center gap-4 w-full">
+    <div className="flex flex-col items-center gap-2.5 sm:gap-3.5 w-full">
       {/* Swipes left banner placeholder */}
-      <div className="mb-2 md:mb-3 flex justify-center w-full">
+      <div className="mb-1.5 md:mb-2 flex justify-center w-full">
         <Skeleton className="h-7 w-64 rounded-full" />
       </div>
 
       {/* Card deck placeholder */}
-      <div className="relative h-[530px] md:h-[490px] w-full max-w-[380px] sm:max-w-[440px] md:max-w-[680px]">
+      <div className="relative h-[clamp(370px,calc(100dvh-250px),500px)] w-full max-w-[380px] sm:max-w-[440px] md:max-w-[680px]">
         {variant === "room" ? <RoomCardSkeleton /> : <RoommateCardSkeleton />}
       </div>
 

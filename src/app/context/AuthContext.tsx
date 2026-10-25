@@ -130,11 +130,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("ptx_user", JSON.stringify(authUser));
         localStorage.setItem("ptx_role", mappedRole || "");
       }
-    } catch (err) {
-      tokenStorage.clear();
-      setUser(null);
-      localStorage.removeItem("ptx_user");
-      localStorage.removeItem("ptx_role");
+    } catch (err: any) {
+      // Only clear auth state if the token was explicitly rejected (401/403)
+      // or already cleared by single-flight refresh. Do NOT log the user out on
+      // temporary network errors or when the backend server is restarting.
+      if (!tokenStorage.getToken() || err?.status === 401 || err?.status === 403) {
+        tokenStorage.clear();
+        setUser(null);
+        localStorage.removeItem("ptx_user");
+        localStorage.removeItem("ptx_role");
+      }
     } finally {
       setIsLoading(false);
     }

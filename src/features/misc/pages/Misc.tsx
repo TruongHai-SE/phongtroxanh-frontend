@@ -1,12 +1,14 @@
+import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import {
   Search, Users, ShieldCheck, WifiOff, ServerCrash, Home, ShieldAlert,
-  RotateCw, ArrowRight, GraduationCap,
+  RotateCw, ArrowRight, GraduationCap, MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Footer } from "@/components/layouts/MainLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AmenityPill } from "@/components/shared/primitives-compat";
+import { ImageZoomOverlay } from "@/components/shared/ImageZoomOverlay";
 import { getInitials } from "@/lib/utils";
 import { useProfile } from "@/features/account/hooks/useProfile";
 
@@ -18,11 +20,15 @@ export { AboutPage as About };
 export function PublicProfile() {
   const navigate = useNavigate();
   const { profile } = useProfile();
+  const [zoomSrc, setZoomSrc] = useState<string | null>(null);
 
-  const name = profile?.fullName || "Người dùng Phong Trọ Xanh";
-  const school = profile?.school || profile?.job || "Chưa cập nhật trường/nơi làm việc";
+  const isLandlord = profile?.role === "LANDLORD";
+  const name = profile?.fullName || "Người dùng Phòng Trọ Xanh";
+  const school = profile?.schoolOrCompany || profile?.school || profile?.job || "Chưa cập nhật trường/nơi làm việc";
   const bio = profile?.bio || "Chưa cập nhật giới thiệu bản thân.";
-  const interests = profile?.interests?.length ? profile.interests : ["Nấu ăn", "Đọc sách", "Du lịch"];
+  const interests = profile?.interests?.length ? profile.interests : [];
+  const galleryImages = profile?.galleryImages || [];
+  const districts = profile?.preferredDistricts || profile?.targetDistricts || [];
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
@@ -44,18 +50,61 @@ export function PublicProfile() {
         </div>
         <div className="pt-10 p-6">
           <h1 className="brand flex items-center gap-2 text-2xl text-foreground">
-            {name} {profile?.kycStatus === "APPROVED" && <ShieldCheck className="size-5 text-primary" />}
+            {name} {(profile?.kycStatus === "APPROVED" || profile?.isVerified) && <ShieldCheck className="size-5 text-primary" />}
           </h1>
-          <p className="inline-flex items-center gap-1 text-sm text-muted-foreground mt-1">
-            <GraduationCap className="size-4" /> {school}
-          </p>
-          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{bio}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {interests.map((i) => <AmenityPill key={i} label={i} />)}
-          </div>
+          {isLandlord ? (
+            <p className="inline-flex items-center gap-1 text-sm text-muted-foreground mt-1">
+              <MapPin className="size-4 text-primary" /> {profile?.address || "Chủ trọ trên hệ thống"}
+            </p>
+          ) : (
+            <p className="inline-flex items-center gap-1 text-sm text-muted-foreground mt-1">
+              <GraduationCap className="size-4" /> {school}
+            </p>
+          )}
+          <p className="mt-3 text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{bio}</p>
+
+          {districts.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-muted-foreground mb-1.5">
+                {isLandlord ? "Khu vực hoạt động" : "Khu vực tìm phòng"}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {districts.map((d) => (
+                  <span key={d} className="rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 text-xs font-medium">
+                    {d}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {interests.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {interests.map((i) => <AmenityPill key={i} label={i} />)}
+            </div>
+          )}
+
+          {galleryImages.length > 0 && (
+            <div className="mt-5 pt-4 border-t border-border">
+              <p className="text-xs font-semibold text-muted-foreground mb-2.5">Bộ sưu tập ảnh ({galleryImages.length})</p>
+              <div className="grid grid-cols-3 gap-2.5">
+                {galleryImages.map((url, idx) => (
+                  <button
+                    key={url + idx}
+                    type="button"
+                    onClick={() => setZoomSrc(url)}
+                    className="group aspect-square overflow-hidden rounded-xl border border-border cursor-pointer"
+                  >
+                    <img src={url} alt={`Ảnh ${idx + 1}`} className="size-full object-cover transition-transform group-hover:scale-105" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <Button variant="outline" className="mt-4 w-full" onClick={() => navigate("/profile")}>Quay lại hồ sơ</Button>
+      <ImageZoomOverlay src={zoomSrc} onClose={() => setZoomSrc(null)} alt="Ảnh hồ sơ" />
     </div>
   );
 }
