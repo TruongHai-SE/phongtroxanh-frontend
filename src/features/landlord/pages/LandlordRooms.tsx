@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { PlusCircle, Eye, Pencil, ExternalLink, Home, Loader2, Rocket, ImageOff, RefreshCw } from "lucide-react";
+import { PlusCircle, Eye, EyeOff, Pencil, ExternalLink, Home, Loader2, Rocket, ImageOff, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -167,7 +167,7 @@ export default function LandlordRooms() {
         depositAmount: form.depositAmount,
         description: form.description.trim(),
         amenities: form.amenities,
-        fees: stateToFees(fees),
+        fees: stateToFees(fees, form.amenities),
         images: finalUrls,
         // Only send address when changed: BE re-geocodes on address updates
         ...(addressChanged ? { addressStreet: form.addressStreet.trim(), district: form.district } : {}),
@@ -196,6 +196,29 @@ export default function LandlordRooms() {
   };
 
   const [renewing, setRenewing] = useState<string | null>(null);
+  const [togglingStatus, setTogglingStatus] = useState<string | null>(null);
+
+  const toggleVisibility = async (r: MyRoom) => {
+    if (r.status === "RENTED") {
+      toast.error("Phòng đang có hợp đồng thuê hiệu lực, không thể ẩn hoặc mở trống thủ công.");
+      return;
+    }
+    const nextStatus = r.status === "AVAILABLE" ? "HIDDEN" : "AVAILABLE";
+    setTogglingStatus(r.id);
+    try {
+      await roomsApi.updateRoomStatus(r.id, nextStatus);
+      toast.success(
+        nextStatus === "HIDDEN"
+          ? "Đã tạm ẩn tin đăng phòng khỏi kết quả tìm kiếm."
+          : "Đã mở lại tin đăng phòng ở trạng thái Còn trống!"
+      );
+      load();
+    } catch (err: any) {
+      toast.error("Không thể cập nhật trạng thái phòng", { description: err?.message });
+    } finally {
+      setTogglingStatus(null);
+    }
+  };
 
   const renew = async (id: string) => {
     setRenewing(id);
@@ -313,6 +336,27 @@ export default function LandlordRooms() {
                     >
                       {boosting === r.id ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}
                     </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title={
+                        r.status === "RENTED"
+                          ? "Phòng đang có người thuê hiệu lực"
+                          : r.status === "AVAILABLE"
+                          ? "Tạm ẩn tin đăng"
+                          : "Mở lại tin đăng (Còn trống)"
+                      }
+                      disabled={togglingStatus !== null || r.status === "RENTED"}
+                      onClick={() => toggleVisibility(r)}
+                    >
+                      {togglingStatus === r.id ? (
+                        <Loader2 className="size-4 animate-spin text-primary" />
+                      ) : r.status === "AVAILABLE" ? (
+                        <EyeOff className="size-4 text-slate-600" />
+                      ) : (
+                        <Eye className="size-4 text-emerald-600" />
+                      )}
+                    </Button>
                     <Button size="icon" variant="ghost" title="Chỉnh sửa" onClick={() => openEdit(r.id)}><Pencil className="size-4" /></Button>
                     <Button size="icon" variant="ghost" title="Xem trang phòng" onClick={() => navigate(`/rooms/${r.id}`)}><ExternalLink className="size-4" /></Button>
                   </TableCell>
@@ -354,7 +398,18 @@ export default function LandlordRooms() {
                   <F label="Tiền đặt cọc">
                     <MoneyInput value={form.depositAmount} onChange={(v) => set({ depositAmount: v })} suffix="đ" placeholder="0" />
                   </F>
-                  <FeeFields value={fees} onChange={setFees} />
+                  <FeeFields
+                    value={fees}
+                    onChange={setFees}
+                    amenities={form.amenities}
+                    onToggleAmenity={(a) =>
+                      set({
+                        amenities: form.amenities.includes(a)
+                          ? form.amenities.filter((x) => x !== a)
+                          : [...form.amenities, a],
+                      })
+                    }
+                  />
                   <F label="Địa chỉ cụ thể">
                     <Input value={form.addressStreet} maxLength={255} onChange={(e) => set({ addressStreet: e.target.value })} />
                   </F>

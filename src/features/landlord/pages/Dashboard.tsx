@@ -210,7 +210,25 @@ export default function LandlordDashboard() {
               <div key={r.id} className="overflow-hidden rounded-2xl bg-card ring-1 ring-border">
                 <div className="relative">
                   <ImageWithFallback src={r.images[0]} alt={r.title} className="aspect-[4/3] w-full object-cover" />
-                  <Badge className={`absolute left-3 top-3 ${r.status === "AVAILABLE" ? "bg-emerald-600 text-white" : "bg-warning text-white"}`}>{r.status === "AVAILABLE" ? "Còn trống" : "Đã thuê"}</Badge>
+                  <Badge
+                    className={`absolute left-3 top-3 ${
+                      r.status === "AVAILABLE"
+                        ? "bg-emerald-600 text-white"
+                        : r.status === "RENTED"
+                        ? "bg-warning text-white"
+                        : r.status === "EXPIRED"
+                        ? "bg-destructive text-white"
+                        : "bg-slate-700 text-white"
+                    }`}
+                  >
+                    {r.status === "AVAILABLE"
+                      ? "Còn trống"
+                      : r.status === "RENTED"
+                      ? "Đã thuê"
+                      : r.status === "EXPIRED"
+                      ? "Hết hạn"
+                      : "Đang ẩn"}
+                  </Badge>
                 </div>
                 <div className="space-y-1 p-4">
                   <h3 className="line-clamp-1 text-sm">{r.title}</h3>

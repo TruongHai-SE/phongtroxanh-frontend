@@ -43,11 +43,11 @@ export function MoneyInput({
 /* ---------- Fees (amount + unit) ---------- */
 
 type Unit = { label: string; amount: boolean };
-export const FEES: { label: string; units: Unit[] }[] = [
+export const FEES: { label: string; requiredAmenity?: string; units: Unit[] }[] = [
   { label: "Tiền điện", units: [{ label: "đ/kWh", amount: true }, { label: "Theo giá nhà nước", amount: false }, { label: "Miễn phí", amount: false }] },
   { label: "Tiền nước", units: [{ label: "đ/người/tháng", amount: true }, { label: "đ/m³", amount: true }, { label: "Miễn phí", amount: false }] },
-  { label: "Wi-Fi", units: [{ label: "đ/phòng/tháng", amount: true }, { label: "Miễn phí", amount: false }, { label: "Không có", amount: false }] },
-  { label: "Phí giữ xe", units: [{ label: "đ/xe/tháng", amount: true }, { label: "Miễn phí", amount: false }, { label: "Không có", amount: false }] },
+  { label: "Wi-Fi", requiredAmenity: "Wi-Fi", units: [{ label: "đ/phòng/tháng", amount: true }, { label: "Miễn phí", amount: false }] },
+  { label: "Phí giữ xe", requiredAmenity: "Bãi xe", units: [{ label: "đ/xe/tháng", amount: true }, { label: "Miễn phí", amount: false }] },
 ];
 
 export type FeeState = Record<string, { unit: string; amount: number }>;
@@ -69,10 +69,15 @@ export function feesToState(fees: RoomFee[] = []): FeeState {
   );
 }
 
-/** Form state -> API fees; amount-based fees left empty are omitted. */
-export function stateToFees(state: FeeState): RoomFee[] {
+/** Form state -> API fees; amount-based fees left empty or unselected amenity fees are omitted. */
+export function stateToFees(state: FeeState, amenities?: string[]): RoomFee[] {
   return FEES.flatMap((f) => {
-    const { unit, amount } = state[f.label];
+    if (f.requiredAmenity && amenities && !amenities.includes(f.requiredAmenity)) {
+      return [];
+    }
+    const entry = state[f.label];
+    if (!entry) return [];
+    const { unit, amount } = entry;
     if (needsAmount(f.label, unit)) {
       return amount ? [{ feeLabel: f.label, feeValue: `${amount.toLocaleString("vi-VN")}${unit}` }] : [];
     }
@@ -80,17 +85,47 @@ export function stateToFees(state: FeeState): RoomFee[] {
   });
 }
 
-export function FeeFields({ value, onChange }: { value: FeeState; onChange: (v: FeeState) => void }) {
+export function FeeFields({
+  value,
+  onChange,
+  amenities,
+  onToggleAmenity,
+}: {
+  value: FeeState;
+  onChange: (v: FeeState) => void;
+  amenities?: string[];
+  onToggleAmenity?: (amenity: string) => void;
+}) {
   const set = (label: string, patch: Partial<FeeState[string]>) =>
     onChange({ ...value, [label]: { ...value[label], ...patch } });
+
+  const visibleFees = FEES.filter(
+    (f) => !f.requiredAmenity || !amenities || amenities.includes(f.requiredAmenity)
+  );
+  const hiddenAmenityFees = FEES.filter(
+    (f) => f.requiredAmenity && amenities && !amenities.includes(f.requiredAmenity)
+  );
+
   return (
     <>
-      {FEES.map((f) => {
+      {visibleFees.map((f) => {
         const { unit, amount } = value[f.label];
         const hasAmount = needsAmount(f.label, unit);
         return (
           <div key={f.label} className="space-y-1.5 w-full">
-            <Label className="text-xs font-semibold text-foreground">{f.label}</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold text-foreground">{f.label}</Label>
+              {f.requiredAmenity && onToggleAmenity && (
+                <button
+                  type="button"
+                  onClick={() => onToggleAmenity(f.requiredAmenity!)}
+                  className="text-[11px] text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                  title={`Bỏ tiện ích ${f.requiredAmenity}`}
+                >
+                  Bỏ {f.requiredAmenity}
+                </button>
+              )}
+            </div>
             <div className="flex gap-2">
               <MoneyInput
                 value={hasAmount ? amount : 0}
@@ -109,6 +144,24 @@ export function FeeFields({ value, onChange }: { value: FeeState; onChange: (v: 
           </div>
         );
       })}
+
+      {hiddenAmenityFees.length > 0 && onToggleAmenity && (
+        <div className="sm:col-span-2 flex flex-wrap items-center gap-2 pt-1">
+          <span className="text-[11px] text-muted-foreground">
+            Chưa chọn ở bước Thông tin (không cần nhập phí):
+          </span>
+          {hiddenAmenityFees.map((f) => (
+            <button
+              key={f.label}
+              type="button"
+              onClick={() => onToggleAmenity(f.requiredAmenity!)}
+              className="inline-flex items-center gap-1 rounded-full border border-dashed border-primary/40 bg-mint/30 px-2.5 py-1 text-[11px] font-medium text-primary hover:bg-mint/70 transition cursor-pointer"
+            >
+              + Thêm tiện ích {f.requiredAmenity} & nhập {f.label.toLowerCase()}
+            </button>
+          ))}
+        </div>
+      )}
     </>
   );
 }
