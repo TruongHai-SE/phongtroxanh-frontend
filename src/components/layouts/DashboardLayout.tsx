@@ -48,7 +48,27 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
   const location = useLocation();
   const { logout, user, role } = useAuth();
   const nav = variant === "landlord" ? landlordNav : adminNav;
-  const { notifications, unreadCount: unread } = useNotifications();
+  const { notifications, unreadCount: unread, markAsRead, markAllAsRead } = useNotifications();
+
+  const handleNotificationClick = (n: any) => {
+    if (n.unread) {
+      markAsRead(n.id);
+    }
+    const d = n.data || {};
+    if (variant === "landlord") {
+      if (d.rentalId || n.title?.toLowerCase().includes("thuê") || n.title?.toLowerCase().includes("hợp đồng")) {
+        navigate("/landlord?tab=tenants");
+      } else if (d.swapId || n.title?.toLowerCase().includes("chuyển nhượng") || n.title?.toLowerCase().includes("hoán đổi")) {
+        navigate("/landlord?tab=swaps");
+      } else if (d.conversationId || n.title?.toLowerCase().includes("tin nhắn")) {
+        navigate(`/landlord?tab=chat${d.conversationId ? `&cid=${d.conversationId}` : ""}`);
+      } else {
+        navigate("/notifications");
+      }
+    } else {
+      navigate("/notifications");
+    }
+  };
 
   useEffect(() => {
     if (variant === "landlord" && user && role !== "admin" && user.isOnboarded === false) {
@@ -111,7 +131,8 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="relative inline-flex size-9 items-center justify-center rounded-full text-sm text-muted-foreground transition-colors duration-200 hover:bg-mint hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  type="button"
+                  className="relative inline-flex size-9 cursor-pointer items-center justify-center rounded-full text-sm text-muted-foreground transition-all duration-150 hover:bg-mint hover:text-primary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label="Thông báo"
                 >
                   <Bell className="size-5" />
@@ -122,18 +143,43 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-80">
                 <DropdownMenuLabel className="flex items-center justify-between">
-                  Thông báo <Badge variant="secondary">{unread} mới</Badge>
+                  <span>Thông báo</span>
+                  <div className="flex items-center gap-2">
+                    {unread > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markAllAsRead();
+                        }}
+                        className="text-[11px] font-medium text-primary hover:underline cursor-pointer"
+                      >
+                        Đánh dấu đã đọc
+                      </button>
+                    )}
+                    <Badge variant="secondary">{unread} mới</Badge>
+                  </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {notifications.slice(0, 4).map((n) => (
-                  <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-0.5 py-2 cursor-pointer transition-colors duration-150 hover:bg-mint/40">
-                    <span className="flex w-full items-center gap-2">
-                      {n.unread && <span className="size-1.5 rounded-full bg-primary" />}
-                      <span className="text-sm font-medium">{n.title}</span>
-                    </span>
-                    <span className="text-xs text-muted-foreground">{n.desc}</span>
-                  </DropdownMenuItem>
-                ))}
+                {notifications.length === 0 ? (
+                  <div className="py-4 px-3 text-center text-xs text-muted-foreground">
+                    Chưa có thông báo mới
+                  </div>
+                ) : (
+                  notifications.slice(0, 5).map((n) => (
+                    <DropdownMenuItem
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      className="flex flex-col items-start gap-0.5 py-2 cursor-pointer transition-colors duration-150 hover:bg-mint/40"
+                    >
+                      <span className="flex w-full items-center gap-2">
+                        {n.unread && <span className="size-1.5 rounded-full bg-primary shrink-0" />}
+                        <span className="text-sm font-medium line-clamp-1">{n.title}</span>
+                      </span>
+                      <span className="text-xs text-muted-foreground line-clamp-2">{n.desc}</span>
+                    </DropdownMenuItem>
+                  ))
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate("/notifications")} className="justify-center text-primary font-semibold cursor-pointer transition-colors hover:bg-mint/60">
                   Xem tất cả
@@ -143,7 +189,10 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
 
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <button className="ml-1 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-opacity duration-200 hover:opacity-85 active:scale-[0.98]">
+                <button
+                  type="button"
+                  className="ml-1 cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all duration-150 hover:opacity-85 hover:ring-2 hover:ring-primary/30 active:scale-95"
+                >
                   <Avatar className="size-8 ring-1 ring-border">
                     <AvatarImage src={user?.avatarUrl || undefined} />
                     <AvatarFallback className="bg-emerald-100 text-emerald-800 font-semibold text-xs">
@@ -171,7 +220,7 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
         </header>
         <main className="flex-1 p-4 lg:p-5 flex flex-col min-h-[70vh]">
           <AnimatePresence mode="wait">
-            <PageTransition key={location.pathname}>
+            <PageTransition key={location.pathname + location.search}>
               <Outlet />
             </PageTransition>
           </AnimatePresence>
