@@ -126,8 +126,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           schoolOrCompany: data.schoolOrCompany,
           isPublic: data.isPublic !== undefined ? Boolean(data.isPublic) : true,
         };
-        setUser(authUser);
-        localStorage.setItem("ptx_user", JSON.stringify(authUser));
+        const nextJson = JSON.stringify(authUser);
+        setUser((prev) => (prev && JSON.stringify(prev) === nextJson ? prev : authUser));
+        localStorage.setItem("ptx_user", nextJson);
         localStorage.setItem("ptx_role", mappedRole || "");
       }
     } catch (err: any) {

@@ -39,7 +39,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { AuthPromptModal } from "@/features/auth/components/AuthPromptModal";
 import { PageTransition } from "@/components/layouts/PageTransition";
 import { useRooms } from "@/features/rooms/hooks/useRooms";
-import { roomImages, districts } from "@/lib/constants";
+import { roomImages, districts, normalizeAmenitiesList } from "@/lib/constants";
 import { api } from "@/lib/api";
 
 interface LandingStats {
@@ -193,20 +193,11 @@ export default function Landing() {
   const { rooms: showcaseRooms, isLoading } = useRooms({ size: 50 });
   const isInitialLoading = isLoading && showcaseRooms.length === 0;
 
-  // Trigger silent Backend API GET /api/v1/rooms?... without setting isLoading=true or unmounting DOM
+  // Reset pagination smoothly when filter changes (filtering is instant in-memory on showcaseRooms)
   useEffect(() => {
     setTransitionMode("filter");
     setPageDirection(1);
     setFeaturedPage(0);
-    api
-      .get("/rooms", {
-        size: 50,
-        district: selectedDistrict || undefined,
-        minPrice: currentPriceOption.minPrice,
-        maxPrice: currentPriceOption.maxPrice,
-        roomType: currentQuickFilter.roomType,
-      })
-      .catch(() => {});
   }, [selectedDistrict, currentPriceOption, currentQuickFilter]);
 
   // Count rooms per district from Backend response
@@ -360,10 +351,7 @@ export default function Landing() {
           area: Number(r.areaSqm ?? r.area ?? 22),
           maxOccupants: Number(r.maxOccupants ?? 2),
           typeLabel: ROOM_TYPE_LABELS[rawType] || rawType || "Phòng khép kín",
-          amenities:
-            Array.isArray(r.amenities) && r.amenities.length > 0
-              ? r.amenities.slice(0, 2)
-              : [],
+          amenities: normalizeAmenitiesList(r.amenities).slice(0, 2),
           images: imgs,
           isVerified: Boolean(
             r.isVerified ?? r.landlord?.verified ?? r.landlord?.isVerified ?? false
@@ -2127,10 +2115,7 @@ function FeaturedRoomCard({
   const typeLabel = ROOM_TYPE_LABELS[rawType] || rawType || "Phòng trọ";
   const areaVal = Number(room.areaSqm ?? room.area ?? 0);
   const maxOccupants = Number(room.maxOccupants ?? 2);
-  const amenities: string[] =
-    Array.isArray(room.amenities) && room.amenities.length > 0
-      ? room.amenities.slice(0, 2)
-      : [];
+  const amenities: string[] = normalizeAmenitiesList(room.amenities).slice(0, 2);
   const isVerified = Boolean(
     room.isVerified ?? room.landlord?.verified ?? room.landlord?.isVerified ?? false
   );

@@ -24,12 +24,11 @@ import { SwipeStage } from "@/components/shared/SwipeStage";
 import { FilterSidebar, type RoomFilterState } from "@/features/rooms/components/FilterSidebar";
 import { MatchBadge } from "@/components/shared/primitives-compat";
 import { formatVND, cn } from "@/lib/utils";
-import { inferDistrictFromSchoolOrPlace } from "@/lib/constants";
+import { inferDistrictFromSchoolOrPlace, normalizeAmenitiesList } from "@/lib/constants";
 import type { Room } from "../types/room.types";
 import { useRooms } from "../hooks/useRooms";
 import { roomsApi } from "../api/roomsApi";
 import { accountApi } from "@/features/account/api/accountApi";
-import { useNotifications } from "@/features/notifications/hooks/useNotifications";
 import { useAuth } from "@/app/context/AuthContext";
 import { useMonetization } from "@/app/context/MonetizationContext";
 import { SwipeStageSkeleton } from "@/components/ui/skeleton-loaders";
@@ -86,10 +85,11 @@ function BigRoomCard({
   const maxOccupants = room.maxOccupants ?? 2;
   const isVerified = Boolean(room.isVerified);
   const matchVal = typeof room.match === "number" && room.match > 0 ? room.match : null;
+  const normalizedAmenities = normalizeAmenitiesList(room?.amenities);
   const amenitiesList: string[] =
-    Array.isArray(room?.amenities) && room.amenities.length > 0
-      ? room.amenities
-      : ["Wi-Fi tốc độ cao", "Giờ giấc tự do", "An ninh 24/7"];
+    normalizedAmenities.length > 0
+      ? normalizedAmenities
+      : ["Wi-Fi", "Giờ tự do", "An ninh 24/7"];
 
   const handleGalleryPointerDown = (e: React.PointerEvent) => {
     pointerStartRef.current = { x: e.clientX, y: e.clientY };
@@ -351,7 +351,6 @@ export default function Discover() {
   const { rooms, isLoading, isError, isEmpty, errorMessage, updateFilters, refetch } = useRooms(
     initialPrefFilters
   );
-  const { notifications, isLoading: notifsLoading } = useNotifications();
   const [savedIds, setSavedIds] = useState<Set<string>>(() => {
     try {
       const cached = localStorage.getItem("ptx_saved_room_ids");
@@ -417,6 +416,24 @@ export default function Discover() {
   // Load user's saved onboarding criteria to pre-fill search filters (only when no explicit URL filter is active)
   useEffect(() => {
     if (!user || hasUrlFilters) return;
+    const hasInitialUserPrefs = Boolean(
+      user.preferredDistricts?.length || user.preferredRoomType || user.budgetMin || user.budgetMax
+    );
+    if (hasInitialUserPrefs) {
+      const init: RoomFilterState = {
+        district: user.preferredDistricts?.[0],
+        roomType: user.preferredRoomType,
+        minPrice: user.budgetMin ? Number(user.budgetMin) : undefined,
+        maxPrice: user.budgetMax ? Number(user.budgetMax) : undefined,
+      };
+      setInitialFilters(init);
+      try {
+        sessionStorage.setItem("ptx_discover_filters", JSON.stringify(init));
+      } catch {
+        // ignore
+      }
+      return;
+    }
     async function loadTenantCriteria() {
       try {
         const profile = await accountApi.getProfile();
@@ -462,7 +479,7 @@ export default function Discover() {
       }
     }
     loadTenantCriteria();
-  }, [user, hasUrlFilters]);
+  }, [user?.id, hasUrlFilters]);
 
   // Load user's saved rooms to sync bookmark states
   useEffect(() => {

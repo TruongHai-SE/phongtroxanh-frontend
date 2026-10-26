@@ -57,74 +57,73 @@ export default function LandlordDashboard() {
   useEffect(() => {
     if (tab !== "overview") return;
     async function loadAnalytics() {
-      try {
-        const data = await api.get<any>("/landlord/analytics");
-        if (data) {
-          const recent7DaysViews: number = data.viewsChart7Days && typeof data.viewsChart7Days === "object"
+      const [analyticsRes, roomsRes] = await Promise.allSettled([
+        api.get<any>("/landlord/analytics"),
+        api.get<any[]>("/rooms/landlord/me"),
+      ]);
+
+      if (analyticsRes.status === "fulfilled" && analyticsRes.value) {
+        const data = analyticsRes.value;
+        const recent7DaysViews: number =
+          data.viewsChart7Days && typeof data.viewsChart7Days === "object"
             ? (Object.values(data.viewsChart7Days).reduce((a: any, b: any) => Number(a) + Number(b), 0) as number)
             : 0;
 
-          setStats([
-            {
-              label: "Lượt xem",
-              value: data.totalViews !== undefined ? data.totalViews.toLocaleString("vi-VN") : "0",
-              delta: Number(recent7DaysViews) > 0 ? `+${recent7DaysViews} trong 7 ngày` : "7 ngày qua",
-              icon: Eye,
-            },
-            {
-              label: "Lượt liên hệ",
-              value: data.totalContacts !== undefined ? data.totalContacts.toLocaleString("vi-VN") : "0",
-              delta: "Quan tâm & Lưu",
-              icon: MessageCircle,
-            },
-            {
-              label: "Phòng đang đăng",
-              value: String(data.totalRooms !== undefined ? data.totalRooms : 0),
-              delta: `${data.activeRooms || 0} phòng trống`,
-              icon: Home,
-            },
-            {
-              label: "Tỉ lệ lấp đầy",
-              value: typeof data.occupancyRate === "number" ? `${Math.round(data.occupancyRate)}%` : "0%",
-              delta: data.rentedRooms ? `${data.rentedRooms} đã thuê` : "0 đã thuê",
-              icon: TrendingUp,
-            },
-          ]);
-          if (data.viewsChart7Days && typeof data.viewsChart7Days === "object") {
-            const mapped = Object.entries(data.viewsChart7Days).map(([dateStr, v]) => {
-              const parts = dateStr.split("-");
-              const label = parts.length === 3 ? `${parts[2]}/${parts[1]}` : dateStr;
-              return { d: label, v: Number(v) };
-            });
-            if (mapped.length > 0) setChartData(mapped);
-          }
+        setStats([
+          {
+            label: "Lượt xem",
+            value: data.totalViews !== undefined ? data.totalViews.toLocaleString("vi-VN") : "0",
+            delta: Number(recent7DaysViews) > 0 ? `+${recent7DaysViews} trong 7 ngày` : "7 ngày qua",
+            icon: Eye,
+          },
+          {
+            label: "Lượt liên hệ",
+            value: data.totalContacts !== undefined ? data.totalContacts.toLocaleString("vi-VN") : "0",
+            delta: "Quan tâm & Lưu",
+            icon: MessageCircle,
+          },
+          {
+            label: "Phòng đang đăng",
+            value: String(data.totalRooms !== undefined ? data.totalRooms : 0),
+            delta: `${data.activeRooms || 0} phòng trống`,
+            icon: Home,
+          },
+          {
+            label: "Tỉ lệ lấp đầy",
+            value: typeof data.occupancyRate === "number" ? `${Math.round(data.occupancyRate)}%` : "0%",
+            delta: data.rentedRooms ? `${data.rentedRooms} đã thuê` : "0 đã thuê",
+            icon: TrendingUp,
+          },
+        ]);
+        if (data.viewsChart7Days && typeof data.viewsChart7Days === "object") {
+          const mapped = Object.entries(data.viewsChart7Days).map(([dateStr, v]) => {
+            const parts = dateStr.split("-");
+            const label = parts.length === 3 ? `${parts[2]}/${parts[1]}` : dateStr;
+            return { d: label, v: Number(v) };
+          });
+          if (mapped.length > 0) setChartData(mapped);
         }
-      } catch (err) {
-        console.warn("Could not load /landlord/analytics, using default stats:", err);
+      } else if (analyticsRes.status === "rejected") {
+        console.warn("Could not load /landlord/analytics, using default stats:", analyticsRes.reason);
       }
 
-      try {
-        const roomData = await api.get<any[]>("/rooms/landlord/me");
-        if (Array.isArray(roomData)) {
-          const mapped = roomData.map((r: any) => ({
-            id: String(r.id),
-            title: r.title || "Phòng trọ",
-            price: r.price ? Number(r.price) : 0,
-            district: r.district || "TP.HCM",
-            images:
-              r.images && r.images.length > 0
-                ? r.images
-                : r.primaryImageUrl
-                ? [r.primaryImageUrl]
-                : [roomImages[0]],
-            isRented: r.status === "RENTED",
-            status: r.status,
-          }));
-          setMyRooms(mapped.slice(0, 3));
-        } else {
-          setMyRooms([]);
-        }
-      } catch (err) {
+      if (roomsRes.status === "fulfilled" && Array.isArray(roomsRes.value)) {
+        const mapped = roomsRes.value.map((r: any) => ({
+          id: String(r.id),
+          title: r.title || "Phòng trọ",
+          price: r.price ? Number(r.price) : 0,
+          district: r.district || "TP.HCM",
+          images:
+            r.images && r.images.length > 0
+              ? r.images
+              : r.primaryImageUrl
+              ? [r.primaryImageUrl]
+              : [roomImages[0]],
+          isRented: r.status === "RENTED",
+          status: r.status,
+        }));
+        setMyRooms(mapped.slice(0, 3));
+      } else {
         setMyRooms([]);
       }
     }
