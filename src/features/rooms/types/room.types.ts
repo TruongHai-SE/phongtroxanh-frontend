@@ -24,6 +24,7 @@ export interface Room {
   address?: string;
   area: number;
   floor: number;
+  maxOccupants?: number;
   type: string;
   match?: number;
   amenities: string[];
@@ -49,6 +50,7 @@ export interface RoomSummaryResponse {
   address?: string;
   area: number;
   floor: number;
+  maxOccupants?: number;
   type: string;
   match?: number;
   amenities: string[];
@@ -70,6 +72,7 @@ export interface RoomDetailResponse extends RoomSummaryResponse {
   depositAmount?: number;
   areaSqm?: number;
   floorNumber?: number;
+  maxOccupants?: number;
   roomType?: string;
 }
 
@@ -103,6 +106,7 @@ export interface CreateRoomRequest {
   addressStreet?: string;
   depositAmount?: number;
   areaSqm?: number;
+  maxOccupants?: number;
   lat: number;
   lng: number;
   amenities: string[];

@@ -199,7 +199,7 @@ export function SwipeStage<T extends { id: string }>({
 
   return (
     <div className="flex flex-col items-center gap-2.5 sm:gap-3.5 w-full">
-      <div className="relative h-[clamp(370px,calc(100dvh-250px),500px)] w-full max-w-[380px] sm:max-w-[440px] md:max-w-[680px]">
+      <div className="relative h-[clamp(430px,calc(100dvh-235px),515px)] w-full max-w-[380px] sm:max-w-[440px] md:max-w-[680px]">
         {/* Depth peek: a glimpse of the next card sitting behind the top one */}
         {next && (
           <div

@@ -26,6 +26,9 @@ export interface Roommate {
   gender?: string;
   job?: string;
   trustScore?: number;
+  isVerified?: boolean;
+  preferredRoomType?: string;
+  matchHighlights?: string[];
   earlySleeper?: boolean;
   isNeat?: boolean;
   allowGuests?: boolean;

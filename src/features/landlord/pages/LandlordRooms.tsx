@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { PlusCircle, Eye, EyeOff, Pencil, ExternalLink, Home, Loader2, Rocket, ImageOff, RefreshCw } from "lucide-react";
+import { PlusCircle, Eye, EyeOff, Pencil, ExternalLink, Home, Loader2, Rocket, ImageOff, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { formatVND } from "@/lib/utils";
+import { cn, formatVND } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { roomTypes, districts } from "@/lib/constants";
 import { roomsApi } from "@/features/rooms/api/roomsApi";
@@ -34,16 +34,16 @@ type MyRoom = {
   status: string;
   viewCount: number;
   isBoosted: boolean;
+  maxOccupants?: number;
   primaryImageUrl?: string;
-  expiresAt?: string;
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  AVAILABLE: "Còn trống", RENTED: "Đã thuê", HIDDEN: "Đang ẩn", EXPIRED: "Hết hạn",
+  AVAILABLE: "Còn trống", RENTED: "Đã thuê", HIDDEN: "Đang ẩn",
 };
 
 type EditForm = {
-  title: string; roomType: string; areaSqm: string; price: number; depositAmount: number;
+  title: string; roomType: string; areaSqm: string; maxOccupants: string; price: number; depositAmount: number;
   addressStreet: string; district: string; description: string; amenities: string[];
 };
 
@@ -78,8 +78,8 @@ export default function LandlordRooms() {
         status: r.status,
         viewCount: r.viewCount || 0,
         isBoosted: !!r.isBoosted,
+        maxOccupants: r.maxOccupants ?? 2,
         primaryImageUrl: r.primaryImageUrl || undefined,
-        expiresAt: r.expiresAt || undefined,
       })));
       setBoostsLeft(c?.boostsLeft ?? 0);
     } catch (err: any) {
@@ -102,6 +102,7 @@ export default function LandlordRooms() {
         title: r.title ?? "",
         roomType: r.roomType ?? "",
         areaSqm: r.areaSqm != null ? String(r.areaSqm) : "",
+        maxOccupants: r.maxOccupants != null ? String(r.maxOccupants) : "2",
         price: Number(r.price) || 0,
         depositAmount: Number(r.depositAmount) || 0,
         addressStreet: r.addressStreet ?? "",
@@ -142,6 +143,10 @@ export default function LandlordRooms() {
       || !form.addressStreet.trim() || !form.district || !form.description.trim()) {
       return toast.error("Vui lòng điền đầy đủ thông tin bắt buộc");
     }
+    const occ = Number(form.maxOccupants);
+    if (!Number.isInteger(occ) || occ < 1 || occ > 20) {
+      return toast.error("Số người ở tối đa phải là số nguyên từ 1 đến 20 người");
+    }
     if (images.length === 0) return toast.error("Phòng cần ít nhất 1 ảnh");
 
     setSaving(true);
@@ -163,6 +168,7 @@ export default function LandlordRooms() {
         title: form.title.trim(),
         roomType: form.roomType,
         areaSqm: Number(form.areaSqm),
+        maxOccupants: occ,
         price: form.price,
         depositAmount: form.depositAmount,
         description: form.description.trim(),
@@ -195,7 +201,6 @@ export default function LandlordRooms() {
     }
   };
 
-  const [renewing, setRenewing] = useState<string | null>(null);
   const [togglingStatus, setTogglingStatus] = useState<string | null>(null);
 
   const toggleVisibility = async (r: MyRoom) => {
@@ -217,20 +222,6 @@ export default function LandlordRooms() {
       toast.error("Không thể cập nhật trạng thái phòng", { description: err?.message });
     } finally {
       setTogglingStatus(null);
-    }
-  };
-
-  const renew = async (id: string) => {
-    setRenewing(id);
-    try {
-      const res: any = await roomsApi.renewRoom(id);
-      const newExp = res?.expiresAt ? new Date(res.expiresAt).toLocaleDateString("vi-VN") : "thêm 30 ngày";
-      toast.success(`Đã gia hạn tin đăng thành công! (Hạn mới: ${newExp})`);
-      load();
-    } catch (err: any) {
-      toast.error("Không thể gia hạn tin đăng", { description: err?.message });
-    } finally {
-      setRenewing(null);
     }
   };
 
@@ -267,7 +258,7 @@ export default function LandlordRooms() {
               <TableRow className="bg-secondary/50">
                 <TableHead>Phòng</TableHead>
                 <TableHead>Giá</TableHead>
-                <TableHead>Trạng thái & Hạn tin</TableHead>
+                <TableHead>Trạng thái</TableHead>
                 <TableHead>Lượt xem</TableHead>
                 <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
@@ -284,46 +275,29 @@ export default function LandlordRooms() {
                       )}
                       <div>
                         <p className="line-clamp-1 text-sm font-medium">{r.title}</p>
-                        <p className="text-xs text-muted-foreground">{r.district}</p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <span>{r.district}</span>
+                          <span>•</span>
+                          <span className="inline-flex items-center gap-1">
+                            <Users className="size-3" /> Tối đa {r.maxOccupants || 2} người
+                          </span>
+                        </p>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-primary font-semibold">{formatVND(r.price)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-1">
-                      <Badge variant={r.status === "AVAILABLE" ? "default" : r.status === "EXPIRED" ? "destructive" : "outline"}>
+                      <Badge variant={r.status === "AVAILABLE" ? "default" : r.status === "RENTED" ? "secondary" : "outline"}>
                         {STATUS_LABEL[r.status] ?? r.status}
                       </Badge>
                       {r.isBoosted && <Badge variant="secondary" className="gap-1"><Rocket className="size-3" />Đang đẩy</Badge>}
                     </div>
-                    {r.expiresAt && (
-                      <div className="mt-1 text-xs">
-                        {(() => {
-                          const diff = Math.ceil((new Date(r.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-                          if (diff <= 0 || r.status === "EXPIRED") {
-                            return <span className="text-destructive font-medium">Hết hạn</span>;
-                          }
-                          if (diff <= 5) {
-                            return <span className="text-amber-600 font-medium">Còn {diff} ngày</span>;
-                          }
-                          return <span className="text-muted-foreground">Hạn: {new Date(r.expiresAt).toLocaleDateString("vi-VN")}</span>;
-                        })()}
-                      </div>
-                    )}
                   </TableCell>
                   <TableCell>
                     <span className="inline-flex items-center gap-1 text-sm text-muted-foreground"><Eye className="size-3.5" />{r.viewCount}</span>
                   </TableCell>
                   <TableCell className="text-right whitespace-nowrap">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      title="Gia hạn tin đăng thêm 30 ngày"
-                      disabled={renewing !== null}
-                      onClick={() => renew(r.id)}
-                    >
-                      {renewing === r.id ? <Loader2 className="size-4 animate-spin text-primary" /> : <RefreshCw className="size-4 text-emerald-600" />}
-                    </Button>
                     <Button
                       size="icon"
                       variant="ghost"
@@ -382,7 +356,7 @@ export default function LandlordRooms() {
                 <F label="Tiêu đề tin">
                   <Input value={form.title} maxLength={255} onChange={(e) => set({ title: e.target.value })} />
                 </F>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-3">
                   <F label="Loại phòng">
                     <Select value={form.roomType} onValueChange={(v) => set({ roomType: v })}>
                       <SelectTrigger className="w-full"><SelectValue placeholder="Chọn loại phòng" /></SelectTrigger>
@@ -390,8 +364,58 @@ export default function LandlordRooms() {
                     </Select>
                   </F>
                   <F label="Diện tích (m²)">
-                    <Input type="number" min={1} value={form.areaSqm} onChange={(e) => set({ areaSqm: e.target.value })} />
+                    <div className="space-y-1.5">
+                      <Input type="number" min={1} className="tabular-nums" value={form.areaSqm} onChange={(e) => set({ areaSqm: e.target.value })} />
+                      <div className="flex flex-wrap gap-1">
+                        {[18, 22, 25, 30, 35].map((sqm) => (
+                          <button
+                            key={sqm}
+                            type="button"
+                            onClick={() => set({ areaSqm: String(sqm) })}
+                            className={cn(
+                              "rounded-md border px-2 py-0.5 text-[11px] font-medium tabular-nums transition-transform duration-150 active:scale-[0.97] cursor-pointer",
+                              Number(form.areaSqm) === sqm
+                                ? "border-primary bg-mint text-primary"
+                                : "border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                            )}
+                          >
+                            {sqm}m²
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </F>
+                  <F label="Số người ở tối đa">
+                    <div className="space-y-1.5">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={20}
+                        className="tabular-nums"
+                        value={form.maxOccupants}
+                        onChange={(e) => set({ maxOccupants: e.target.value.replace(/[^\d]/g, "") })}
+                      />
+                      <div className="flex flex-wrap gap-1">
+                        {[1, 2, 3, 4].map((occ) => (
+                          <button
+                            key={occ}
+                            type="button"
+                            onClick={() => set({ maxOccupants: String(occ) })}
+                            className={cn(
+                              "rounded-md border px-2 py-0.5 text-[11px] font-medium tabular-nums transition-transform duration-150 active:scale-[0.97] cursor-pointer",
+                              Number(form.maxOccupants) === occ
+                                ? "border-primary bg-mint text-primary"
+                                : "border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                            )}
+                          >
+                            {occ} người
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </F>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
                   <F label="Tiền thuê / tháng">
                     <MoneyInput value={form.price} onChange={(v) => set({ price: v })} suffix="đ" />
                   </F>

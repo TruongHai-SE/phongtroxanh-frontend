@@ -22,9 +22,25 @@ export function TopNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, role, logout } = useAuth();
-  const { openPricing, tier } = useMonetization();
+  const { openPricing, isPricingOpen, tier } = useMonetization();
   const { notifications, unreadCount: unread, markAsRead, markAllAsRead } = useNotifications();
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  const isSavedActive = location.pathname === "/saved";
+  const isBellActive = isNotifOpen || location.pathname === "/notifications";
+  const isChatActive = location.pathname.startsWith("/chat");
+  const isCrownActive =
+    isPricingOpen ||
+    (role === "landlord" &&
+      location.pathname === "/landlord" &&
+      location.search.includes("tab=packages"));
+  const isProfileActive =
+    isUserMenuOpen ||
+    ["/profile", "/edit-profile", "/settings", "/trustscore", "/matches"].some((p) =>
+      location.pathname.startsWith(p)
+    );
 
   const handleNotificationClick = (n: any) => {
     if (n.unread) {
@@ -121,52 +137,119 @@ export function TopNav() {
             </NavLink>
           ))}
         </nav>
-        <div className="flex items-center gap-1 w-52 justify-end shrink-0">
+        <div className="flex items-center gap-1.5 w-52 justify-end shrink-0">
           {user ? (
             <>
-              {role === "tenant" && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={openPricing}
-                  title={tier !== "free" ? "Đặc quyền Premium" : "Nâng cấp Premium"}
+              {(role === "tenant" || role === "landlord") && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    role === "landlord" ? navigate("/landlord?tab=packages") : openPricing()
+                  }
+                  title={
+                    role === "landlord"
+                      ? "Gói dịch vụ VIP"
+                      : tier !== "free"
+                      ? "Đặc quyền Premium"
+                      : "Nâng cấp Premium"
+                  }
+                  aria-label="Gói dịch vụ"
+                  aria-pressed={isCrownActive}
                   className={cn(
-                    "transition-all duration-200 press-active cursor-pointer",
-                    tier !== "free" 
-                      ? "text-amber-500 hover:text-amber-600 hover:bg-amber-50/50"
-                      : "text-muted-foreground hover:text-amber-500 hover:bg-amber-50/50"
+                    "relative inline-flex size-9 items-center justify-center rounded-full transition-all duration-150 active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    isCrownActive
+                      ? "bg-amber-50 text-amber-600 ring-1 ring-amber-300 shadow-2xs"
+                      : tier !== "free"
+                      ? "text-amber-500 hover:bg-amber-50/80 hover:text-amber-600"
+                      : "text-muted-foreground hover:bg-amber-50/80 hover:text-amber-600"
                   )}
                 >
-                  <Crown className={cn("size-5", tier !== "free" && "fill-amber-500")} />
-                </Button>
+                  <Crown
+                    className={cn(
+                      "size-[19px] transition-transform duration-150",
+                      (isCrownActive || tier !== "free") && "fill-amber-500 text-amber-500",
+                      isCrownActive && "scale-105"
+                    )}
+                  />
+                  {isCrownActive && (
+                    <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-3.5 rounded-full bg-amber-500" />
+                  )}
+                </button>
               )}
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => navigate("/saved")} 
-                title="Đã lưu"
-                className="hover:text-destructive text-muted-foreground transition-colors"
+
+              {role !== "admin" && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/saved")}
+                  title="Phòng đã lưu"
+                  aria-label="Phòng đã lưu"
+                  aria-current={isSavedActive ? "page" : undefined}
+                  className={cn(
+                    "relative inline-flex size-9 items-center justify-center rounded-full transition-all duration-150 active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    isSavedActive
+                      ? "bg-rose-50 text-rose-600 ring-1 ring-rose-200/90 shadow-2xs"
+                      : "text-muted-foreground hover:bg-rose-50/70 hover:text-rose-500"
+                  )}
+                >
+                  <Heart
+                    className={cn(
+                      "size-[19px] transition-transform duration-150",
+                      isSavedActive && "fill-rose-500 text-rose-500 scale-105"
+                    )}
+                  />
+                  {isSavedActive && (
+                    <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-3.5 rounded-full bg-rose-500" />
+                  )}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => navigate("/chat")}
+                aria-label="Tin nhắn"
+                className={cn(
+                  "relative md:hidden inline-flex size-9 items-center justify-center rounded-full transition-all duration-150 active:scale-95 cursor-pointer",
+                  isChatActive
+                    ? "bg-mint text-emerald-deep ring-1 ring-primary/30 shadow-2xs"
+                    : "text-muted-foreground hover:bg-mint/70 hover:text-primary"
+                )}
               >
-                <Heart className="size-5" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => navigate("/chat")} 
-                className="md:hidden text-muted-foreground transition-colors"
-              >
-                <MessageCircle className="size-5" />
-              </Button>
-              <DropdownMenu modal={false}>
+                <MessageCircle
+                  className={cn(
+                    "size-[19px] transition-transform duration-150",
+                    isChatActive && "fill-primary/20 text-primary scale-105"
+                  )}
+                />
+                {isChatActive && (
+                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-3.5 rounded-full bg-primary" />
+                )}
+              </button>
+
+              <DropdownMenu open={isNotifOpen} onOpenChange={setIsNotifOpen} modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="relative inline-flex size-9 items-center justify-center rounded-full text-sm text-muted-foreground transition-all duration-150 hover:bg-mint hover:text-primary active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    title="Thông báo"
                     aria-label="Thông báo"
+                    aria-expanded={isNotifOpen}
+                    className={cn(
+                      "relative inline-flex size-9 items-center justify-center rounded-full text-sm transition-all duration-150 active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      isBellActive
+                        ? "bg-mint text-emerald-deep ring-1 ring-primary/30 shadow-2xs"
+                        : "text-muted-foreground hover:bg-mint hover:text-primary"
+                    )}
                   >
-                    <Bell className="size-5" />
+                    <Bell
+                      className={cn(
+                        "size-[19px] transition-transform duration-150",
+                        isBellActive && "fill-primary/20 text-primary scale-105"
+                      )}
+                    />
                     {unread > 0 && (
                       <span className="absolute right-2 top-2 size-2 rounded-full bg-primary ring-2 ring-white" />
+                    )}
+                    {isBellActive && (
+                      <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-3.5 rounded-full bg-primary" />
                     )}
                   </button>
                 </DropdownMenuTrigger>
@@ -215,11 +298,19 @@ export function TopNav() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <DropdownMenu modal={false}>
+
+              <DropdownMenu open={isUserMenuOpen} onOpenChange={setIsUserMenuOpen} modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="rounded-full cursor-pointer transition-transform duration-150 hover:ring-2 hover:ring-primary/30 active:scale-95 focus:outline-hidden"
+                    aria-label="Menu tài khoản"
+                    aria-expanded={isUserMenuOpen}
+                    className={cn(
+                      "rounded-full cursor-pointer transition-all duration-150 active:scale-95 focus:outline-hidden",
+                      isProfileActive
+                        ? "ring-2 ring-primary ring-offset-2 shadow-2xs"
+                        : "hover:ring-2 hover:ring-primary/30"
+                    )}
                   >
                     <Avatar className="size-9 ring-1 ring-border">
                       <AvatarImage src={user?.avatarUrl || undefined} />
