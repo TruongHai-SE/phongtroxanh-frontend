@@ -50,6 +50,7 @@ import {
   inferDistrictFromSchoolOrPlace,
   resolveLandmarkFromQuery,
   calculateDistanceKm,
+  normalizeAmenitiesList,
 } from "@/lib/constants";
 import { roomsApi } from "../api/roomsApi";
 import { accountApi } from "@/features/account/api/accountApi";
@@ -172,7 +173,7 @@ function mapApiRoomToCompareItem(r: any, fallbackIdx = 0): CompareRoomItem {
     maxOccupants: Number(r.maxOccupants || 2),
     type: typeLabel,
     rawRoomType,
-    amenities: Array.isArray(r?.amenities) ? r.amenities : [],
+    amenities: normalizeAmenitiesList(r?.amenities),
     images,
     landlord: {
       id: r?.landlord?.id ? String(r.landlord.id) : undefined,
