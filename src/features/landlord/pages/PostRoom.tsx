@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { roomTypes, districts } from "@/lib/constants";
+import { roomTypes, districts, LANDLORD_AMENITY_OPTIONS } from "@/lib/constants";
 import { cn, formatVND } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { roomsApi } from "@/features/rooms/api/roomsApi";
@@ -38,14 +38,12 @@ import {
 
 const steps = ["Thông tin", "Giá & phí", "Hình ảnh", "Vị trí", "Xem trước"];
 
-export const AMENITY_OPTIONS = [
-  "Máy lạnh", "Wi-Fi", "WC riêng", "Giờ tự do", "Bãi xe", "Bếp riêng", "Ban công", "Thang máy",
-];
+export const AMENITY_OPTIONS = LANDLORD_AMENITY_OPTIONS;
 
 function matchHcmDistrict(text: string): string | undefined {
   const lower = text.toLowerCase();
-  if (lower.includes("thủ đức") || lower.includes("quận 2") || lower.includes("quận 9")) {
-    return "TP. Thủ Đức";
+  if (lower.includes("thủ đức") || lower.includes("quận 2")) {
+    return "Thủ Đức";
   }
   // Sort by length descending so "Quận 10", "Quận 11", "Quận 12" match before "Quận 1"
   const sorted = [...districts].sort((a, b) => b.length - a.length);

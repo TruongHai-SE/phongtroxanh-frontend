@@ -4,7 +4,7 @@ import { ImageWithFallback } from "@/components/shared/ImageWithFallback";
 import { MatchBadge } from "@/components/shared/MatchBadge";
 import { AmenityPill } from "@/components/shared/AmenityPill";
 import { formatVND, cn } from "@/lib/utils";
-import { roomImages } from "@/lib/constants";
+import { roomImages, normalizeAmenitiesList } from "@/lib/constants";
 import type { Room } from "@/types/room";
 
 const ROOM_TYPE_LABELS: Record<string, string> = {
@@ -41,12 +41,13 @@ export function RoomCard({
     (room as any)?.primaryImageUrl ||
     roomImages[0];
 
-  // Safe amenities extraction
+  // Safe amenities extraction (normalizes any legacy English codes to Vietnamese)
   const rawAmenities = (room as any)?.amenities;
+  const normalizedAmenities = normalizeAmenitiesList(rawAmenities);
   const amenitiesList: string[] =
-    Array.isArray(rawAmenities) && rawAmenities.length > 0
-      ? rawAmenities
-      : ["Máy lạnh", "Wi-Fi", "Giờ giấc tự do"];
+    normalizedAmenities.length > 0
+      ? normalizedAmenities
+      : ["Máy lạnh", "Wi-Fi", "Giờ tự do"];
 
   const matchVal = typeof room.match === "number" && room.match > 0 ? room.match : null;
   const priceVal = room.price ? Number(room.price) : 3000000;

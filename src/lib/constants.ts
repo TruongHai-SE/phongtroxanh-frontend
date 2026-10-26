@@ -848,3 +848,96 @@ export const revenueInsightsMock: Record<string, RevenueInsight[]> = {
     { period: "Q2/2026", totalRevenue: 56060000, breakdown: { subscriptions: 27500000, boosts: 16560000, priorityMatching: 8000000, bannerAds: 4000000 } },
   ],
 };
+
+// Canonical Vietnamese amenity options for Landlord Room Creation / Editing & Tenant Filtering
+export const LANDLORD_AMENITY_OPTIONS: string[] = [
+  "Máy lạnh",
+  "Wi-Fi",
+  "WC riêng",
+  "Giờ tự do",
+  "Bãi xe",
+  "Bếp riêng",
+  "Ban công",
+  "Thang máy",
+  "Gác lửng",
+  "Máy nước nóng",
+  "Tủ lạnh",
+  "Máy giặt",
+  "Khóa vân tay",
+  "Camera an ninh",
+  "Bảo vệ 24/7",
+  "Cửa sổ thoáng",
+  "Giường nệm",
+  "Tủ quần áo",
+  "Lò vi sóng",
+  "Tivi",
+  "Dọn vệ sinh",
+  "Tủ khóa cá nhân",
+  "Bếp chung",
+];
+
+const AMENITY_CODE_TO_VI: Record<string, string> = {
+  WIFI: "Wi-Fi",
+  "WI-FI": "Wi-Fi",
+  AIR_CONDITIONER: "Máy lạnh",
+  "MAY LANH": "Máy lạnh",
+  PRIVATE_BATHROOM: "WC riêng",
+  "WC RIENG": "WC riêng",
+  FREE_HOURS: "Giờ tự do",
+  "GIO TU DO": "Giờ tự do",
+  PARKING: "Bãi xe",
+  "BAI XE": "Bãi xe",
+  KITCHEN: "Bếp riêng",
+  "BEP RIENG": "Bếp riêng",
+  BALCONY: "Ban công",
+  "BAN CONG": "Ban công",
+  ELEVATOR: "Thang máy",
+  "THANG MAY": "Thang máy",
+  MEZZANINE: "Gác lửng",
+  "GAC LUNG": "Gác lửng",
+  WATER_HEATER: "Máy nước nóng",
+  "MAY NUOC NONG": "Máy nước nóng",
+  REFRIGERATOR: "Tủ lạnh",
+  "TU LANH": "Tủ lạnh",
+  WASHING_MACHINE: "Máy giặt",
+  "MAY GIAT": "Máy giặt",
+  FINGERPRINT_LOCK: "Khóa vân tay",
+  "KHOA VAN TAY": "Khóa vân tay",
+  CAMERA: "Camera an ninh",
+  SECURITY_24_7: "Bảo vệ 24/7",
+  WINDOW: "Cửa sổ thoáng",
+  "CUA SO": "Cửa sổ thoáng",
+  BED: "Giường nệm",
+  WARDROBE: "Tủ quần áo",
+  MICROWAVE: "Lò vi sóng",
+  TELEVISION: "Tivi",
+  CLEANING_SERVICE: "Dọn vệ sinh",
+  LOCKER: "Tủ khóa cá nhân",
+  SHARED_KITCHEN: "Bếp chung",
+};
+
+export function normalizeAmenityLabel(raw?: string): string {
+  if (!raw || typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const upper = trimmed.toUpperCase();
+  if (AMENITY_CODE_TO_VI[upper]) {
+    return AMENITY_CODE_TO_VI[upper];
+  }
+  return trimmed;
+}
+
+export function normalizeAmenitiesList(rawList?: unknown): string[] {
+  if (!Array.isArray(rawList)) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of rawList) {
+    if (typeof item !== "string") continue;
+    const label = normalizeAmenityLabel(item);
+    if (label && !seen.has(label)) {
+      seen.add(label);
+      result.push(label);
+    }
+  }
+  return result;
+}

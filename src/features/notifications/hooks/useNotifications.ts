@@ -1,15 +1,22 @@
 import { useState, useEffect, useCallback } from "react";
 import { notificationsApi } from "../api/notificationsApi";
+import { tokenStorage } from "@/lib/api";
 import type { NotificationResponse } from "../types/notification.types";
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchNotifications = useCallback(async (silent = false) => {
+    if (!tokenStorage.getToken()) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setIsLoading(false);
+      return;
+    }
     if (!silent) {
       setIsLoading(true);
       setIsError(false);
@@ -49,11 +56,16 @@ export function useNotifications() {
   }, []);
 
   useEffect(() => {
+    if (!tokenStorage.getToken()) {
+      return;
+    }
     fetchNotifications(false);
-    // Real-time notification polling every 8 seconds
+    // Poll every 30 seconds while tab is visible (deduplicated via api.get cache)
     const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      if (!tokenStorage.getToken()) return;
       fetchNotifications(true);
-    }, 8000);
+    }, 30000);
     return () => clearInterval(timer);
   }, [fetchNotifications]);
 

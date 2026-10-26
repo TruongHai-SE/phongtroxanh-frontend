@@ -54,6 +54,7 @@ export const tokenStorage = {
   },
   setToken(token: string | null) {
     inMemoryToken = token;
+    getResponseCache.clear();
     if (token) {
       localStorage.setItem("ptx_access_token", token);
     } else {
@@ -62,6 +63,8 @@ export const tokenStorage = {
   },
   clear() {
     inMemoryToken = null;
+    getResponseCache.clear();
+    inFlightGetRequests.clear();
     localStorage.removeItem("ptx_access_token");
     localStorage.removeItem("ptx_user");
     localStorage.removeItem("ptx_role");
@@ -70,6 +73,16 @@ export const tokenStorage = {
     }
   },
 };
+
+// Bounded in-flight GET deduplication & short-TTL (3s) GET cache to prevent duplicate API waterfalls across components
+const GET_CACHE_TTL_MS = 3000;
+const MAX_GET_CACHE_ENTRIES = 30;
+const inFlightGetRequests = new Map<string, Promise<any>>();
+const getResponseCache = new Map<string, { data: any; expiresAt: number }>();
+
+export function invalidateApiGetCache() {
+  getResponseCache.clear();
+}
 
 // Single-flight lock to prevent concurrent 401 responses from firing duplicate
 // /auth/refresh-token calls (which would fail single-use token rotation in Redis).
@@ -222,10 +235,44 @@ export const api = {
         url += (url.includes("?") ? "&" : "?") + queryStr;
       }
     }
-    return request<T>(url, { method: "GET" });
+
+    const cacheKey = `${tokenStorage.getToken() || "guest"}:${url}`;
+    const now = Date.now();
+    const cached = getResponseCache.get(cacheKey);
+    if (cached && now < cached.expiresAt) {
+      return Promise.resolve(cached.data as T);
+    }
+
+    const existingPromise = inFlightGetRequests.get(cacheKey);
+    if (existingPromise) {
+      return existingPromise as Promise<T>;
+    }
+
+    const promise = request<T>(url, { method: "GET" })
+      .then((res) => {
+        if (getResponseCache.size >= MAX_GET_CACHE_ENTRIES) {
+          const currentNow = Date.now();
+          for (const [k, v] of getResponseCache.entries()) {
+            if (currentNow >= v.expiresAt) getResponseCache.delete(k);
+          }
+          if (getResponseCache.size >= MAX_GET_CACHE_ENTRIES) {
+            const firstKey = getResponseCache.keys().next().value;
+            if (firstKey) getResponseCache.delete(firstKey);
+          }
+        }
+        getResponseCache.set(cacheKey, { data: res, expiresAt: Date.now() + GET_CACHE_TTL_MS });
+        return res;
+      })
+      .finally(() => {
+        inFlightGetRequests.delete(cacheKey);
+      });
+
+    inFlightGetRequests.set(cacheKey, promise);
+    return promise;
   },
 
   post<T>(endpoint: string, body?: any): Promise<T> {
+    getResponseCache.clear();
     return request<T>(endpoint, {
       method: "POST",
       body: body instanceof FormData ? body : JSON.stringify(body),
@@ -233,6 +280,7 @@ export const api = {
   },
 
   put<T>(endpoint: string, body?: any): Promise<T> {
+    getResponseCache.clear();
     return request<T>(endpoint, {
       method: "PUT",
       body: body instanceof FormData ? body : JSON.stringify(body),
@@ -240,6 +288,7 @@ export const api = {
   },
 
   patch<T>(endpoint: string, body?: any): Promise<T> {
+    getResponseCache.clear();
     return request<T>(endpoint, {
       method: "PATCH",
       body: body instanceof FormData ? body : JSON.stringify(body),
@@ -247,6 +296,7 @@ export const api = {
   },
 
   delete<T>(endpoint: string): Promise<T> {
+    getResponseCache.clear();
     return request<T>(endpoint, { method: "DELETE" });
   },
 

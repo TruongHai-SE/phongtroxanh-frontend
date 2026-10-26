@@ -34,7 +34,8 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import AuthBackgroundCanvas from "../components/AuthBackgroundCanvas";
+
+const AuthBackgroundCanvas = React.lazy(() => import("../components/AuthBackgroundCanvas"));
 
 /* ── Scale-to-fit wrapper (only scales on ultra-short viewports so desktop fonts stay 100% ClearType sharp) ── */
 function ScaleToFitWrapper({ children }: { children: React.ReactNode }) {
@@ -78,7 +79,9 @@ function ScaleToFitWrapper({ children }: { children: React.ReactNode }) {
       <div className="aurora right-[-10%] bottom-[5%] h-[320px] w-[320px] bg-emerald-100/30" />
 
       {/* Three.js Background Canvas */}
-      <AuthBackgroundCanvas />
+      <React.Suspense fallback={null}>
+        <AuthBackgroundCanvas />
+      </React.Suspense>
 
       <div
         className="relative z-10 flex flex-col items-center justify-center origin-center my-auto"

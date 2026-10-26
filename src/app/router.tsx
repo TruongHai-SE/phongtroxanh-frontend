@@ -1,64 +1,64 @@
+import { lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
 import { RootLayout } from "@/components/layouts/RootLayout";
 import { MainLayout } from "@/components/layouts/MainLayout";
 import { DashboardLayout } from "@/components/layouts/DashboardLayout";
 
 // Auth
-import Landing from "@/features/auth/pages/Landing";
-import Login from "@/features/auth/pages/Login";
-import RoleSelect from "@/features/auth/pages/RoleSelect";
-import Onboarding from "@/features/auth/pages/Onboarding";
-import VerifyAccount from "@/features/auth/pages/VerifyAccount";
-import LandlordOnboarding from "@/features/auth/pages/LandlordOnboarding";
-import ForgotPassword from "@/features/auth/pages/ForgotPassword";
+const Landing = lazy(() => import("@/features/auth/pages/Landing"));
+const Login = lazy(() => import("@/features/auth/pages/Login"));
+const RoleSelect = lazy(() => import("@/features/auth/pages/RoleSelect"));
+const Onboarding = lazy(() => import("@/features/auth/pages/Onboarding"));
+const VerifyAccount = lazy(() => import("@/features/auth/pages/VerifyAccount"));
+const LandlordOnboarding = lazy(() => import("@/features/auth/pages/LandlordOnboarding"));
+const ForgotPassword = lazy(() => import("@/features/auth/pages/ForgotPassword"));
 
 // Rooms
-import Discover from "@/features/rooms/pages/Discover";
-import RoomDetail from "@/features/rooms/pages/RoomDetail";
-import Saved from "@/features/rooms/pages/Saved";
-import MapView from "@/features/rooms/pages/MapView";
-import Compare from "@/features/rooms/pages/Compare";
+const Discover = lazy(() => import("@/features/rooms/pages/Discover"));
+const RoomDetail = lazy(() => import("@/features/rooms/pages/RoomDetail"));
+const Saved = lazy(() => import("@/features/rooms/pages/Saved"));
+const MapView = lazy(() => import("@/features/rooms/pages/MapView"));
+const Compare = lazy(() => import("@/features/rooms/pages/Compare"));
 
 // Roommates
-import Roommates from "@/features/roommates/pages/Roommates";
-import RoommateDetail from "@/features/roommates/pages/RoommateDetail";
-import Matches from "@/features/roommates/pages/Matches";
+const Roommates = lazy(() => import("@/features/roommates/pages/Roommates"));
+const RoommateDetail = lazy(() => import("@/features/roommates/pages/RoommateDetail"));
+const Matches = lazy(() => import("@/features/roommates/pages/Matches"));
 
 // Chat
-import Chat from "@/features/chat/pages/Chat";
-import LandlordChat from "@/features/chat/pages/LandlordChat";
+const Chat = lazy(() => import("@/features/chat/pages/Chat"));
 
 // Reviews
-import Reviews from "@/features/reviews/pages/Reviews";
-import TrustScore from "@/features/reviews/pages/TrustScore";
+const Reviews = lazy(() => import("@/features/reviews/pages/Reviews"));
+const TrustScore = lazy(() => import("@/features/reviews/pages/TrustScore"));
 
 // Monetization
-import PaymentCallback from "@/features/monetization/pages/PaymentCallback";
+const PaymentCallback = lazy(() => import("@/features/monetization/pages/PaymentCallback"));
 
 // Account
-import Profile from "@/features/account/pages/Profile";
-import EditProfile from "@/features/account/pages/EditProfile";
-import Settings from "@/features/account/pages/Settings";
+const Profile = lazy(() => import("@/features/account/pages/Profile"));
+const EditProfile = lazy(() => import("@/features/account/pages/EditProfile"));
+const Settings = lazy(() => import("@/features/account/pages/Settings"));
 
 // Notifications
-import Notifications from "@/features/notifications/pages/Notifications";
+const Notifications = lazy(() => import("@/features/notifications/pages/Notifications"));
 
 // Misc
 import { About, PublicProfile, OfflineError, ServerError, AccessDenied, NotFound } from "@/features/misc/pages/Misc";
 
 // Landlord
-import LandlordDashboard from "@/features/landlord/pages/Dashboard";
+const LandlordDashboard = lazy(() => import("@/features/landlord/pages/Dashboard"));
 
 // Tenant new features
-import TenantSwap from "@/features/roommates/pages/TenantSwap";
-import RentalsMe from "@/features/rentals/pages/RentalsMe";
+const TenantSwap = lazy(() => import("@/features/roommates/pages/TenantSwap"));
+const RentalsMe = lazy(() => import("@/features/rentals/pages/RentalsMe"));
 
 // Admin
-import AdminOverview from "@/features/admin/pages/AdminOverview";
-import CccdQueue from "@/features/admin/pages/CccdQueue";
-import AdminUsers from "@/features/admin/pages/AdminUsers";
-import Reports from "@/features/admin/pages/Reports";
-import AdminPackages from "@/features/admin/pages/AdminPackages";
+const AdminOverview = lazy(() => import("@/features/admin/pages/AdminOverview"));
+const CccdQueue = lazy(() => import("@/features/admin/pages/CccdQueue"));
+const AdminUsers = lazy(() => import("@/features/admin/pages/AdminUsers"));
+const Reports = lazy(() => import("@/features/admin/pages/Reports"));
+const AdminPackages = lazy(() => import("@/features/admin/pages/AdminPackages"));
 
 // Security & Guards
 import { ProtectedRoute } from "@/components/shared/ProtectedRoute";

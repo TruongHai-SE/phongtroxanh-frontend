@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { cn, formatVND } from "@/lib/utils";
 import { api } from "@/lib/api";
-import { roomTypes, districts } from "@/lib/constants";
+import { roomTypes, districts, normalizeAmenitiesList } from "@/lib/constants";
 import { roomsApi } from "@/features/rooms/api/roomsApi";
 import { paymentApi } from "@/features/monetization/api/paymentApi";
 import { toast } from "sonner";
@@ -106,9 +106,9 @@ export default function LandlordRooms() {
         price: Number(r.price) || 0,
         depositAmount: Number(r.depositAmount) || 0,
         addressStreet: r.addressStreet ?? "",
-        district: r.district ?? "",
+        district: r.district === "Thành phố Thủ Đức" || r.district === "TP. Thủ Đức" ? "Thủ Đức" : (r.district ?? ""),
         description: r.description ?? "",
-        amenities: Array.isArray(r.amenities) ? r.amenities : [],
+        amenities: normalizeAmenitiesList(r.amenities),
       });
       setOriginal({ addressStreet: r.addressStreet ?? "", district: r.district ?? "" });
       setFees(feesToState(r.fees ?? []));

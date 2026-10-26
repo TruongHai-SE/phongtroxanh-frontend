@@ -22,7 +22,7 @@ import {
 import { ImageWithFallback } from "@/components/shared/ImageWithFallback";
 import { AmenityPill, StarRating } from "@/components/shared/primitives-compat";
 import { formatVND, getInitials, cn } from "@/lib/utils";
-import { roomImages } from "@/lib/constants";
+import { roomImages, normalizeAmenitiesList } from "@/lib/constants";
 import { RoomDetailSkeleton } from "@/components/ui/skeleton-loaders";
 import { toast } from "sonner";
 import type { Room } from "@/types/room";
@@ -126,9 +126,7 @@ export default function RoomDetail() {
   };
 
   const rawAmenities = (detailRoom as any)?.amenities;
-  const amenities: string[] = Array.isArray(rawAmenities) && rawAmenities.length > 0
-    ? rawAmenities
-    : [];
+  const amenities: string[] = normalizeAmenitiesList(rawAmenities);
 
   const rawFees = detailRoom?.fees || [];
   const fees = [
