@@ -3,8 +3,8 @@ import { Skeleton } from "./skeleton";
 export function RoomCardSkeleton() {
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-3xl bg-card shadow-xl ring-1 ring-border">
-      {/* Gallery placeholder matching BigRoomCard grid */}
-      <div className="relative grid h-[clamp(145px,22dvh,225px)] w-full gap-1 overflow-hidden shrink-0 grid-cols-3 grid-rows-2">
+      {/* Gallery placeholder matching BigRoomCard 54% height */}
+      <div className="relative grid h-[54%] min-h-[190px] w-full gap-1 overflow-hidden shrink-0 grid-cols-3 grid-rows-2">
         <Skeleton className="size-full rounded-none col-span-2 row-span-2" />
         <Skeleton className="size-full rounded-none" />
         <Skeleton className="size-full rounded-none" />
@@ -51,8 +51,8 @@ export function RoomCardSkeleton() {
 export function RoommateCardSkeleton() {
   return (
     <div className="relative h-full flex flex-col overflow-hidden rounded-3xl bg-card shadow-xl ring-1 ring-border">
-      {/* Avatar block placeholder */}
-      <div className="relative h-[clamp(145px,22dvh,215px)] w-full overflow-hidden shrink-0">
+      {/* Avatar block placeholder matching BigPersonCard 50% height */}
+      <div className="relative h-[50%] min-h-[185px] w-full overflow-hidden shrink-0">
         <Skeleton className="size-full rounded-none" />
       </div>
 

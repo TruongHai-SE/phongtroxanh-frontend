@@ -135,7 +135,7 @@
   --color-slate-soft: #64748b;
 
   /* ── Font tokens ── */
-  --font-serif: "Fraunces", ui-serif, Georgia, serif;
+  --font-serif: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, sans-serif;
 }
 
 @layer base {
@@ -549,37 +549,47 @@ body[data-scroll-locked] {
 
 .auth-slider {
   position: relative;
-  width: clamp(340px, 85vw, 760px);
-  min-height: clamp(480px, 78vh, 550px);
-  max-height: clamp(500px, 90vh, 580px);
-  background: #fff;
-  border-radius: 1.25rem;
+  width: clamp(680px, 86vw, 820px);
+  min-height: 488px;
+  background: #ffffff;
+  border-radius: 1.5rem;
   box-shadow:
-    0 20px 60px -12px rgba(0, 0, 0, 0.18),
-    0 0 0 1px rgba(0, 0, 0, 0.04);
+    0 24px 60px -16px rgba(6, 78, 59, 0.16),
+    0 0 0 1px rgba(15, 23, 42, 0.07);
   overflow: hidden;
   display: grid;
   grid-template-columns: 1fr 1fr;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Form panels sit in the grid; each takes one column */
 .auth-slider__form-panel {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: clamp(1rem, 2.5vh, 1.75rem) 2.25rem;
+  justify-content: space-between;
+  padding: 1.75rem 1.85rem;
   overflow-y: auto;
   opacity: 1;
   visibility: visible;
+  transform: translateX(0);
   transition:
-    opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1),
-    visibility 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity 0.42s cubic-bezier(0.23, 1, 0.32, 1),
+    transform 0.48s cubic-bezier(0.23, 1, 0.32, 1),
+    visibility 0.42s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-/* Hidden panel: fully hidden so it doesn't bleed through overlay */
-.auth-slider__form-panel[inert] {
+/* Hidden panel: slides slightly toward center while fading so switch feels fluid */
+.auth-slider__form-panel:first-of-type[inert] {
   opacity: 0;
   visibility: hidden;
+  transform: translateX(-16px);
+  pointer-events: none;
+}
+
+.auth-slider__form-panel:nth-of-type(2)[inert] {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(16px);
   pointer-events: none;
 }
 
@@ -591,14 +601,11 @@ body[data-scroll-locked] {
   width: 50%;
   height: 100%;
   z-index: 10;
-  border-radius: 1.25rem;
+  border-radius: 1.5rem;
   overflow: hidden;
-  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform;
-
-  /* Flexbox to center the inner glass card content */
+  transition: transform 0.56s cubic-bezier(0.23, 1, 0.32, 1);
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
 }
 
@@ -625,8 +632,7 @@ body[data-scroll-locked] {
   background-repeat: no-repeat;
   /* Show the right half of the GIF in Login mode (overlay is on the right) */
   transform: translate3d(-50%, 0, 0);
-  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform;
+  transition: transform 0.56s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 /* Register state: show the left half of the GIF (overlay is on the left) */
@@ -634,99 +640,82 @@ body[data-scroll-locked] {
   transform: translate3d(0, 0, 0);
 }
 
-/* Top-bottom linear gradient scrim to protect text/button readability without coloring the center of the GIF */
+/* Bottom-weighted high-contrast scrim so text is razor-sharp over the animated WebP without re-encoding heavy assets */
 .auth-slider__overlay::after {
   content: "";
   position: absolute;
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(0, 0, 0, 0.42) 0%,
-    rgba(0, 0, 0, 0.15) 25%,
-    rgba(0, 0, 0, 0) 42%,
-    rgba(0, 0, 0, 0) 58%,
-    rgba(0, 0, 0, 0.15) 75%,
-    rgba(0, 0, 0, 0.45) 100%
+    rgba(4, 24, 18, 0) 0%,
+    rgba(4, 24, 18, 0) 46%,
+    rgba(4, 24, 18, 0.62) 68%,
+    rgba(4, 24, 18, 0.92) 86%,
+    rgba(3, 18, 13, 0.96) 100%
   );
   z-index: 1;
   pointer-events: none;
 }
 
-/* Card-free overlay content distributed to top and bottom */
+/* Editorial overlay content anchored cleanly at the bottom */
 .auth-slider__overlay-content {
-  position: absolute;
-  inset: 0;
+  position: relative;
   z-index: 2;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 3rem 1.5rem;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 2rem;
   box-sizing: border-box;
-  text-align: center;
-  color: #fff;
-  background: transparent !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  max-width: none !important;
-  width: 100% !important;
-  height: 100% !important;
+  text-align: left;
+  color: #ffffff;
+  width: 100%;
+  height: 100%;
 }
 
 .auth-slider__overlay-content h2 {
   font-size: 1.5rem;
   font-weight: 800;
-  margin-bottom: 0.5rem;
-  line-height: 1.25;
-  text-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.85),
-    0 1px 2px rgba(0, 0, 0, 0.9);
+  margin-bottom: 0.375rem;
+  line-height: 1.2;
   letter-spacing: -0.02em;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
 }
 
 .auth-slider__overlay-content p {
-  font-size: 0.85rem;
-  opacity: 0.95;
-  line-height: 1.5;
-  max-width: 280px;
-  margin-bottom: auto; /* Push the button to the absolute bottom of the container */
-  text-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.85),
-    0 1px 2px rgba(0, 0, 0, 0.9);
+  font-size: 0.825rem;
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 450;
+  line-height: 1.55;
+  max-width: 330px;
+  margin-bottom: 1.125rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 .auth-slider__overlay-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.6rem 2rem;
-  border: 2px solid #ffffff;
-  border-radius: 999px;
-  color: #ffffff;
-  font-size: 0.8rem;
+  padding: 0.65rem 1.35rem;
+  border: 1px solid #ffffff;
+  border-radius: 0.75rem;
+  color: #064e3b;
+  font-size: 0.8125rem;
   font-weight: 700;
-  background: rgba(
-    0,
-    0,
-    0,
-    0.35
-  ); /* Soft dark backing to keep button clear over sidewalk */
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: #ffffff;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition:
+    transform 0.2s cubic-bezier(0.23, 1, 0.32, 1),
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+  box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.4);
 }
 .auth-slider__overlay-btn:hover {
-  background: #ffffff;
-  color: #064e3b; /* Accent green text color matching brand */
-  border-color: #ffffff;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-  text-shadow: none;
+  background: #ecfdf5;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.48);
 }
 .auth-slider__overlay-btn:active {
   transform: translateY(0) scale(0.98);
@@ -736,22 +725,24 @@ body[data-scroll-locked] {
   outline-offset: 2px;
 }
 
-/* ── Mobile: stack vertically, no overlay ── */
-@media (max-width: 700px) {
+/* ── Tablet & Mobile: stack vertically, no overlay ── */
+@media (max-width: 720px) {
   .auth-slider {
     grid-template-columns: 1fr;
-    width: 94vw;
-    max-width: 420px;
+    width: min(94vw, 440px);
     min-height: unset;
     max-height: unset;
+    border-radius: 1.25rem;
   }
   .auth-slider__overlay {
     display: none;
   }
   .auth-slider__form-panel {
-    padding: 1.5rem 1.25rem;
+    padding: 1.5rem 1.35rem;
+    justify-content: flex-start;
   }
-  .auth-slider__form-panel[inert] {
+  .auth-slider__form-panel:first-of-type[inert],
+  .auth-slider__form-panel:nth-of-type(2)[inert] {
     display: none;
   }
 }
