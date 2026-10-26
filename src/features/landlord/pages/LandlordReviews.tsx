@@ -95,36 +95,40 @@ export default function LandlordReviews() {
         const fetchedReviews: ExistingReviewItem[] = [];
         const landlordReviewedTenantIds = new Set<string>();
 
-        for (const roomId of roomIds) {
-          try {
-            const revs = await reviewsApi.getRoomReviews(String(roomId));
-            if (Array.isArray(revs)) {
-              for (const rv of revs) {
-                const isByLandlord = Boolean(user?.id && String(rv.reviewerId) === String(user.id));
-                if (isByLandlord && (rv as any).revieweeId) {
-                  landlordReviewedTenantIds.add(String((rv as any).revieweeId));
-                }
-                fetchedReviews.push({
-                  id: String(rv.id),
-                  reviewerId: rv.reviewerId ? String(rv.reviewerId) : undefined,
-                  isByLandlord,
-                  tenant: rv.reviewerName || (isByLandlord ? "Đánh giá của bạn" : "Khách thuê"),
-                  avatar: rv.reviewerAvatar || "",
-                  roomName: roomMap.get(String(roomId)) || "Phòng trọ",
-                  rating: rv.rating,
-                  tags: rv.tags || [],
-                  text: rv.comment || "",
-                  landlordReply: rv.replyComment || (rv as any).landlordReply,
-                  repliedAt: rv.repliedAt,
-                  isDisputed: Boolean((rv as any).isDisputed),
-                  date: rv.createdAt
-                    ? new Date(rv.createdAt).toLocaleDateString("vi-VN")
-                    : "Gần đây",
-                });
-              }
+        const reviewResults = await Promise.all(
+          roomIds.map(async (roomId) => {
+            try {
+              const revs = await reviewsApi.getRoomReviews(String(roomId));
+              return { roomId, revs: Array.isArray(revs) ? revs : [] };
+            } catch {
+              return { roomId, revs: [] };
             }
-          } catch {
-            // continue
+          })
+        );
+
+        for (const { roomId, revs } of reviewResults) {
+          for (const rv of revs) {
+            const isByLandlord = Boolean(user?.id && String(rv.reviewerId) === String(user.id));
+            if (isByLandlord && (rv as any).revieweeId) {
+              landlordReviewedTenantIds.add(String((rv as any).revieweeId));
+            }
+            fetchedReviews.push({
+              id: String(rv.id),
+              reviewerId: rv.reviewerId ? String(rv.reviewerId) : undefined,
+              isByLandlord,
+              tenant: rv.reviewerName || (isByLandlord ? "Đánh giá của bạn" : "Khách thuê"),
+              avatar: rv.reviewerAvatar || "",
+              roomName: roomMap.get(String(roomId)) || "Phòng trọ",
+              rating: rv.rating,
+              tags: rv.tags || [],
+              text: rv.comment || "",
+              landlordReply: rv.replyComment || (rv as any).landlordReply,
+              repliedAt: rv.repliedAt,
+              isDisputed: Boolean((rv as any).isDisputed),
+              date: rv.createdAt
+                ? new Date(rv.createdAt).toLocaleDateString("vi-VN")
+                : "Gần đây",
+            });
           }
         }
 
@@ -246,7 +250,7 @@ export default function LandlordReviews() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div data-tour="landlord-reviews-tabs" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="brand text-2xl text-foreground flex items-center gap-2">
             Đánh giá 2 chiều & Phản hồi khách thuê

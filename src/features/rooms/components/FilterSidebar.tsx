@@ -1,4 +1,4 @@
-import { SlidersHorizontal, Search, RotateCcw, CigaretteOff, Moon, Sparkles, Users } from "lucide-react";
+import { SlidersHorizontal, Search, RotateCcw, CigaretteOff, Moon, Sparkles, Users, ChevronDown, ChevronUp } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -10,20 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { roomTypes, districts } from "@/lib/constants";
+import { roomTypes, districts, LANDLORD_AMENITY_OPTIONS } from "@/lib/constants";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
-export const AMENITY_OPTIONS = [
-  "Máy lạnh",
-  "Wi-Fi",
-  "WC riêng",
-  "Giờ tự do",
-  "Bãi xe",
-  "Bếp riêng",
-  "Ban công",
-  "Thang máy",
-] as const;
+export const AMENITY_OPTIONS = LANDLORD_AMENITY_OPTIONS;
 
 export interface RoomFilterState {
   district?: string;
@@ -86,6 +77,7 @@ export function FilterSidebar({
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
     initialFilters?.amenities || []
   );
+  const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [keyword, setKeyword] = useState<string>(initialFilters?.keyword || "");
   const [age, setAge] = useState<number[]>([18, 28]);
 
@@ -177,7 +169,10 @@ export function FilterSidebar({
   };
 
   return (
-    <div className="flex flex-col lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] rounded-2xl bg-card p-4 ring-1 ring-border shadow-xs">
+    <div
+      data-tour="discover-filter-sidebar"
+      className="flex flex-col lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] rounded-2xl bg-card p-4 ring-1 ring-border shadow-xs"
+    >
       <div className="flex items-center justify-between gap-1 shrink-0 pb-2.5 border-b border-border/40">
         <div className="flex items-center gap-1.5 font-medium text-foreground text-sm whitespace-nowrap">
           <SlidersHorizontal className="size-3.5 text-primary shrink-0" />
@@ -288,7 +283,7 @@ export function FilterSidebar({
             </Select>
           </div>
 
-          {/* 5. Amenities selector (8 amenities matching landlord options) */}
+          {/* 5. Amenities selector (synchronized with all 23 Vietnamese landlord options) */}
           <div className="space-y-1.5 pt-1 border-t border-border/50">
             <div className="flex items-center justify-between text-xs">
               <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
@@ -301,7 +296,7 @@ export function FilterSidebar({
               )}
             </div>
             <div className="flex flex-wrap gap-1">
-              {AMENITY_OPTIONS.map((a) => {
+              {(showAllAmenities ? AMENITY_OPTIONS : AMENITY_OPTIONS.slice(0, 10)).map((a) => {
                 const isSelected = selectedAmenities.includes(a);
                 return (
                   <button
@@ -320,6 +315,23 @@ export function FilterSidebar({
                 );
               })}
             </div>
+            {AMENITY_OPTIONS.length > 10 && (
+              <button
+                type="button"
+                onClick={() => setShowAllAmenities((prev) => !prev)}
+                className="inline-flex items-center gap-1 pt-0.5 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+              >
+                {showAllAmenities ? (
+                  <>
+                    <ChevronUp className="size-3" /> Thu gọn tiện nghi
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="size-3" /> Xem thêm (+{AMENITY_OPTIONS.length - 10} tiện nghi)
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </>
       ) : (
