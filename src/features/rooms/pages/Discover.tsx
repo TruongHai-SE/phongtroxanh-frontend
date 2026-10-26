@@ -29,6 +29,7 @@ import type { Room } from "../types/room.types";
 import { useRooms } from "../hooks/useRooms";
 import { roomsApi } from "../api/roomsApi";
 import { accountApi } from "@/features/account/api/accountApi";
+import { useNotifications } from "@/features/notifications/hooks/useNotifications";
 import { useAuth } from "@/app/context/AuthContext";
 import { useMonetization } from "@/app/context/MonetizationContext";
 import { SwipeStageSkeleton } from "@/components/ui/skeleton-loaders";
@@ -351,6 +352,7 @@ export default function Discover() {
   const { rooms, isLoading, isError, isEmpty, errorMessage, updateFilters, refetch } = useRooms(
     initialPrefFilters
   );
+  const { notifications, isLoading: notifsLoading } = useNotifications();
   const [savedIds, setSavedIds] = useState<Set<string>>(() => {
     try {
       const cached = localStorage.getItem("ptx_saved_room_ids");
