@@ -617,6 +617,26 @@ export default function Roommates() {
             Tìm người ở ghép hợp gu, hợp lối sống
           </p>
         </div>
+        <div data-tour="roommates-header-controls" className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/matches")}
+            className="gap-1.5 text-xs font-semibold hover:border-primary/40 hover:bg-mint cursor-pointer"
+          >
+            <Users className="size-3.5 text-primary" />
+            <span>Đã ghép ({recentMatches.length})</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/settings")}
+            className="gap-1.5 text-xs font-medium cursor-pointer"
+          >
+            <ShieldCheck className="size-3.5 text-emerald-600" />
+            <span>Quyền riêng tư</span>
+          </Button>
+        </div>
       </div>
 
       {isPrivateProfile && (
@@ -691,6 +711,7 @@ export default function Roommates() {
               </div>
             )}
             <SwipeStage
+              tourPrefix="roommates"
               resetKey={sidebarResetKey}
               items={filteredFeed}
               renderCard={(p) => (

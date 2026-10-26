@@ -163,7 +163,7 @@ export default function RentalsMe() {
     <div className="min-h-screen bg-slate-50/50 pb-20 pt-6">
       <div className="mx-auto max-w-5xl px-4">
         {/* Header */}
-        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div data-tour="rentals-header-bar" className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Phòng của tôi — Yêu cầu xem & thuê phòng
@@ -215,7 +215,7 @@ export default function RentalsMe() {
 
         {/* 3. Empty State */}
         {!isLoading && !isError && isEmpty && (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-sm">
+          <div data-tour="rentals-list-area" className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-sm">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
               <Home className="h-8 w-8" />
             </div>
@@ -233,7 +233,7 @@ export default function RentalsMe() {
 
         {/* 4. Success State */}
         {!isLoading && !isError && !isEmpty && (
-          <div className="space-y-6">
+          <div data-tour="rentals-list-area" className="space-y-6">
             {rentals.map((rental) => {
               const isPendingApproval =
                 rental.status === "PENDING_CHECKIN" &&

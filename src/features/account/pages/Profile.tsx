@@ -136,7 +136,7 @@ export default function Profile() {
         {/* Left Column (8 cols): Main Content */}
         <div className="space-y-6 lg:col-span-8">
           {/* Header Card */}
-          <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-border shadow-xs">
+          <div data-tour="profile-header-card" className="overflow-hidden rounded-2xl bg-card ring-1 ring-border shadow-xs">
             <div className="h-32 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700" />
             <div className="px-6 pb-6">
               <div className="-mt-14 flex flex-wrap items-end justify-between gap-4">
@@ -434,7 +434,7 @@ export default function Profile() {
         {/* Right Column (4 cols): TrustScore, Stay/Stats, Account Details */}
         <div className="space-y-6 lg:col-span-4">
           {/* Card 1: TrustScore Summary */}
-          <div className="rounded-2xl bg-card p-6 ring-1 ring-border shadow-xs text-center">
+          <div data-tour="profile-trustscore-card" className="rounded-2xl bg-card p-6 ring-1 ring-border shadow-xs text-center">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Điểm uy tín hệ thống</p>
             <div className="my-3 flex items-baseline justify-center gap-1">
               <span className="brand text-5xl font-black text-emerald-700">{score ?? "—"}</span>

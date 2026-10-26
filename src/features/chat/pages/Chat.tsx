@@ -271,7 +271,7 @@ export default function Chat() {
   });
 
   return (
-    <div className="grid h-[calc(100dvh-4rem)] grid-cols-1 md:grid-cols-[340px_1fr]">
+    <div data-tour="chat-Workspace" className="grid h-[calc(100dvh-4rem)] grid-cols-1 md:grid-cols-[340px_1fr]">
       {/* Conversation list */}
       <div className="flex flex-col border-r border-border bg-card">
         <div className="p-4 border-b border-border/50">

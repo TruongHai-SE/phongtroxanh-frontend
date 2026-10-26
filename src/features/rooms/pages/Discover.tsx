@@ -663,8 +663,18 @@ export default function Discover() {
             Vuốt phải để lưu, vuốt trái để bỏ qua theo tiêu chí của bạn
           </p>
         </div>
-        <div className="flex gap-2">
+        <div data-tour="discover-view-switcher" className="flex items-center gap-2">
           <Button
+            data-tour="discover-btn-compare"
+            variant="outline"
+            className="gap-2 hover-lift press-active hover:border-primary/40 hover:bg-mint text-sm cursor-pointer"
+            onClick={() => navigate("/compare")}
+          >
+            <Layers className="size-4 text-primary" />
+            <span>So sánh{savedIds.size > 0 ? ` (${savedIds.size})` : ""}</span>
+          </Button>
+          <Button
+            data-tour="discover-btn-map"
             variant="outline"
             className="gap-2 hover-lift press-active hover:border-primary/40 hover:bg-mint text-sm cursor-pointer"
             onClick={() => navigate("/map")}

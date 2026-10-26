@@ -289,7 +289,7 @@ export default function LandlordChat() {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] -m-4 lg:-m-5 h-[calc(100dvh-3.5rem)]">
+    <div data-tour="landlord-chat-area" className="grid grid-cols-1 md:grid-cols-[320px_1fr] -m-4 lg:-m-5 h-[calc(100dvh-3.5rem)]">
       {/* ── Conversation list panel ── */}
       <div className="flex flex-col border-r border-border overflow-hidden bg-card">
         {/* Header + tab switcher */}

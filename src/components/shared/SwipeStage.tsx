@@ -110,6 +110,7 @@ export function SwipeStage<T extends { id: string }>({
   onInfo,
   emptyState,
   resetKey,
+  tourPrefix = "discover",
 }: {
   items: T[];
   renderCard: (item: T) => React.ReactNode;
@@ -118,6 +119,7 @@ export function SwipeStage<T extends { id: string }>({
   onInfo?: (item: T) => void;
   emptyState: React.ReactNode;
   resetKey?: number;
+  tourPrefix?: "discover" | "roommates";
 }) {
   const reduce = useReducedMotion() ?? false;
   const [{ index, direction, isUndo }, setSwipeState] = useState({
@@ -183,7 +185,10 @@ export function SwipeStage<T extends { id: string }>({
 
   if (!current)
     return (
-      <div className="flex flex-col items-center gap-6 w-full py-12">
+      <div
+        data-tour={`${tourPrefix}-swipe-card`}
+        className="flex flex-col items-center gap-6 w-full py-12"
+      >
         <div className="grid flex-1 place-items-center">{emptyState}</div>
         {history.length > 0 && (
           <Button
@@ -199,7 +204,10 @@ export function SwipeStage<T extends { id: string }>({
 
   return (
     <div className="flex flex-col items-center gap-2.5 sm:gap-3.5 w-full">
-      <div className="relative h-[clamp(430px,calc(100dvh-235px),515px)] w-full max-w-[380px] sm:max-w-[440px] md:max-w-[680px]">
+      <div
+        data-tour={`${tourPrefix}-swipe-card`}
+        className="relative h-[clamp(430px,calc(100dvh-235px),515px)] w-full max-w-[380px] sm:max-w-[440px] md:max-w-[680px]"
+      >
         {/* Depth peek: a glimpse of the next card sitting behind the top one */}
         {next && (
           <div
@@ -229,7 +237,7 @@ export function SwipeStage<T extends { id: string }>({
         <span>Phù hợp →</span>
       </div>
 
-      <div className="flex items-center gap-5">
+      <div data-tour={`${tourPrefix}-swipe-actions`} className="flex items-center gap-5">
         <Button
           variant="outline"
           size="icon"

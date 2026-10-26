@@ -272,7 +272,7 @@ export default function TenantSwap() {
       </div>
 
       {/* Tabs Menu */}
-      <div className="mt-5 flex border-b border-border gap-2">
+      <div data-tour="swap-tabs-bar" className="mt-5 flex border-b border-border gap-2">
         {[
           { id: "explore", label: `Khám phá tin (${swapPosts.length})` },
           { id: "create", label: "Đăng tin swap" },
@@ -777,7 +777,7 @@ export default function TenantSwap() {
 
         {/* Right Side Sticky Sidebar Widget */}
         <div className="space-y-4 sticky top-24">
-          <div className="rounded-2xl bg-mint/10 p-5 border border-primary/20 space-y-3.5">
+          <div data-tour="swap-safety-guide" className="rounded-2xl bg-mint/10 p-5 border border-primary/20 space-y-3.5">
             <h3 className="font-bold text-xs text-foreground flex items-center gap-1.5">
               <Home className="size-4 text-primary" /> Hướng dẫn hoán đổi phòng
             </h3>

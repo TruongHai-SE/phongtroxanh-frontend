@@ -74,7 +74,7 @@ export default function Saved() {
   return (
     <div className="mx-auto w-full max-w-[1440px] px-6 pt-2 md:pt-3 pb-12">
       {/* Top Header Bar aligned with /discover and /roommates */}
-      <div className="mb-4 md:mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between animate-fade-in">
+      <div data-tour="saved-header-toolbar" className="mb-4 md:mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between animate-fade-in">
         <div>
           <h1 className="brand text-3xl text-foreground">Phòng đã lưu</h1>
           <p className="text-sm text-muted-foreground">
@@ -188,7 +188,7 @@ export default function Saved() {
           </Button>
         </div>
       ) : isEmpty ? (
-        <div className="flex min-h-[420px] flex-col items-center justify-center rounded-3xl bg-card ring-1 ring-border px-6 py-14 text-center shadow-2xs animate-fade-in">
+        <div data-tour="saved-rooms-grid" className="flex min-h-[420px] flex-col items-center justify-center rounded-3xl bg-card ring-1 ring-border px-6 py-14 text-center shadow-2xs animate-fade-in">
           <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-mint text-primary">
             <Heart className="size-7" />
           </div>
@@ -215,7 +215,7 @@ export default function Saved() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div data-tour="saved-rooms-grid" className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {displayedRooms.map((r) => (
             <RoomCard key={r.id} room={r as unknown as Room} saved onToggleSave={toggle} />
           ))}

@@ -709,7 +709,7 @@ export default function Compare() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div data-tour="compare-header-actions" className="flex items-center gap-2 self-start sm:self-auto">
           {compared.length < 4 && (
             <Button
               size="sm"
@@ -751,7 +751,7 @@ export default function Compare() {
           </Button>
         </div>
       ) : compared.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-border bg-card p-12 text-center shadow-xs">
+        <div data-tour="compare-table-area" className="rounded-3xl border border-dashed border-border bg-card p-12 text-center shadow-xs">
           <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-emerald-50 text-emerald-600 mb-3">
             <AlertCircle className="size-8" />
           </div>
@@ -773,11 +773,11 @@ export default function Compare() {
         </div>
       ) : (
         /* Modern Comparison Card Container with fixed equal column geometry */
-        <div className="rounded-3xl border border-border bg-card shadow-sm ring-1 ring-border/50 overflow-hidden">
+        <div data-tour="compare-table-area" className="rounded-3xl border border-border bg-card shadow-sm ring-1 ring-border/50 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] table-fixed border-collapse">
               <thead>
-                <tr className="bg-slate-50/70 border-b border-border">
+                <tr data-tour="compare-room-cards" className="bg-slate-50/70 border-b border-border">
                   <th className="w-[185px] p-4 text-left font-bold text-xs uppercase tracking-wider text-muted-foreground align-top">
                     <div className="space-y-1.5">
                       <span>Thông số so sánh</span>
@@ -865,7 +865,7 @@ export default function Compare() {
 
               <tbody className="text-sm divide-y divide-border">
                 {/* Giá thuê */}
-                <tr className="hover:bg-slate-50/50 transition">
+                <tr data-tour="compare-price-row" className="hover:bg-slate-50/50 transition">
                   <td className="py-3.5 px-4 font-semibold text-xs uppercase tracking-wider text-slate-500 bg-slate-50/40">
                     Giá thuê
                   </td>

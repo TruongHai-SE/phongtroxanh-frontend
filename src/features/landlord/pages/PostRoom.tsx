@@ -308,7 +308,7 @@ export default function PostRoom() {
   return (
     <div className="w-full space-y-4">
       {/* Header + Compact Step Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl bg-card px-5 py-3.5 ring-1 ring-border shadow-2xs">
+      <div data-tour="landlord-post-stepper" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl bg-card px-5 py-3.5 ring-1 ring-border shadow-2xs">
         <div>
           <h1 className="brand text-xl sm:text-2xl text-foreground">Đăng phòng mới</h1>
           <p className="text-xs text-muted-foreground">
@@ -356,7 +356,7 @@ export default function PostRoom() {
       </div>
 
       {/* Responsive 12-Column Split Layout: Left Form + Right Live Preview */}
-      <div className="grid gap-5 lg:grid-cols-12 items-start w-full">
+      <div data-tour="landlord-post-form" className="grid gap-5 lg:grid-cols-12 items-start w-full">
         {/* LEFT COLUMN: Active Step Form (hugs content naturally, no artificial min-height) */}
         <div className="lg:col-span-7 xl:col-span-8 rounded-2xl bg-card p-5 ring-1 ring-border shadow-2xs flex flex-col justify-between">
           <div>

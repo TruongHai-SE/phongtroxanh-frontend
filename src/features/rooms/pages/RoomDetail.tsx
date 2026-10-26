@@ -369,7 +369,7 @@ export default function RoomDetail() {
       </nav>
 
       {/* Gallery with Zoom on Click */}
-      <div className="relative grid grid-cols-1 gap-2 md:grid-cols-4 md:grid-rows-2 h-[clamp(230px,36dvh,380px)] rounded-2xl overflow-hidden mb-5 group/gallery">
+      <div data-tour="room-detail-gallery" className="relative grid grid-cols-1 gap-2 md:grid-cols-4 md:grid-rows-2 h-[clamp(230px,36dvh,380px)] rounded-2xl overflow-hidden mb-5 group/gallery">
         <div 
           onClick={() => setLightboxIndex(0)}
           className="md:col-span-2 md:row-span-2 relative h-full cursor-zoom-in group overflow-hidden"
@@ -473,7 +473,7 @@ export default function RoomDetail() {
           <Separator />
 
           <Section title="Bảng chi phí dự kiến">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div data-tour="room-detail-fees" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {fees.map((f, i) => (
                 <div key={i} className="rounded-xl border border-border bg-slate-50 p-3">
                   <p className="text-xs text-muted-foreground">{f.label}</p>
@@ -486,7 +486,7 @@ export default function RoomDetail() {
           <Separator />
 
           {/* Public Reviews section */}
-          <div>
+          <div data-tour="room-detail-review-report">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-lg font-bold text-charcoal">Đánh giá công khai ({localReviews.length})</h2>
@@ -598,7 +598,7 @@ export default function RoomDetail() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+        <div data-tour="room-detail-booking-box" className="space-y-4 lg:sticky lg:top-20 lg:self-start">
           <div className="rounded-2xl bg-card p-5 shadow-xs ring-1 ring-border">
             <p className="text-primary font-bold">
               <span className="text-2xl">{formatVND(price)}</span>

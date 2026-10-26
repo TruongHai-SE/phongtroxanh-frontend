@@ -59,7 +59,7 @@ export default function LandlordPackages() {
         <p className="text-sm text-muted-foreground mt-1">Mua lượt đẩy tin để phòng của bạn hiển thị đầu kết quả tìm kiếm.</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-6 rounded-2xl bg-card p-5 ring-1 ring-border">
+      <div data-tour="landlord-packages-summary" className="flex flex-wrap items-center gap-6 rounded-2xl bg-card p-5 ring-1 ring-border">
         <div className="flex items-center gap-3">
           <span className="grid size-10 place-items-center rounded-xl bg-mint text-primary"><Rocket className="size-5" /></span>
           <div>
@@ -90,9 +90,9 @@ export default function LandlordPackages() {
       <PackageTermsConsent role="landlord" agreed={agreedTerms} onAgreeChange={setAgreedTerms} />
 
       {plans.length === 0 ? (
-        <p className="text-center text-sm text-muted-foreground py-10">Hiện chưa có gói nào dành cho chủ trọ.</p>
+        <p data-tour="landlord-packages-plans" className="text-center text-sm text-muted-foreground py-10">Hiện chưa có gói nào dành cho chủ trọ.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div data-tour="landlord-packages-plans" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => {
             const f = parseFeatures(plan);
             const active = subs.some((s) => s.planId === plan.id);

@@ -25,6 +25,7 @@ import {
   Lock,
   FileCheck2,
   RotateCcw,
+  CircleHelp,
 } from "lucide-react";
 import {
   Select,
@@ -2366,7 +2367,25 @@ function LandingNavbar({ user, role }: LandingNavbarProps) {
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
+          {role !== "admin" && (
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  role === "landlord"
+                    ? "/landlord?tab=overview&tour=1"
+                    : "/discover?tour=1"
+                )
+              }
+              title="Mở hướng dẫn tương tác trực quan"
+              className="relative inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-50/90 px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-2xs transition-all hover:bg-emerald-100 active:scale-95 cursor-pointer sm:text-sm"
+            >
+              <CircleHelp className="size-4 shrink-0 text-emerald-600" />
+              <span>Hướng dẫn</span>
+              <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
+            </button>
+          )}
           {user ? (
             <div className="flex items-center gap-2">
               <button
