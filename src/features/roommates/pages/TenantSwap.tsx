@@ -76,102 +76,105 @@ export default function TenantSwap() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // 1. Load active rentals of the logged-in tenant
-      const rentals = await rentalsApi.getMyTenantRentals();
-      if (Array.isArray(rentals) && rentals.length > 0) {
+      const [rentalsRes, roomsRes, swapsRes, mySwapsRes] = await Promise.allSettled([
+        rentalsApi.getMyTenantRentals(),
+        roomsApi.getRooms({ limit: 50 }),
+        api.get<any>("/swaps"),
+        api.get<any>("/swaps/me"),
+      ]);
+
+      let selectedRoomId = "";
+
+      if (rentalsRes.status === "fulfilled" && Array.isArray(rentalsRes.value) && rentalsRes.value.length > 0) {
+        const rentals = rentalsRes.value;
         setUserRentals(rentals);
-        const active = rentals.find(r => r.status === "CHECKED_IN" || r.status === "PENDING_CHECKIN") || rentals[0];
+        const active = rentals.find((r) => r.status === "CHECKED_IN" || r.status === "PENDING_CHECKIN") || rentals[0];
         if (active) {
-          setCurrentRoomSelect(String(active.roomId));
+          selectedRoomId = String(active.roomId);
         }
       }
-    } catch (err) {
-      console.warn("Could not load user rentals:", err);
-    }
 
-    try {
-      // 2. Load platform rooms to enable selecting from existing system listings
-      const roomsRes = await roomsApi.getRooms({ limit: 50 });
-      const roomList = (roomsRes?.content || []) as any[];
-      setAllRooms(roomList);
-      if (roomList.length > 0) {
-        setCurrentRoomSelect((prev) => prev || String(roomList[0].id));
+      if (roomsRes.status === "fulfilled") {
+        const roomList = (roomsRes.value?.content || []) as any[];
+        setAllRooms(roomList);
+        if (!selectedRoomId && roomList.length > 0) {
+          selectedRoomId = String(roomList[0].id);
+        }
       }
-    } catch (err) {
-      console.warn("Could not load platform rooms:", err);
-    }
 
-    try {
-      // 2. Load public swap feed
-      const data = await api.get<any>("/swaps");
-      const list = Array.isArray(data) ? data : data?.content;
-      if (Array.isArray(list) && list.length > 0) {
-        const mapped = list.map((item: any, i: number) => ({
-          id: String(item.id || `swap-${i + 1}`),
-          userId: item.userId || item.requesterId,
-          user: {
-            name: item.authorName || item.user?.name || "Người thuê trọ",
-            avatar: item.authorAvatar || "",
-            school: item.authorSchool || item.schoolOrCompany || "Đang thuê phòng",
-          },
-          currentRoom: {
-            title: item.currentRoomTitle || item.title || "Phòng trọ đang cần pass",
-            image: item.currentRoomImages?.[0] || item.roomImages?.[0] || "",
-            district: item.currentRoomDistrict || "Chưa cập nhật",
-            area: item.currentRoomArea || 0,
-            rent: item.currentRoomPrice != null ? Number(item.currentRoomPrice) : 0,
-            amenities: item.amenities || [],
-          },
-          targetNeeds: {
-            districts: Array.isArray(item.targetDistricts) && item.targetDistricts.length > 0 
-              ? item.targetDistricts 
-              : (item.desiredDistricts || ["Linh hoạt"]),
-            budgetMax: item.targetBudgetMax ? Number(item.targetBudgetMax) : 0,
-            roomType: item.targetRoomType || "Tùy chọn",
-          },
-          habits: item.habits || [],
-          reason: item.description || item.reason || "",
-          date: item.createdAt ? new Date(item.createdAt).toLocaleDateString("vi-VN") : "",
-        }));
-        setSwapPosts(mapped);
+      if (selectedRoomId) {
+        setCurrentRoomSelect((prev) => prev || selectedRoomId);
+      }
+
+      if (swapsRes.status === "fulfilled") {
+        const data = swapsRes.value;
+        const list = Array.isArray(data) ? data : data?.content;
+        if (Array.isArray(list) && list.length > 0) {
+          const mapped = list.map((item: any, i: number) => ({
+            id: String(item.id || `swap-${i + 1}`),
+            userId: item.userId || item.requesterId,
+            user: {
+              name: item.authorName || item.user?.name || "Người thuê trọ",
+              avatar: item.authorAvatar || "",
+              school: item.authorSchool || item.schoolOrCompany || "Đang thuê phòng",
+            },
+            currentRoom: {
+              title: item.currentRoomTitle || item.title || "Phòng trọ đang cần pass",
+              image: item.currentRoomImages?.[0] || item.roomImages?.[0] || "",
+              district: item.currentRoomDistrict || "Chưa cập nhật",
+              area: item.currentRoomArea || 0,
+              rent: item.currentRoomPrice != null ? Number(item.currentRoomPrice) : 0,
+              amenities: item.amenities || [],
+            },
+            targetNeeds: {
+              districts:
+                Array.isArray(item.targetDistricts) && item.targetDistricts.length > 0
+                  ? item.targetDistricts
+                  : item.desiredDistricts || ["Linh hoạt"],
+              budgetMax: item.targetBudgetMax ? Number(item.targetBudgetMax) : 0,
+              roomType: item.targetRoomType || "Tùy chọn",
+            },
+            habits: item.habits || [],
+            reason: item.description || item.reason || "",
+            date: item.createdAt ? new Date(item.createdAt).toLocaleDateString("vi-VN") : "",
+          }));
+          setSwapPosts(mapped);
+        } else {
+          setSwapPosts([]);
+        }
       } else {
         setSwapPosts([]);
       }
-    } catch (err) {
-      console.warn("Could not load /swaps feed:", err);
-      setSwapPosts([]);
-    }
 
-    try {
-      // 3. Load my own swap requests
-      const myData = await api.get<any>("/swaps/me");
-      const myList = Array.isArray(myData) ? myData : myData?.content;
-      if (Array.isArray(myList) && myList.length > 0) {
-        setMyRequests(
-          myList.map((r: any, idx: number) => ({
-            id: String(r.id || `my-${idx + 1}`),
-            roomTitle: r.title || "Yêu cầu hoán đổi phòng của tôi",
-            status: (r.status?.toLowerCase() === "approved" || r.status?.toLowerCase() === "completed"
-              ? "completed"
-              : r.status?.toLowerCase() === "pending_landlord"
-              ? "pending_landlord"
-              : "matching") as "matching" | "pending_landlord" | "completed",
-            date: r.createdAt ? new Date(r.createdAt).toLocaleDateString("vi-VN") : "Hôm nay",
-            isLeaseholder: Boolean(r.isLeaseholder),
-            targetNeeds: {
-              district: r.targetDistricts?.[0] || "Quận 10",
-              budget: r.targetBudgetMax ? `${(Number(r.targetBudgetMax) / 1e6).toFixed(1)}M` : "Thỏa thuận",
-              type: r.targetRoomType || "Phòng trọ",
-            },
-            match: null,
-          }))
-        );
+      if (mySwapsRes.status === "fulfilled") {
+        const myData = mySwapsRes.value;
+        const myList = Array.isArray(myData) ? myData : myData?.content;
+        if (Array.isArray(myList) && myList.length > 0) {
+          setMyRequests(
+            myList.map((r: any, idx: number) => ({
+              id: String(r.id || `my-${idx + 1}`),
+              roomTitle: r.title || "Yêu cầu hoán đổi phòng của tôi",
+              status: (r.status?.toLowerCase() === "approved" || r.status?.toLowerCase() === "completed"
+                ? "completed"
+                : r.status?.toLowerCase() === "pending_landlord"
+                ? "pending_landlord"
+                : "matching") as "matching" | "pending_landlord" | "completed",
+              date: r.createdAt ? new Date(r.createdAt).toLocaleDateString("vi-VN") : "Hôm nay",
+              isLeaseholder: Boolean(r.isLeaseholder),
+              targetNeeds: {
+                district: r.targetDistricts?.[0] || "Quận 10",
+                budget: r.targetBudgetMax ? `${(Number(r.targetBudgetMax) / 1e6).toFixed(1)}M` : "Thỏa thuận",
+                type: r.targetRoomType || "Phòng trọ",
+              },
+              match: null,
+            }))
+          );
+        } else {
+          setMyRequests([]);
+        }
       } else {
         setMyRequests([]);
       }
-    } catch (err) {
-      console.warn("Could not load /swaps/me:", err);
-      setMyRequests([]);
     } finally {
       setIsLoading(false);
     }

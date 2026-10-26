@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router";
 import { TopNav } from "@/components/layouts/TopNav";
 import { useAuth } from "@/app/context/AuthContext";
@@ -26,7 +26,9 @@ export function MainLayout() {
       <main className="flex-1 flex flex-col min-h-0">
         <AnimatePresence mode="wait">
           <PageTransition key={location.pathname}>
-            <Outlet />
+            <Suspense fallback={<div className="min-h-[60vh]" />}>
+              <Outlet />
+            </Suspense>
           </PageTransition>
         </AnimatePresence>
       </main>
