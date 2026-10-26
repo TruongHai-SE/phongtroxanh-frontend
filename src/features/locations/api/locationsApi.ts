@@ -1,70 +1,53 @@
 import { api } from "@/lib/api";
+import {
+  expandPlaceQueryForMap,
+  resolveLandmarkFromQuery,
+  searchLocalLandmarks,
+} from "@/lib/constants";
 import type {
   LocationSuggestionResponse,
   GeocodeResponse,
   ReverseGeocodeResponse,
 } from "../types/location.types";
 
-const getFrontendGoongKey = (): string => {
-  const env = (import.meta as any).env;
-  return (env?.VITE_GOONG_API_KEY || env?.VITE_GOONG_MAP_KEY || "").trim();
-};
-
 export const locationsApi = {
-  // #92 GET /locations/autocomplete (Ưu tiên gọi trực tiếp Goong từ FE nếu có key, fallback qua BE & Nominatim)
+  // #92 GET /locations/autocomplete (Kết hợp từ điển Trường ĐH/Địa điểm chuẩn + Backend Proxy / Nominatim đã chuẩn hóa "ĐH" -> "Trường Đại học")
   autocomplete: async (query: string): Promise<LocationSuggestionResponse[]> => {
     const trimmed = query?.trim();
     if (!trimmed) return [];
 
-    const feKey = getFrontendGoongKey();
-    if (feKey && !feKey.startsWith("your_")) {
-      try {
-        const url = `https://rsapi.goong.io/Place/AutoComplete?api_key=${encodeURIComponent(
-          feKey
-        )}&location=10.7769,106.7009&radius=50&more_compound=true&input=${encodeURIComponent(
-          trimmed
-        )}`;
-        const resp = await fetch(url);
-        if (resp.ok) {
-          const data = await resp.json();
-          if (Array.isArray(data?.predictions) && data.predictions.length > 0) {
-            return data.predictions.map((item: any) => ({
-              placeId: item.place_id || "",
-              description: item.description || "",
-              mainText: item.structured_formatting?.main_text || item.description || "",
-              secondaryText: item.structured_formatting?.secondary_text || "",
-            }));
-          }
-        }
-      } catch {
-        // Fallback sang Backend bên dưới
-      }
-    }
+    const localMatches: LocationSuggestionResponse[] = searchLocalLandmarks(trimmed, 4).map(
+      (lm) => ({
+        placeId: `local-${lm.lat}-${lm.lng}`,
+        description: `${lm.name}, ${lm.district}, TP. Hồ Chí Minh`,
+        mainText: lm.shortName,
+        secondaryText: `${lm.name} • ${lm.district}`,
+      })
+    );
+
+    const expanded = expandPlaceQueryForMap(trimmed);
 
     try {
-      const res = await api.get<any>("/locations/autocomplete", { input: trimmed });
-      if (Array.isArray(res) && res.length > 0) return res;
-      if (res?.predictions && Array.isArray(res.predictions) && res.predictions.length > 0) {
-        return res.predictions;
+      const res = await api.get<any>("/locations/autocomplete", { input: expanded });
+      const list = Array.isArray(res) ? res : Array.isArray(res?.predictions) ? res.predictions : [];
+      if (list.length > 0) {
+        return [...localMatches, ...list].slice(0, 7);
       }
     } catch {
-      // Fallback sang OpenStreetMap Nominatim nếu cả FE và BE chưa cấu hình Goong Key
+      // Fallback sang OpenStreetMap Nominatim
     }
 
     try {
-      const q = trimmed.toLowerCase().includes("hồ chí minh")
-        ? trimmed
-        : `${trimmed}, Hồ Chí Minh, Việt Nam`;
       const osmResp = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=vn&q=${encodeURIComponent(
-          q
+        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=vn&viewbox=106.35,11.16,107.05,10.35&bounded=1&q=${encodeURIComponent(
+          expanded
         )}`,
         { headers: { "Accept-Language": "vi" } }
       );
       if (osmResp.ok) {
         const items = await osmResp.json();
-        if (Array.isArray(items)) {
-          return items.map((it: any) => {
+        if (Array.isArray(items) && items.length > 0) {
+          const osmItems = items.map((it: any) => {
             const parts = String(it.display_name || "").split(",");
             return {
               placeId: String(it.place_id || ""),
@@ -73,89 +56,96 @@ export const locationsApi = {
               secondaryText: parts.slice(1, 4).join(",").trim(),
             };
           });
+          return [...localMatches, ...osmItems].slice(0, 7);
         }
       }
     } catch {
       // Ignore network error
     }
-    return [];
+    return localMatches;
   },
 
-  // #93 GET /locations/geocode (Ưu tiên gọi trực tiếp Goong từ FE nếu có key, fallback qua BE & Nominatim)
+  // #93 GET /locations/geocode (Chuẩn hóa "ĐH" -> "Trường Đại học", ưu tiên tọa độ chuẩn của Trường ĐH/Làng Đại học, không lộ API key ở client)
   geocode: async (address: string): Promise<GeocodeResponse> => {
     const trimmed = address?.trim();
-    const feKey = getFrontendGoongKey();
+    if (!trimmed) throw new Error("GEOCODE_NOT_FOUND");
 
-    if (feKey && !feKey.startsWith("your_") && trimmed) {
+    // 1. Ưu tiên khớp chính xác trong danh mục Trường ĐH / Làng Đại học / Khu công nghệ
+    const landmark = resolveLandmarkFromQuery(trimmed);
+    if (landmark) {
+      return {
+        lat: landmark.lat,
+        lng: landmark.lng,
+        latitude: landmark.lat,
+        longitude: landmark.lng,
+        address: `${landmark.name}, ${landmark.district}, TP. Hồ Chí Minh`,
+        formattedAddress: `${landmark.name}, ${landmark.district}, TP. Hồ Chí Minh`,
+      };
+    }
+
+    // 2. Mở rộng từ viết tắt ("ĐH" -> "Trường Đại học", "IU" -> "Trường Đại học Quốc tế...")
+    const expanded = expandPlaceQueryForMap(trimmed);
+
+    // 3. Tìm qua OpenStreetMap Nominatim trong khung tọa độ TP.HCM mở rộng (bao gồm cả Làng Đại học Thủ Đức / Dĩ An)
+    const queriesToTry = [
+      expanded,
+      expanded.toLowerCase().includes("hồ chí minh") ? null : `${expanded}, Hồ Chí Minh`,
+    ].filter(Boolean) as string[];
+
+    for (const q of queriesToTry) {
       try {
-        const url = `https://rsapi.goong.io/Geocode?api_key=${encodeURIComponent(
-          feKey
-        )}&address=${encodeURIComponent(trimmed)}`;
-        const resp = await fetch(url);
-        if (resp.ok) {
-          const data = await resp.json();
-          const first = data?.results?.[0];
-          const loc = first?.geometry?.location;
-          if (loc && typeof loc.lat === "number" && typeof loc.lng === "number") {
+        const osmResp = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=vn&viewbox=106.35,11.16,107.05,10.35&bounded=1&q=${encodeURIComponent(
+            q
+          )}`,
+          { headers: { "Accept-Language": "vi" } }
+        );
+        if (osmResp.ok) {
+          const items = await osmResp.json();
+          if (Array.isArray(items) && items.length > 0) {
+            const lat = Number(items[0].lat);
+            const lng = Number(items[0].lon);
+            const formatted = String(items[0].display_name || expanded);
             return {
-              lat: loc.lat,
-              lng: loc.lng,
-              latitude: loc.lat,
-              longitude: loc.lng,
-              address: first.formatted_address || trimmed,
-              formattedAddress: first.formatted_address || trimmed,
+              lat,
+              lng,
+              latitude: lat,
+              longitude: lng,
+              address: formatted,
+              formattedAddress: formatted,
             };
           }
         }
       } catch {
-        // Fallback sang Backend bên dưới
+        // Continue to next fallback
       }
     }
 
+    // 4. Cuối cùng thử qua Backend Proxy (giữ kín GOONG_API_KEY phía server, loại bỏ tọa độ giả 10.7769, 106.7009)
     try {
-      const res = await api.get<any>("/locations/geocode", { address: trimmed });
+      const res = await api.get<any>("/locations/geocode", { address: expanded });
       const lat = Number(res?.latitude ?? res?.lat ?? 0);
       const lng = Number(res?.longitude ?? res?.lng ?? 0);
-      if (lat && lng) {
+      const formatted = String(res?.formattedAddress ?? res?.address ?? "");
+      const isDummyFallback =
+        Math.abs(lat - 10.7769) < 0.0002 &&
+        Math.abs(lng - 106.7009) < 0.0002 &&
+        formatted === expanded;
+      if (lat && lng && !isDummyFallback) {
         return {
           ...res,
           lat,
           lng,
           latitude: lat,
           longitude: lng,
-          address: res?.formattedAddress ?? res?.address ?? trimmed,
-          formattedAddress: res?.formattedAddress ?? res?.address ?? trimmed,
+          address: formatted || expanded,
+          formattedAddress: formatted || expanded,
         };
       }
     } catch {
-      // Fallback sang OpenStreetMap Nominatim bên dưới
+      // Ignore
     }
 
-    const q = trimmed.toLowerCase().includes("hồ chí minh")
-      ? trimmed
-      : `${trimmed}, Hồ Chí Minh, Việt Nam`;
-    const osmResp = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=vn&q=${encodeURIComponent(
-        q
-      )}`,
-      { headers: { "Accept-Language": "vi" } }
-    );
-    if (osmResp.ok) {
-      const items = await osmResp.json();
-      if (Array.isArray(items) && items.length > 0) {
-        const lat = Number(items[0].lat);
-        const lng = Number(items[0].lon);
-        const formatted = String(items[0].display_name || trimmed);
-        return {
-          lat,
-          lng,
-          latitude: lat,
-          longitude: lng,
-          address: formatted,
-          formattedAddress: formatted,
-        };
-      }
-    }
     throw new Error("GEOCODE_NOT_FOUND");
   },
 

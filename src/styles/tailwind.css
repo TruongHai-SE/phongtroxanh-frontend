@@ -12,15 +12,9 @@ button:not(:disabled),
 label:has(input[type="checkbox"]),
 label:has(input[type="radio"]) {
   cursor: pointer;
-  transition-property: color, background-color, border-color, box-shadow, transform, opacity, translate, scale;
-  transition-duration: 180ms;
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity, scale;
+  transition-duration: 160ms;
   transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-button:not(:disabled):not([role="combobox"]):not([data-slot]):hover,
-label:has(input[type="checkbox"]):hover,
-label:has(input[type="radio"]):hover {
-  translate: 0 -1.5px;
 }
 
 button:not(:disabled):active,

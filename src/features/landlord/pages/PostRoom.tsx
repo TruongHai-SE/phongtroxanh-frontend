@@ -14,6 +14,7 @@ import {
   Maximize2,
   ShieldCheck,
   Navigation,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +61,7 @@ export default function PostRoom() {
     title: "",
     roomType: "",
     areaSqm: "",
+    maxOccupants: "2",
     description: "",
     price: 0,
     depositAmount: 0,
@@ -220,6 +222,8 @@ export default function PostRoom() {
       if (!form.title.trim()) return "Vui lòng nhập tiêu đề tin đăng";
       if (!form.roomType) return "Vui lòng chọn loại phòng";
       if (!(Number(form.areaSqm) > 0)) return "Diện tích phải lớn hơn 0";
+      const occ = Number(form.maxOccupants);
+      if (!Number.isInteger(occ) || occ < 1 || occ > 20) return "Số người ở tối đa phải là số nguyên từ 1 đến 20 người";
       if (!form.description.trim()) return "Vui lòng nhập mô tả phòng";
     }
     if (s === 1 && !(form.price > 0)) return "Tiền thuê phòng phải lớn hơn 0";
@@ -264,6 +268,7 @@ export default function PostRoom() {
         price: form.price,
         depositAmount: form.depositAmount,
         areaSqm: Number(form.areaSqm),
+        maxOccupants: Math.max(1, Math.min(20, Math.round(Number(form.maxOccupants) || 2))),
         addressStreet: form.addressStreet.trim(),
         district: form.district,
         city: form.city,
@@ -368,7 +373,7 @@ export default function PostRoom() {
                   />
                 </Field>
 
-                <div className="grid gap-3.5 sm:grid-cols-2 w-full">
+                <div className="grid gap-3.5 sm:grid-cols-3 w-full">
                   <Field label="Loại phòng">
                     <Select value={form.roomType} onValueChange={(v) => update("roomType", v)}>
                       <SelectTrigger className="w-full"><SelectValue placeholder="Chọn loại phòng" /></SelectTrigger>
@@ -384,6 +389,7 @@ export default function PostRoom() {
                         type="number"
                         min={1}
                         inputMode="decimal"
+                        className="tabular-nums"
                         value={form.areaSqm}
                         onChange={(e) => update("areaSqm", e.target.value)}
                         placeholder="VD: 25"
@@ -395,13 +401,48 @@ export default function PostRoom() {
                             type="button"
                             onClick={() => update("areaSqm", String(sqm))}
                             className={cn(
-                              "rounded-md border px-2 py-0.5 text-[11px] font-medium transition cursor-pointer",
+                              "rounded-md border px-2 py-0.5 text-[11px] font-medium tabular-nums transition-transform duration-150 active:scale-[0.97] cursor-pointer",
                               Number(form.areaSqm) === sqm
                                 ? "border-primary bg-mint text-primary"
                                 : "border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                             )}
                           >
                             {sqm}m²
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </Field>
+
+                  <Field label="Số người ở tối đa">
+                    <div className="space-y-1.5">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={20}
+                        inputMode="numeric"
+                        className="tabular-nums"
+                        value={form.maxOccupants}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/[^\d]/g, "");
+                          update("maxOccupants", raw);
+                        }}
+                        placeholder="VD: 2"
+                      />
+                      <div className="flex flex-wrap gap-1">
+                        {[1, 2, 3, 4].map((occ) => (
+                          <button
+                            key={occ}
+                            type="button"
+                            onClick={() => update("maxOccupants", String(occ))}
+                            className={cn(
+                              "rounded-md border px-2 py-0.5 text-[11px] font-medium tabular-nums transition-transform duration-150 active:scale-[0.97] cursor-pointer",
+                              Number(form.maxOccupants) === occ
+                                ? "border-primary bg-mint text-primary"
+                                : "border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                            )}
+                          >
+                            {occ} người
                           </button>
                         ))}
                       </div>
@@ -669,7 +710,7 @@ export default function PostRoom() {
                           {form.roomType || "Phòng trọ"}
                         </span>
                         <span className="text-xs text-muted-foreground truncate">
-                          {form.addressStreet}, {form.district} • {form.areaSqm} m²
+                          {form.addressStreet}, {form.district} • {form.areaSqm} m² • Tối đa {form.maxOccupants || 2} người
                         </span>
                       </div>
                       <h3 className="font-bold text-base text-foreground line-clamp-1">{form.title}</h3>
@@ -829,9 +870,14 @@ export default function PostRoom() {
                     {form.price > 0 ? formatVND(form.price) : "0đ"}
                     <span className="text-[11px] text-muted-foreground font-normal">/tháng</span>
                   </p>
-                  <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                    <Maximize2 className="size-3" /> {form.areaSqm || "0"} m²
-                  </span>
+                  <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <Maximize2 className="size-3" /> {form.areaSqm || "0"} m²
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Users className="size-3" /> Tối đa {form.maxOccupants || "2"} người
+                    </span>
+                  </div>
                 </div>
 
                 {feeList.length > 0 && (
