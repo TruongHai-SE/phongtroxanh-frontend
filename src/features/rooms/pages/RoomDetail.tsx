@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router";
 import {
   ChevronRight, ChevronLeft, Heart, Share2, MapPin, Maximize2, Layers, ShieldCheck,
   ShieldAlert, MessageCircle, Star, Check, X, Eye, Flag, AlertTriangle, MessageSquarePlus,
-  KeyRound, Calendar, ArrowLeftRight,
+  KeyRound, Calendar, ArrowLeftRight, Users,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -118,7 +118,9 @@ export default function RoomDetail() {
     PHONG_TRO: "Phòng trọ",
     STUDIO: "Studio",
     CAN_HO_MINI: "Căn hộ mini",
-    KTX_SLEEPBOX: "KTX / Sleepbox",
+    CHUNG_CU_MINI: "Căn hộ mini",
+    KTX_SLEEPBOX: "Ở ghép / Sleepbox",
+    O_GHEP: "Ở ghép",
     SLEEPBOX: "Sleepbox",
     KY_TUC_XA: "Ký túc xá",
   };
@@ -149,9 +151,11 @@ export default function RoomDetail() {
 
   const title = detailRoom?.title || "Phòng trọ";
   const district = detailRoom?.district || "Hồ Chí Minh";
+  const addressStreet = (detailRoom as any)?.addressStreet || detailRoom?.address || "";
   const price = detailRoom?.price ? Number(detailRoom.price) : 0;
   const area = detailRoom?.areaSqm ? Number(detailRoom.areaSqm) : 0;
   const floor = detailRoom?.floorNumber || 1;
+  const maxOccupants = detailRoom?.maxOccupants ? Number(detailRoom.maxOccupants) : 2;
   const rawType = detailRoom?.roomType || "";
   const type = ROOM_TYPE_LABELS[rawType] || (rawType ? rawType.replace(/_/g, " ") : "Phòng trọ");
   const description = detailRoom?.description || "Chưa có mô tả chi tiết cho phòng này.";
@@ -332,15 +336,39 @@ export default function RoomDetail() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-6">
-      {/* Breadcrumb */}
-      <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
-        <Link to="/discover" className="hover:text-foreground">Khám phá</Link>
-        <ChevronRight className="size-3" />
-        <span>{district}</span>
-        <ChevronRight className="size-3" />
-        <span className="truncate max-w-[200px] text-foreground">{title}</span>
-      </div>
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-5 sm:py-6">
+      {/* Breadcrumb & Back Navigation */}
+      <nav className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <Link
+            to="/discover"
+            className="hover:text-primary transition-colors font-medium shrink-0"
+          >
+            Khám phá
+          </Link>
+          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
+          <Link
+            to={`/discover?district=${encodeURIComponent(district)}`}
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 hover:bg-mint/70 hover:text-primary transition-colors font-medium text-foreground/85 shrink-0"
+            title={`Tìm các phòng trọ tại ${district}`}
+          >
+            <MapPin className="size-3 text-primary" />
+            {district}
+          </Link>
+          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/70" />
+          <span className="truncate max-w-[200px] sm:max-w-[340px] text-foreground font-semibold">
+            {title}
+          </span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 cursor-pointer shrink-0"
+          onClick={() => navigate("/discover")}
+        >
+          ← Quay lại danh sách
+        </Button>
+      </nav>
 
       {/* Gallery with Zoom on Click */}
       <div className="relative grid grid-cols-1 gap-2 md:grid-cols-4 md:grid-rows-2 h-[clamp(230px,36dvh,380px)] rounded-2xl overflow-hidden mb-5 group/gallery">
@@ -384,15 +412,42 @@ export default function RoomDetail() {
         {/* Main Details */}
         <div className="space-y-6">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="secondary">{type}</Badge>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <Link
+                to={`/discover?roomType=${encodeURIComponent(type)}`}
+                title={`Lọc phòng loại ${type}`}
+              >
+                <Badge variant="secondary" className="hover:bg-mint hover:text-primary transition-colors cursor-pointer">
+                  {type}
+                </Badge>
+              </Link>
               <Badge variant="outline">Tầng {floor}</Badge>
               <Badge variant="outline">{area} m²</Badge>
+              <Badge variant="outline" className="gap-1">
+                <Users className="size-3 text-primary" /> Tối đa {maxOccupants} người
+              </Badge>
             </div>
             <h1 className="text-2xl font-bold text-charcoal">{title}</h1>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-              <MapPin className="size-4 text-primary" /> {district}, TP. Hồ Chí Minh
-            </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="size-4 text-primary shrink-0" />
+                {addressStreet && <span>{addressStreet},</span>}
+                <Link
+                  to={`/discover?district=${encodeURIComponent(district)}`}
+                  className="font-medium text-foreground/90 hover:text-primary hover:underline underline-offset-4 transition-colors"
+                >
+                  {district}
+                </Link>
+                <span>, TP. Hồ Chí Minh</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate(`/map?roomId=${id}`)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline underline-offset-4 cursor-pointer"
+              >
+                • Xem vị trí trên bản đồ →
+              </button>
+            </div>
           </div>
 
           <Separator />

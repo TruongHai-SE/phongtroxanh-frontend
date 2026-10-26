@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Heart,
   MapPin,
@@ -7,10 +8,14 @@ import {
   Map as MapIcon,
   Activity,
   ShieldCheck,
-  Flame,
   Users,
   AlertCircle,
   RefreshCw,
+  ArrowRight,
+  ArrowUpRight,
+  Eye,
+  Layers,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -34,7 +39,9 @@ const ROOM_TYPE_LABELS: Record<string, string> = {
   PHONG_TRO: "Phòng trọ",
   STUDIO: "Studio",
   CAN_HO_MINI: "Căn hộ mini",
-  KTX_SLEEPBOX: "KTX / Sleepbox",
+  CHUNG_CU_MINI: "Căn hộ mini",
+  KTX_SLEEPBOX: "Ở ghép / Sleepbox",
+  O_GHEP: "Ở ghép",
   SLEEPBOX: "Sleepbox",
   KY_TUC_XA: "Ký túc xá",
 };
@@ -43,24 +50,29 @@ function BigRoomCard({
   room,
   saved,
   onToggleSave,
+  onOpenDetail,
 }: {
   room: any;
   saved?: boolean;
   onToggleSave?: (room: any) => void;
+  onOpenDetail?: (room: any) => void;
 }) {
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+
   const rawImages = room.images || [];
   const displayImages: string[] = rawImages
     .map((img: any) => (typeof img === "string" ? img : img?.imageUrl))
     .filter(Boolean);
 
-  const images = displayImages.length > 0
-    ? displayImages
-    : room?.primaryImageUrl
-    ? [room.primaryImageUrl]
-    : [
-        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&auto=format&fit=crop&q=80",
-      ];
+  const images =
+    displayImages.length > 0
+      ? displayImages
+      : room?.primaryImageUrl
+      ? [room.primaryImageUrl]
+      : [
+          "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&auto=format&fit=crop&q=80",
+          "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&auto=format&fit=crop&q=80",
+        ];
 
   const priceVal = room.price ? Number(room.price) : 0;
   const depositVal = room.depositAmount ? Number(room.depositAmount) : 0;
@@ -71,29 +83,81 @@ function BigRoomCard({
   const floorVal = room.floorNumber ?? room.floor;
   const rawType = room.roomType ?? room.type ?? "";
   const typeLabel = ROOM_TYPE_LABELS[rawType] || rawType || "Phòng trọ";
-  const maxOccupants = room.maxOccupants ?? 0;
+  const maxOccupants = room.maxOccupants ?? 2;
   const isVerified = Boolean(room.isVerified);
-  const isBoosted = Boolean(room.isBoosted);
   const matchVal = typeof room.match === "number" && room.match > 0 ? room.match : null;
+  const amenitiesList: string[] =
+    Array.isArray(room?.amenities) && room.amenities.length > 0
+      ? room.amenities
+      : ["Wi-Fi tốc độ cao", "Giờ giấc tự do", "An ninh 24/7"];
+
+  const handleGalleryPointerDown = (e: React.PointerEvent) => {
+    pointerStartRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleGalleryClick = (e: React.MouseEvent) => {
+    if (pointerStartRef.current) {
+      const dist = Math.hypot(
+        e.clientX - pointerStartRef.current.x,
+        e.clientY - pointerStartRef.current.y
+      );
+      if (dist > 6) return;
+    }
+    onOpenDetail?.(room);
+  };
 
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-3xl bg-card shadow-xl ring-1 ring-border hover-lift select-none">
-      <div className="relative grid h-[clamp(145px,22dvh,225px)] grid-cols-3 grid-rows-2 gap-1 overflow-hidden shrink-0">
-        <ImageWithFallback
-          src={images[0]}
-          alt={titleVal}
-          className="col-span-2 row-span-2 size-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.025]"
-        />
-        <ImageWithFallback
-          src={images[1] || images[0]}
-          alt=""
-          className="size-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.025]"
-        />
-        <ImageWithFallback
-          src={images[2] || images[0]}
-          alt=""
-          className="size-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.025]"
-        />
+      {/* Top 55%: Photo Gallery (hover shows 1 clean detail cue, 1-click opens room detail, drag swipes card) */}
+      <div
+        onPointerDown={handleGalleryPointerDown}
+        onClick={handleGalleryClick}
+        className="group/gallery relative grid h-[55%] grid-cols-3 grid-rows-2 gap-1 overflow-hidden shrink-0 bg-slate-100 cursor-pointer active:cursor-grabbing"
+      >
+        <div className="relative col-span-2 row-span-2 overflow-hidden">
+          <ImageWithFallback
+            src={images[0]}
+            alt={titleVal}
+            className="size-full object-cover transition-transform duration-500 ease-out group-hover/gallery:scale-[1.03]"
+          />
+        </div>
+
+        <div className="relative overflow-hidden">
+          <ImageWithFallback
+            src={images[1] || images[0]}
+            alt=""
+            className="size-full object-cover transition-transform duration-500 ease-out group-hover/gallery:scale-[1.03]"
+          />
+        </div>
+
+        <div className="relative overflow-hidden">
+          <ImageWithFallback
+            src={images[2] || images[0]}
+            alt=""
+            className="size-full object-cover transition-transform duration-500 ease-out group-hover/gallery:scale-[1.03]"
+          />
+          {images.length > 3 && (
+            <span className="pointer-events-none absolute bottom-2.5 right-2.5 rounded-md bg-slate-950/70 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur-xs">
+              +{images.length - 3} ảnh
+            </span>
+          )}
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/55 via-black/15 to-transparent opacity-0 transition-opacity duration-200 group-hover/gallery:opacity-100" />
+
+        {/* Single clean hover cue on gallery */}
+        <div className="pointer-events-none absolute bottom-3 left-3.5 z-20 inline-flex items-center gap-1.5 rounded-full bg-slate-950/80 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md ring-1 ring-white/15 backdrop-blur-md opacity-0 translate-y-1 transition-all duration-200 ease-out group-hover/gallery:opacity-100 group-hover/gallery:translate-y-0">
+          <Eye className="size-3.5 text-emerald-300" />
+          <span>Xem chi tiết phòng</span>
+          <ArrowUpRight className="size-3.5 text-white/80" />
+        </div>
+
+        {saved && (
+          <span className="pointer-events-none absolute left-3.5 top-3.5 z-20 inline-flex items-center gap-1 rounded-full bg-rose-600 text-white px-2.5 py-1 text-[11px] font-bold shadow-md backdrop-blur animate-fade-in">
+            <Heart className="size-3 fill-white" /> Đã lưu
+          </span>
+        )}
+
         <button
           type="button"
           onPointerDown={(e) => e.stopPropagation()}
@@ -103,7 +167,7 @@ function BigRoomCard({
             onToggleSave?.(room);
           }}
           className={cn(
-            "absolute right-3 top-3 grid size-10 place-items-center rounded-full shadow-md backdrop-blur transition-all duration-200 press-active hover:scale-110 active:scale-95 z-30 cursor-pointer",
+            "absolute right-3.5 top-3.5 grid size-10 place-items-center rounded-full shadow-md backdrop-blur transition-all duration-200 press-active hover:scale-105 active:scale-95 z-30 cursor-pointer",
             saved
               ? "bg-rose-50 text-rose-600 ring-2 ring-rose-500/40"
               : "bg-white/95 text-muted-foreground hover:bg-white hover:text-rose-500"
@@ -113,110 +177,176 @@ function BigRoomCard({
           <Heart className={cn("size-5 transition-colors", saved ? "fill-rose-500 text-rose-500" : "")} />
         </button>
 
-        {saved && (
-          <span className="absolute left-3 bottom-3 inline-flex items-center gap-1 rounded-full bg-rose-600 text-white px-2.5 py-1 text-[11px] font-bold shadow-md backdrop-blur animate-fade-in">
-            ❤️ Đã lưu yêu thích
-          </span>
-        )}
-
-        {isBoosted && !saved && (
-          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-amber-500/90 text-white px-2.5 py-1 text-[11px] font-bold shadow-md backdrop-blur">
-            <Flame className="size-3" /> Nổi bật
-          </span>
-        )}
-
-        {matchVal != null && <MatchBadge value={matchVal} className="absolute bottom-3 right-3" />}
+        {matchVal != null && <MatchBadge value={matchVal} className="absolute bottom-3 right-3.5 z-20" />}
       </div>
 
-      <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-4 min-w-0 min-h-0 overflow-y-auto">
-        <div className="space-y-1 sm:space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded bg-mint text-emerald-brand uppercase tracking-wider">
-              {typeLabel}
-            </span>
-            {isVerified && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                <ShieldCheck className="size-3" /> Đã xác thực
+      {/* Bottom 45%: Clean 3-tier hierarchy (Identity + Price -> Inline Specs -> Amenities) */}
+      <div className="flex flex-1 flex-col justify-between p-4 sm:px-6 sm:py-4 min-w-0 min-h-0">
+        {/* Tier 1: Title & Location on Left | Price & Deposit on Right */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-mint text-emerald-brand uppercase tracking-wider">
+                {typeLabel}
               </span>
-            )}
-          </div>
-
-          <div>
-            <h3 className="text-base sm:text-lg font-semibold transition-colors duration-200 group-hover:text-primary line-clamp-2 leading-snug">
-              {titleVal}
-            </h3>
-            <p className="mt-0.5 inline-flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
-              <MapPin className="size-3.5 text-primary shrink-0" />
-              <span className="truncate">{addressStreet ? `${addressStreet}, ` : ""}{districtVal}</span>
-            </p>
-          </div>
-
-          <p className="text-primary">
-            <span className="text-xl sm:text-2xl font-bold">{formatVND(priceVal)}</span>
-            <span className="text-xs text-muted-foreground">/tháng</span>
-          </p>
-
-          <div className="flex items-center gap-4 text-xs sm:text-sm text-muted-foreground">
-            {areaVal > 0 && (
-              <span className="inline-flex items-center gap-1">
-                <Maximize2 className="size-4" />
-                {areaVal} m²
-              </span>
-            )}
-            {floorVal != null && floorVal > 0 && (
-              <span className="inline-flex items-center gap-1">
-                Tầng {floorVal}
-              </span>
-            )}
-            {maxOccupants > 0 && (
-              <span className="inline-flex items-center gap-1">
-                <Users className="size-3.5" />
-                Tối đa {maxOccupants} người
-              </span>
-            )}
-          </div>
-
-          {/* Amenities tags */}
-          {Array.isArray(room?.amenities) && room.amenities.length > 0 && (
-            <div className="flex flex-wrap gap-1 pt-1">
-              {room.amenities.slice(0, 4).map((a: string) => (
-                <span key={a} className="rounded-md bg-mint/90 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
-                  {a}
-                </span>
-              ))}
-              {room.amenities.length > 4 && (
-                <span className="text-[11px] text-muted-foreground self-center">
-                  +{room.amenities.length - 4}
+              {isVerified && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                  <ShieldCheck className="size-3" /> Đã xác thực
                 </span>
               )}
             </div>
+            <h3 className="text-base sm:text-lg font-bold text-foreground transition-colors duration-200 group-hover:text-primary line-clamp-1 leading-snug">
+              {titleVal}
+            </h3>
+            <p className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground max-w-full">
+              <MapPin className="size-3.5 text-primary shrink-0" />
+              <span className="truncate">
+                {addressStreet ? `${addressStreet}, ` : ""}
+                {districtVal || "TP.HCM"}
+              </span>
+            </p>
+          </div>
+
+          <div className="shrink-0 text-right pt-0.5">
+            <p className="text-primary leading-none">
+              <span className="text-xl sm:text-2xl font-extrabold tabular-nums">
+                {formatVND(priceVal)}
+              </span>
+              <span className="text-xs font-normal text-muted-foreground">/tháng</span>
+            </p>
+            {depositVal > 0 && (
+              <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
+                Cọc: <span className="font-semibold text-foreground">{formatVND(depositVal)}</span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Tier 2: Clean Inline Spec Strip (No nested boxes) */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs sm:text-sm text-slate-600">
+          {areaVal > 0 && (
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <Maximize2 className="size-3.5 text-primary" />
+              <span className="tabular-nums">{areaVal} m²</span>
+            </span>
+          )}
+          {floorVal != null && floorVal > 0 && (
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <Layers className="size-3.5 text-primary" />
+              <span>Tầng {floorVal}</span>
+            </span>
+          )}
+          {maxOccupants > 0 && (
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <Users className="size-3.5 text-primary" />
+              <span>Tối đa {maxOccupants} người</span>
+            </span>
           )}
         </div>
 
-        {depositVal > 0 && (
-          <div className="mt-2.5 pt-2 border-t border-border/50 text-xs text-muted-foreground flex items-center justify-between">
-            <span>Tiền cọc:</span>
-            <span className="font-semibold text-foreground">{formatVND(depositVal)}</span>
+        {/* Tier 3: Amenities Footer */}
+        <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-border/60">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            {amenitiesList.slice(0, 4).map((a: string) => (
+              <span
+                key={a}
+                className="rounded-md bg-mint/80 px-2.5 py-0.5 text-xs font-medium text-emerald-800"
+              >
+                {a}
+              </span>
+            ))}
+            {amenitiesList.length > 4 && (
+              <span className="text-xs text-muted-foreground">
+                +{amenitiesList.length - 4}
+              </span>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
 }
 
+interface PendingRoomPreview {
+  id: string;
+  title: string;
+  price: number;
+  district: string;
+  area?: number;
+  type?: string;
+  typeLabel?: string;
+  image?: string;
+  imageUrl?: string;
+  isVerified?: boolean;
+}
+
 export default function Discover() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlDistrict = searchParams.get("district")?.trim() || undefined;
+  const urlRoomType = searchParams.get("roomType")?.trim() || undefined;
+  const urlKeyword = searchParams.get("keyword")?.trim() || undefined;
+  const hasUrlFilters = Boolean(urlDistrict || urlRoomType || urlKeyword);
+
+  const shouldReduceMotion = useReducedMotion();
   const { user } = useAuth();
   const { loaded, swipesLeft, maxSwipes, decrementSwipes, openPricing, tier } = useMonetization();
+  const [pendingRoom, setPendingRoom] = useState<PendingRoomPreview | null>(null);
+  const [showPendingRoomModal, setShowPendingRoomModal] = useState(false);
 
-  // Pre-calculate initial filters from logged-in user profile to prevent un-filtered first call in F12
-  const initialPrefFilters = {
-    district: user?.preferredDistricts?.[0],
-    roomType: user?.preferredRoomType,
-    minPrice: user?.budgetMin,
-    maxPrice: user?.budgetMax,
-    excludeSwiped: true,
+  // Check if the user selected a specific room on the Landing Page before logging in / registering
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("ptx_pending_room");
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as PendingRoomPreview;
+      if (!parsed || !parsed.id) return;
+      setPendingRoom(parsed);
+      const timer = window.setTimeout(() => {
+        setShowPendingRoomModal(true);
+      }, 350);
+      return () => window.clearTimeout(timer);
+    } catch {
+      // ignore invalid session payload
+    }
+  }, []);
+
+  const handleDismissPendingRoom = () => {
+    setShowPendingRoomModal(false);
+    try {
+      sessionStorage.removeItem("ptx_pending_room");
+    } catch {
+      // ignore
+    }
   };
+
+  const handleConfirmPendingRoom = () => {
+    if (!pendingRoom?.id) return;
+    const targetId = pendingRoom.id;
+    setShowPendingRoomModal(false);
+    try {
+      sessionStorage.removeItem("ptx_pending_room");
+    } catch {
+      // ignore
+    }
+    navigate(`/rooms/${targetId}`);
+  };
+
+  // Pre-calculate initial filters from URL query params first, or logged-in user profile
+  const initialPrefFilters = hasUrlFilters
+    ? {
+        district: urlDistrict,
+        roomType: urlRoomType,
+        keyword: urlKeyword,
+        excludeSwiped: false,
+      }
+    : {
+        district: user?.preferredDistricts?.[0],
+        roomType: user?.preferredRoomType,
+        minPrice: user?.budgetMin,
+        maxPrice: user?.budgetMax,
+        excludeSwiped: true,
+      };
 
   const { rooms, isLoading, isError, isEmpty, errorMessage, updateFilters, refetch } = useRooms(
     initialPrefFilters
@@ -243,7 +373,13 @@ export default function Discover() {
     }
   });
   const [initialFilters, setInitialFilters] = useState<RoomFilterState | undefined>(
-    user && (user.preferredDistricts?.length || user.preferredRoomType || user.budgetMin)
+    hasUrlFilters
+      ? {
+          district: urlDistrict,
+          roomType: urlRoomType,
+          keyword: urlKeyword,
+        }
+      : user && (user.preferredDistricts?.length || user.preferredRoomType || user.budgetMin)
       ? {
           district: user.preferredDistricts?.[0],
           roomType: user.preferredRoomType,
@@ -253,9 +389,34 @@ export default function Discover() {
       : undefined
   );
 
-  // Load user's saved onboarding criteria to pre-fill search filters
+  // Sync URL query params (?district=...&roomType=...&keyword=...) when navigating from RoomDetail breadcrumb
   useEffect(() => {
-    if (!user) return;
+    if (!urlDistrict && !urlRoomType && !urlKeyword) return;
+    const urlInit: RoomFilterState = {
+      district: urlDistrict,
+      roomType: urlRoomType,
+      keyword: urlKeyword,
+    };
+    setInitialFilters(urlInit);
+    try {
+      sessionStorage.setItem("ptx_discover_filters", JSON.stringify(urlInit));
+    } catch {
+      // ignore
+    }
+    updateFilters(
+      {
+        district: urlDistrict,
+        roomType: urlRoomType,
+        keyword: urlKeyword,
+        excludeSwiped: false,
+      },
+      true
+    );
+  }, [urlDistrict, urlRoomType, urlKeyword]);
+
+  // Load user's saved onboarding criteria to pre-fill search filters (only when no explicit URL filter is active)
+  useEffect(() => {
+    if (!user || hasUrlFilters) return;
     async function loadTenantCriteria() {
       try {
         const profile = await accountApi.getProfile();
@@ -282,6 +443,11 @@ export default function Discover() {
           setInitialFilters(init);
 
           if (prefDistrict || prefRoomType || minP || maxP) {
+            try {
+              sessionStorage.setItem("ptx_discover_filters", JSON.stringify(init));
+            } catch {
+              // ignore
+            }
             updateFilters({
               district: prefDistrict,
               roomType: prefRoomType,
@@ -296,7 +462,7 @@ export default function Discover() {
       }
     }
     loadTenantCriteria();
-  }, [user]);
+  }, [user, hasUrlFilters]);
 
   // Load user's saved rooms to sync bookmark states
   useEffect(() => {
@@ -319,12 +485,28 @@ export default function Discover() {
 
   const handleApplyFilters = (newFilters: RoomFilterState) => {
     setSelectedAmenitiesFilter(newFilters.amenities || []);
+    const inferredSchoolDist = newFilters.keyword
+      ? inferDistrictFromSchoolOrPlace(newFilters.keyword)
+      : undefined;
+    const effectiveDistrict = newFilters.district || inferredSchoolDist;
+    const effectiveKeyword = inferredSchoolDist && !newFilters.district ? undefined : newFilters.keyword;
+
+    const nextParams: Record<string, string> = {};
+    if (effectiveDistrict) nextParams.district = effectiveDistrict;
+    if (newFilters.roomType) nextParams.roomType = newFilters.roomType;
+    if (newFilters.keyword) nextParams.keyword = newFilters.keyword;
+    setSearchParams(nextParams, { replace: true });
+    try {
+      sessionStorage.setItem("ptx_discover_filters", JSON.stringify(newFilters));
+    } catch {
+      // ignore
+    }
     updateFilters({
-      district: newFilters.district,
+      district: effectiveDistrict,
       roomType: newFilters.roomType,
       minPrice: newFilters.minPrice,
       maxPrice: newFilters.maxPrice,
-      keyword: newFilters.keyword,
+      keyword: effectiveKeyword,
       excludeSwiped: true,
     }, true);
     toast.info("Đã áp dụng bộ lọc");
@@ -334,8 +516,10 @@ export default function Discover() {
     setSelectedAmenitiesFilter([]);
     setSidebarResetKey((prev) => prev + 1);
     setInitialFilters(undefined);
+    setSearchParams({}, { replace: true });
     setDismissedIds(new Set());
     sessionStorage.removeItem("ptx_dismissed_room_ids");
+    sessionStorage.removeItem("ptx_discover_filters");
     updateFilters({ excludeSwiped: true }, true);
     toast.info("Đã đặt lại bộ lọc");
   };
@@ -371,7 +555,7 @@ export default function Discover() {
         localStorage.setItem("ptx_saved_room_ids", JSON.stringify(Array.from(next)));
         return next;
       });
-      toast.success("Đã lưu phòng vào danh sách yêu thích ❤️", { description: r.title });
+      toast.success("Đã lưu phòng vào danh sách yêu thích", { description: r.title });
       try {
         await roomsApi.saveRoom(r.id);
       } catch {
@@ -404,7 +588,7 @@ export default function Discover() {
         sessionStorage.setItem("ptx_dismissed_room_ids", JSON.stringify(Array.from(next)));
         return next;
       });
-      toast.success("Đã thích & lưu phòng ❤️", { description: r.title });
+      toast.success("Đã thích & lưu phòng", { description: r.title });
       try {
         await roomsApi.swipeRoom(r.id, "LIKE");
       } catch {
@@ -440,7 +624,7 @@ export default function Discover() {
   };
 
   const activeRooms = rooms.filter((r) => {
-    if (dismissedIds.has(String(r.id))) return false;
+    if (!hasUrlFilters && dismissedIds.has(String(r.id))) return false;
     if (selectedAmenitiesFilter.length > 0) {
       const roomAmenities: string[] = Array.isArray(r.amenities) ? r.amenities : [];
       const hasAll = selectedAmenitiesFilter.every((a) =>
@@ -503,7 +687,7 @@ export default function Discover() {
         ) : loaded && swipesLeft <= 0 ? (
           <div className="flex h-[450px] flex-col items-center justify-center rounded-3xl bg-white border border-slate-200 p-8 text-center shadow-sm">
             <div className="relative mb-5 flex size-20 items-center justify-center rounded-full bg-red-50 text-red-500">
-              <span className="text-3xl text-red-500">🔋</span>
+              <AlertCircle className="size-9 text-red-500" />
             </div>
             <h3 className="text-xl font-bold text-slate-800">Đã hết lượt vuốt hôm nay!</h3>
             <p className="mt-2 text-sm text-slate-500 max-w-sm">
@@ -534,10 +718,28 @@ export default function Discover() {
         ) : (
           <div className="flex flex-col -mt-3 md:-mt-6">
             {loaded && swipesLeft > 0 && (
-              <div className="mb-1.5 md:mb-2 flex justify-center">
-                <span className="inline-flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-4 py-1 rounded-full border border-slate-200/60 shadow-sm animate-fade-in">
-                  <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Bạn còn <strong className="text-slate-900 font-extrabold">{swipesLeft}/{maxSwipes}</strong> lượt vuốt hôm nay.{" "}
+              <div className="mb-1.5 md:mb-2 flex flex-wrap items-center justify-center gap-2">
+                {hasUrlFilters && (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 bg-mint px-3 py-1 rounded-full border border-primary/25 shadow-2xs animate-fade-in">
+                    <MapPin className="size-3.5 text-primary" />
+                    <span>
+                      Đang lọc:{" "}
+                      {[urlDistrict, urlRoomType && (ROOM_TYPE_LABELS[urlRoomType] || urlRoomType), urlKeyword]
+                        .filter(Boolean)
+                        .join(" • ")}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      className="ml-1 inline-flex items-center justify-center rounded-full p-0.5 hover:bg-primary/15 text-emerald-900 cursor-pointer"
+                      title="Bỏ lọc và xem tất cả phòng"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-4 py-1 rounded-full border border-slate-200/60 shadow-sm animate-fade-in">
+                  Bạn còn <strong className="text-slate-900 font-extrabold tabular-nums">{swipesLeft}/{maxSwipes}</strong> lượt vuốt hôm nay.{" "}
                   {tier === "free" && (
                     <button onClick={openPricing} className="text-emerald-600 font-black hover:underline cursor-pointer ml-1">
                       Tăng lượt
@@ -554,6 +756,7 @@ export default function Discover() {
                   room={r}
                   saved={savedIds.has(String(r.id))}
                   onToggleSave={handleToggleSave}
+                  onOpenDetail={(targetRoom) => navigate(`/rooms/${targetRoom.id}`)}
                 />
               )}
               onLike={handleLike}
@@ -636,6 +839,115 @@ export default function Discover() {
           </div>
         </div>
       </div>
+
+      {/* Animated Resume Pending Room Popup (from Landing Page) */}
+      <AnimatePresence>
+        {showPendingRoomModal && pendingRoom && (
+          <motion.div
+            key="pending-room-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+            onClick={handleDismissPendingRoom}
+          >
+            <motion.div
+              key="pending-room-dialog"
+              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 8 }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.26, ease: [0.22, 1, 0.36, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-[440px] rounded-2xl bg-card border border-border p-6 shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="pending-room-title"
+            >
+              <button
+                type="button"
+                onClick={handleDismissPendingRoom}
+                aria-label="Đóng thông báo"
+                className="absolute right-4 top-4 grid size-8 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+
+              <div className="pr-8">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-mint px-2.5 py-0.5 text-[11px] font-semibold text-emerald-brand">
+                  Phòng bạn đã chọn trước đó
+                </span>
+                <h2 id="pending-room-title" className="mt-2 text-lg font-bold text-foreground leading-snug">
+                  Tiếp tục xem phòng bạn đang quan tâm?
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  Trước khi đăng nhập, bạn đã chọn xem phòng trọ này ở trang chủ. Bạn có muốn mở chi tiết phòng ngay bây giờ không?
+                </p>
+              </div>
+
+              {/* Compact Room Summary Card */}
+              <div className="mt-4 flex items-center gap-3.5 rounded-xl border border-border bg-muted/40 p-3">
+                <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-muted">
+                  <ImageWithFallback
+                    src={
+                      pendingRoom.image ||
+                      pendingRoom.imageUrl ||
+                      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&auto=format&fit=crop&q=80"
+                    }
+                    alt={pendingRoom.title}
+                    className="size-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {(pendingRoom.typeLabel || pendingRoom.type) && (
+                      <span className="rounded bg-mint px-1.5 py-0.5 text-[10px] font-semibold text-emerald-brand">
+                        {pendingRoom.typeLabel || pendingRoom.type}
+                      </span>
+                    )}
+                    {pendingRoom.isVerified && (
+                      <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                        <ShieldCheck className="size-3" /> Đã xác minh CCCD
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="mt-1 text-sm font-semibold text-foreground line-clamp-1">
+                    {pendingRoom.title}
+                  </h3>
+                  <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground truncate">
+                    <MapPin className="size-3 text-primary shrink-0" />
+                    <span className="truncate">{pendingRoom.district}</span>
+                    {pendingRoom.area ? <span>• {pendingRoom.area} m²</span> : null}
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-primary tabular-nums">
+                    {formatVND(pendingRoom.price)}
+                    <span className="text-[11px] font-normal text-muted-foreground">/tháng</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-2.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleDismissPendingRoom}
+                  className="w-full rounded-xl h-10 text-xs font-semibold cursor-pointer"
+                >
+                  Tiếp tục khám phá
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleConfirmPendingRoom}
+                  className="w-full rounded-xl h-10 text-xs font-semibold gap-1.5 cursor-pointer"
+                >
+                  Xem chi tiết phòng
+                  <ArrowRight className="size-3.5" />
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
