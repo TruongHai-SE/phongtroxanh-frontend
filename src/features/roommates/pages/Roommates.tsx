@@ -1,6 +1,26 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
-import { GraduationCap, Users, MessageCircle, Sparkles, X, CigaretteOff, Cigarette, Moon, ZapOff, EyeOff, ChevronLeft, ChevronRight, Images, Rocket, Loader2 } from "lucide-react";
+import {
+  GraduationCap,
+  Users,
+  MessageCircle,
+  X,
+  CigaretteOff,
+  Cigarette,
+  Moon,
+  ZapOff,
+  EyeOff,
+  ChevronLeft,
+  ChevronRight,
+  Images,
+  Rocket,
+  Loader2,
+  MapPin,
+  CheckCircle2,
+  ShieldCheck,
+  Eye,
+  ArrowUpRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/shared/ImageWithFallback";
 import { SwipeStage } from "@/components/shared/SwipeStage";
@@ -15,7 +35,15 @@ import { accountApi } from "@/features/account/api/accountApi";
 import { inferDistrictFromSchoolOrPlace } from "@/lib/constants";
 import { toast } from "sonner";
 
-function BigPersonCard({ person }: { person: Roommate }) {
+function BigPersonCard({
+  person,
+  onOpenDetail,
+}: {
+  person: Roommate;
+  onOpenDetail?: (person: Roommate) => void;
+}) {
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+
   const photos = useMemo(() => {
     const list: string[] = [];
     if (person.avatar && person.avatar.trim()) list.push(person.avatar.trim());
@@ -35,17 +63,33 @@ function BigPersonCard({ person }: { person: Roommate }) {
     setPhotoIdx(0);
   }, [person.id]);
 
-  const isNonSmoking = person.nonSmoking !== undefined
-    ? person.nonSmoking
-    : person.lifestyle?.some((l) => l.label === "Hút thuốc" && l.value === "Không") ?? true;
+  const isNonSmoking =
+    person.nonSmoking !== undefined
+      ? person.nonSmoking
+      : person.lifestyle?.some((l) => l.label === "Hút thuốc" && l.value === "Không") ?? true;
 
-  const isEarlySleeper = person.earlySleeper !== undefined
-    ? person.earlySleeper
-    : person.lifestyle?.some((l) => (l.label === "Giờ ngủ" || l.label === "Giờ giấc") && (l.value.includes("23h") || l.value.includes("Sớm"))) ?? false;
+  const isEarlySleeper =
+    person.earlySleeper !== undefined
+      ? person.earlySleeper
+      : person.lifestyle?.some(
+          (l) =>
+            (l.label === "Giờ ngủ" || l.label === "Giờ giấc" || l.label === "Ngủ sớm") &&
+            (l.value.includes("23h") || l.value.includes("Sớm") || l.value === "Có")
+        ) ?? false;
 
-  const isNeat = person.isNeat !== undefined
-    ? person.isNeat
-    : person.lifestyle?.some((l) => l.label === "Vệ sinh" || l.value.toLowerCase().includes("sạch")) ?? true;
+  const isNeat =
+    person.isNeat !== undefined
+      ? person.isNeat
+      : person.lifestyle?.some(
+          (l) =>
+            (l.label === "Vệ sinh" || l.label === "Gọn gàng") &&
+            (l.value === "Có" || l.value.toLowerCase().includes("sạch"))
+        ) ?? true;
+
+  const allowGuests =
+    person.allowGuests !== undefined
+      ? person.allowGuests
+      : person.lifestyle?.some((l) => l.label === "Tiếp khách" && l.value === "Được phép") ?? false;
 
   const initials = (person.name || "U")
     .split(" ")
@@ -54,29 +98,104 @@ function BigPersonCard({ person }: { person: Roommate }) {
     .map((w) => w[0]?.toUpperCase())
     .join("");
 
+  const areasText =
+    person.areas && person.areas.length > 0
+      ? person.areas.slice(0, 2).join(", ") + (person.areas.length > 2 ? ` +${person.areas.length - 2}` : "")
+      : "Linh hoạt TP.HCM";
+
+  const genderText =
+    person.gender === "MALE"
+      ? "Nam"
+      : person.gender === "FEMALE"
+      ? "Nữ"
+      : person.gender === "OTHER"
+      ? "Khác"
+      : null;
+
+  const summaryBio =
+    person.bio && person.bio.trim().length > 0
+      ? person.bio.trim()
+      : "Mong muốn tìm bạn ở ghép thân thiện, tôn trọng không gian riêng tư và cùng giữ gìn vệ sinh chung.";
+
+  const handleGalleryPointerDown = (e: React.PointerEvent) => {
+    pointerStartRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleGalleryClick = (e: React.MouseEvent) => {
+    if (pointerStartRef.current) {
+      const dist = Math.hypot(
+        e.clientX - pointerStartRef.current.x,
+        e.clientY - pointerStartRef.current.y
+      );
+      if (dist > 6) return;
+    }
+    onOpenDetail?.(person);
+  };
+
   return (
-    <div className="group relative h-full flex flex-col overflow-hidden rounded-3xl bg-card shadow-xl ring-1 ring-border hover-lift">
-      <div className="relative h-[clamp(145px,22dvh,215px)] w-full overflow-hidden shrink-0 bg-slate-100">
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-3xl bg-card shadow-xl ring-1 ring-border hover-lift select-none">
+      {/* Top 52%: Photo Gallery / Calm Portrait Placeholder */}
+      <div
+        onPointerDown={handleGalleryPointerDown}
+        onClick={handleGalleryClick}
+        className="group/gallery relative h-[52%] w-full overflow-hidden shrink-0 bg-slate-100 cursor-pointer active:cursor-grabbing"
+      >
         {photos.length > 0 ? (
           <>
-            <ImageWithFallback
-              src={photos[photoIdx] || photos[0]}
-              alt={`${person.name} - ảnh ${photoIdx + 1}`}
-              className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.025]"
-            />
+            {photos.length >= 2 ? (
+              <div className="grid h-full w-full grid-cols-3 gap-1">
+                <div className="relative col-span-2 h-full overflow-hidden">
+                  <ImageWithFallback
+                    src={photos[photoIdx] || photos[0]}
+                    alt={`${person.name} - ảnh ${photoIdx + 1}`}
+                    className="size-full object-cover transition-transform duration-500 ease-out group-hover/gallery:scale-[1.03]"
+                  />
+                </div>
+                <div className="grid grid-rows-2 gap-1 h-full">
+                  <div className="relative overflow-hidden">
+                    <ImageWithFallback
+                      src={photos[(photoIdx + 1) % photos.length]}
+                      alt=""
+                      className="size-full object-cover transition-transform duration-500 ease-out group-hover/gallery:scale-[1.03]"
+                    />
+                  </div>
+                  <div className="relative overflow-hidden">
+                    <ImageWithFallback
+                      src={photos[(photoIdx + 2) % photos.length]}
+                      alt=""
+                      className="size-full object-cover transition-transform duration-500 ease-out group-hover/gallery:scale-[1.03]"
+                    />
+                    {photos.length > 3 && (
+                      <span className="pointer-events-none absolute bottom-2.5 right-2.5 rounded-md bg-slate-950/70 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-xs">
+                        +{photos.length - 3} ảnh
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <ImageWithFallback
+                src={photos[0]}
+                alt={person.name}
+                className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover/gallery:scale-[1.03]"
+              />
+            )}
+
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/55 via-black/15 to-transparent opacity-0 transition-opacity duration-200 group-hover/gallery:opacity-100" />
+
             {photos.length > 1 && (
               <>
-                {/* Top story progress bars */}
-                <div className="absolute top-2.5 left-3 right-24 z-10 flex gap-1">
+                <div className="absolute top-3 left-3.5 right-28 z-10 flex gap-1">
                   {photos.map((_, idx) => (
                     <button
                       key={idx}
                       type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
                         setPhotoIdx(idx);
                       }}
-                      className={`h-1 flex-1 rounded-full transition-all ${
+                      className={`h-1 flex-1 rounded-full transition-all cursor-pointer ${
                         idx === photoIdx ? "bg-white shadow-sm" : "bg-white/45 hover:bg-white/70"
                       }`}
                       aria-label={`Xem ảnh ${idx + 1}`}
@@ -85,27 +204,29 @@ function BigPersonCard({ person }: { person: Roommate }) {
                 </div>
                 <button
                   type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
                     setPhotoIdx((prev) => (prev - 1 + photos.length) % photos.length);
                   }}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 flex size-7 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition hover:bg-black/65"
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 flex size-8 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm opacity-0 group-hover/gallery:opacity-100 transition hover:bg-black/70 cursor-pointer"
                   aria-label="Ảnh trước"
                 >
                   <ChevronLeft className="size-4" />
                 </button>
                 <button
                   type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
                     setPhotoIdx((prev) => (prev + 1) % photos.length);
                   }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 flex size-7 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition hover:bg-black/65"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 flex size-8 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm opacity-0 group-hover/gallery:opacity-100 transition hover:bg-black/70 cursor-pointer"
                   aria-label="Ảnh tiếp theo"
                 >
                   <ChevronRight className="size-4" />
                 </button>
-                <span className="absolute bottom-2.5 left-3 z-10 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                <span className="pointer-events-none absolute bottom-3 right-3.5 z-20 inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
                   <Images className="size-3" />
                   {photoIdx + 1}/{photos.length}
                 </span>
@@ -113,61 +234,122 @@ function BigPersonCard({ person }: { person: Roommate }) {
             )}
           </>
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-emerald-50 via-teal-50/70 to-slate-100 text-center">
-            <div className="flex size-16 items-center justify-center rounded-full bg-white/90 text-xl font-bold text-emerald-800 shadow-sm ring-2 ring-emerald-200/80">
+          /* Clean, calm portrait placeholder without duplicating bottom text */
+          <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-emerald-50/90 via-teal-50/50 to-slate-100 text-center">
+            <div className="flex size-20 items-center justify-center rounded-full bg-white text-2xl font-bold text-emerald-800 shadow-sm ring-4 ring-white/90 transition-transform duration-300 group-hover/gallery:scale-105">
               {initials}
             </div>
-            <span className="mt-1.5 text-[11px] font-medium text-slate-500">Chưa cập nhật ảnh</span>
+            <span className="mt-2 text-xs font-medium text-slate-500">
+              Chưa cập nhật ảnh cá nhân
+            </span>
           </div>
         )}
+
+        {/* Single clean hover cue on gallery */}
+        <div className="pointer-events-none absolute bottom-3 left-3.5 z-20 inline-flex items-center gap-1.5 rounded-full bg-slate-950/80 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md ring-1 ring-white/15 backdrop-blur-md opacity-0 translate-y-1 transition-all duration-200 ease-out group-hover/gallery:opacity-100 group-hover/gallery:translate-y-0">
+          <Eye className="size-3.5 text-emerald-300" />
+          <span>Xem hồ sơ chi tiết</span>
+          <ArrowUpRight className="size-3.5 text-white/80" />
+        </div>
+
+        {person.isBoosted && (
+          <span className="pointer-events-none absolute left-3.5 top-3.5 z-20 inline-flex items-center gap-1 rounded-full bg-amber-500/95 text-white px-2.5 py-0.5 text-[11px] font-bold shadow-md backdrop-blur">
+            <Rocket className="size-3" /> Hồ sơ nổi bật
+          </span>
+        )}
+
+        <MatchBadge value={person.match} className="absolute right-3.5 top-3.5 z-20" />
       </div>
-      {person.isBoosted && (
-        <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-amber-500/95 text-white px-2.5 py-0.5 text-[11px] font-bold shadow-md backdrop-blur">
-          <Rocket className="size-3" /> Hồ sơ nổi bật
-        </span>
-      )}
-      <MatchBadge value={person.match} className="absolute right-4 top-4 z-10" />
-      <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-4 min-w-0 min-h-0 overflow-y-auto">
-        <div className="space-y-1">
-          <div>
-            <h3 className="text-base sm:text-lg font-semibold transition-colors duration-200 group-hover:text-primary leading-snug">{person.name}, {person.age}</h3>
-            <p className="mt-0.5 inline-flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
-              <GraduationCap className="size-3.5 text-primary" /> {person.school}
+
+      {/* Bottom 48%: Clean 3-tier hierarchy (Identity + Budget/Area -> Bio -> Lifestyle Pills) */}
+      <div className="flex flex-1 flex-col justify-between p-4 sm:px-6 sm:py-4 min-w-0 min-h-0">
+        {/* Tier 1: Name, Age & School on Left | Budget & Preferred Area on Right */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base sm:text-lg font-bold text-foreground transition-colors duration-200 group-hover:text-primary leading-snug truncate">
+                {person.name}, {person.age}
+              </h3>
+              {genderText && (
+                <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                  {genderText}
+                </span>
+              )}
+              {person.isVerified && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                  <ShieldCheck className="size-3" /> Đã xác thực
+                </span>
+              )}
+            </div>
+            <p className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground max-w-full">
+              <GraduationCap className="size-3.5 text-primary shrink-0" />
+              <span className="truncate">{person.school}</span>
             </p>
           </div>
-          <p className="line-clamp-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">{person.bio}</p>
+
+          <div className="shrink-0 text-right pt-0.5">
+            <p className="text-base sm:text-lg font-extrabold text-primary tabular-nums leading-none">
+              {person.budget}
+            </p>
+            <p className="mt-1.5 inline-flex items-center justify-end gap-1 text-xs text-muted-foreground max-w-[200px]">
+              <MapPin className="size-3 text-primary shrink-0" />
+              <span className="truncate font-medium text-foreground">{areasText}</span>
+            </p>
+          </div>
         </div>
 
-        {/* Clean, minimalist lifestyle badges - NO emoji */}
-        <div className="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-border/60">
-          <span
-            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium border ${
-              isNonSmoking
-                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                : "bg-amber-50 text-amber-800 border-amber-200"
-            }`}
-          >
-            {isNonSmoking ? <CigaretteOff className="size-3 text-emerald-600" /> : <Cigarette className="size-3 text-amber-600" />}
-            {isNonSmoking ? "Không hút thuốc" : "Có hút thuốc"}
-          </span>
+        {/* Tier 2: Concise Bio / Introduction */}
+        <p className="line-clamp-2 text-xs sm:text-sm text-slate-600 leading-relaxed">
+          {summaryBio}
+        </p>
 
-          <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 text-slate-700 border border-slate-200 px-2 py-0.5 text-[11px] font-medium">
-            <Moon className="size-3 text-slate-500" />
-            {isEarlySleeper ? "Ngủ trước 23h" : "Giờ giấc tự do"}
-          </span>
-
-          {isNeat && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 text-slate-700 border border-slate-200 px-2 py-0.5 text-[11px] font-medium">
-              <Sparkles className="size-3 text-slate-500" />
-              Gọn gàng
+        {/* Tier 3: Lifestyle & Interests Footer */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-border/60">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-medium ${
+                isNonSmoking
+                  ? "bg-emerald-50 text-emerald-800"
+                  : "bg-amber-50 text-amber-800"
+              }`}
+            >
+              {isNonSmoking ? (
+                <CigaretteOff className="size-3 text-emerald-600" />
+              ) : (
+                <Cigarette className="size-3 text-amber-600" />
+              )}
+              {isNonSmoking ? "Không hút thuốc" : "Có hút thuốc"}
             </span>
-          )}
-        </div>
 
-        <div className="flex flex-wrap gap-1 mt-1.5">
-          {person.interests.slice(0, 3).map((i) => <AmenityPill key={i} label={i} />)}
-          {person.interests.length > 3 && (
-            <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded-full font-medium">+{person.interests.length - 3}</span>
+            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100/80 text-slate-700 px-2.5 py-0.5 text-xs font-medium">
+              <Moon className="size-3 text-slate-500" />
+              {isEarlySleeper ? "Ngủ trước 23h" : "Giờ giấc tự do"}
+            </span>
+
+            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100/80 text-slate-700 px-2.5 py-0.5 text-xs font-medium">
+              <CheckCircle2 className="size-3 text-emerald-600" />
+              {isNeat ? "Gọn gàng" : "Thoải mái"}
+            </span>
+
+            {allowGuests && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-slate-100/80 text-slate-700 px-2.5 py-0.5 text-xs font-medium">
+                <Users className="size-3 text-slate-500" />
+                Cho phép khách
+              </span>
+            )}
+          </div>
+
+          {person.interests.length > 0 && (
+            <div className="hidden sm:flex items-center gap-1">
+              {person.interests.slice(0, 2).map((i) => (
+                <AmenityPill key={i} label={i} />
+              ))}
+              {person.interests.length > 2 && (
+                <span className="text-xs text-muted-foreground ml-0.5">
+                  +{person.interests.length - 2}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -289,6 +471,11 @@ export default function Roommates() {
                 { label: "Tiếp khách", value: dto.allowGuests ? "Được phép" : "Hạn chế" },
               ],
               compatibility: (dto.matchHighlights || []).map((h: string) => ({ label: h, value: 90 })),
+              gender: dto.gender,
+              preferredRoomType: dto.preferredRoomType,
+              trustScore: dto.trustScore,
+              isVerified: Boolean(dto.isVerified),
+              matchHighlights: Array.isArray(dto.matchHighlights) ? dto.matchHighlights : [],
               nonSmoking: dto.nonSmoking ?? true,
               earlySleeper: dto.earlySleeper ?? false,
               isNeat: dto.isNeat ?? true,
@@ -493,11 +680,10 @@ export default function Roommates() {
           <div className="flex flex-col -mt-3 md:-mt-6">
             {loaded && swipesLeft > 0 && (
               <div className="mb-1.5 md:mb-2 flex justify-center">
-                <span className="inline-flex items-center gap-2 text-xs text-muted-foreground bg-card px-4 py-1 rounded-full border border-border shadow-xs animate-fade-in">
-                  <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
-                  Bạn còn <strong className="text-foreground font-extrabold">{swipesLeft}/{maxSwipes}</strong> lượt ghép hôm nay.{" "}
+                <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-4 py-1 rounded-full border border-slate-200/60 shadow-sm animate-fade-in">
+                  Bạn còn <strong className="text-slate-900 font-extrabold tabular-nums">{swipesLeft}/{maxSwipes}</strong> lượt ghép hôm nay.{" "}
                   {tier === "free" && (
-                    <button onClick={openPricing} className="text-primary font-bold hover:underline cursor-pointer ml-1">
+                    <button onClick={openPricing} className="text-emerald-600 font-black hover:underline cursor-pointer ml-1">
                       Tăng lượt
                     </button>
                   )}
@@ -507,7 +693,12 @@ export default function Roommates() {
             <SwipeStage
               resetKey={sidebarResetKey}
               items={filteredFeed}
-              renderCard={(p) => <BigPersonCard person={p} />}
+              renderCard={(p) => (
+                <BigPersonCard
+                  person={p}
+                  onOpenDetail={(target) => navigate(`/roommates/${target.id}`)}
+                />
+              )}
               onLike={handleLike}
               onSkip={handleSkip}
               onInfo={(p) => navigate(`/roommates/${p.id}`)}
@@ -547,7 +738,7 @@ export default function Roommates() {
 
         <div className="hidden space-y-4 lg:block">
           <div className="rounded-2xl bg-mint/50 p-5 border border-primary/10">
-            <Sparkles className="size-6 text-primary" />
+            <ShieldCheck className="size-6 text-primary" />
             <h3 className="mt-2 font-semibold text-emerald-deep">
               Mẹo ghép đôi
             </h3>
@@ -630,7 +821,7 @@ export default function Roommates() {
             >
               <X className="size-5" />
             </button>
-            <h2 className="brand text-3xl text-primary">Ghép thành công! 🎉</h2>
+            <h2 className="brand text-3xl text-primary">Ghép thành công!</h2>
             <p className="mt-2 text-sm text-muted-foreground">
               Bạn và {match.name} đã thích nhau
             </p>
