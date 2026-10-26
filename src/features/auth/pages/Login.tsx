@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router";
+import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowLeft,
+  ArrowRight,
   Mail,
   Lock,
   User,
@@ -34,25 +36,26 @@ import {
 } from "@/components/ui/input-otp";
 import AuthBackgroundCanvas from "../components/AuthBackgroundCanvas";
 
-/* ── Scale-to-fit wrapper (kept from original) ── */
+/* ── Scale-to-fit wrapper (only scales on ultra-short viewports so desktop fonts stay 100% ClearType sharp) ── */
 function ScaleToFitWrapper({ children }: { children: React.ReactNode }) {
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth <= 700) {
+      if (window.innerWidth <= 720) {
         setScale(1);
         return;
       }
-      const targetWidth = 780;
-      const targetHeight = 560;
-      const padding = 24;
+      const targetWidth = 830;
+      const targetHeight = 520;
+      const padding = 16;
       const availableWidth = window.innerWidth - padding;
       const availableHeight = window.innerHeight - padding;
       const scaleX = availableWidth / targetWidth;
       const scaleY = availableHeight / targetHeight;
       const newScale = Math.min(scaleX, scaleY, 1.0);
-      setScale(newScale);
+      // Avoid fractional scaling like 0.96x which blurs subpixel text rendering in Chromium
+      setScale(newScale >= 0.93 ? 1 : newScale);
     };
 
     handleResize();
@@ -79,7 +82,7 @@ function ScaleToFitWrapper({ children }: { children: React.ReactNode }) {
 
       <div
         className="relative z-10 flex flex-col items-center justify-center origin-center my-auto"
-        style={{ transform: `scale(${scale})` }}
+        style={scale < 1 ? { transform: `scale(${scale})` } : undefined}
       >
         {children}
       </div>
@@ -127,6 +130,12 @@ export default function Login() {
 
   const [isRegister, setIsRegister] = useState(
     new URLSearchParams(window.location.search).get("mode") === "register",
+  );
+  const autoGoogleRef = useRef(
+    new URLSearchParams(window.location.search).get("google") === "1",
+  );
+  const [highlightGoogleBtn, setHighlightGoogleBtn] = useState(
+    () => new URLSearchParams(window.location.search).get("google") === "1",
   );
   const [googleClientId, setGoogleClientId] = useState<string>(() => {
     // 1. Priority 1: Frontend env (0ms)
@@ -349,6 +358,10 @@ export default function Login() {
   };
 
   const handleGoogleCredentialResponse = async (response: any) => {
+    (window as any).__ptxGooglePopupBridgeActive = false;
+    const bridge = document.getElementById("ptx-google-gsi-bridge");
+    if (bridge) bridge.remove();
+
     const idToken = response.credential;
     if (!idToken) {
       toast.error("Không nhận được mã xác thực từ Google");
@@ -378,6 +391,19 @@ export default function Login() {
     if (!googleClientId) return;
 
     const initGsi = () => {
+      if ((window as any).__ptxGooglePopupBridgeActive) {
+        if (autoGoogleRef.current) {
+          autoGoogleRef.current = false;
+          try {
+            window.history.replaceState({}, "", "/login");
+          } catch {
+            // ignore
+          }
+          window.setTimeout(() => setHighlightGoogleBtn(false), 3500);
+        }
+        return;
+      }
+
       if ((window as any).google?.accounts?.id) {
         try {
           (window as any).google.accounts.id.initialize({
@@ -412,6 +438,24 @@ export default function Login() {
               width: 340,
             });
           }
+
+          if (autoGoogleRef.current) {
+            autoGoogleRef.current = false;
+            try {
+              window.history.replaceState({}, "", "/login");
+              document.cookie = "g_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            } catch {
+              // ignore
+            }
+            window.setTimeout(() => {
+              try {
+                (window as any).google?.accounts?.id?.prompt();
+              } catch {
+                // ignore
+              }
+            }, 220);
+            window.setTimeout(() => setHighlightGoogleBtn(false), 3500);
+          }
         } catch (err) {
           console.warn("Could not render Google GSI button:", err);
         }
@@ -426,19 +470,37 @@ export default function Login() {
       }
     }, 250);
 
-    return () => clearInterval(interval);
+    const handleWindowFocus = () => {
+      if ((window as any).__ptxGooglePopupBridgeActive) {
+        window.setTimeout(() => {
+          if ((window as any).__ptxGooglePopupBridgeActive) {
+            (window as any).__ptxGooglePopupBridgeActive = false;
+            const bridge = document.getElementById("ptx-google-gsi-bridge");
+            if (bridge) bridge.remove();
+            initGsi();
+          }
+        }, 600);
+      }
+    };
+    window.addEventListener("focus", handleWindowFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleWindowFocus);
+    };
   }, [googleClientId, isRegister]);
 
   const triggerGoogleLogin = () => {
     if (googleClientId && (window as any).google?.accounts?.id) {
       try {
+        document.cookie = "g_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
         (window as any).google.accounts.id.prompt();
         return;
       } catch (err) {
         console.warn("Could not launch Google One Tap prompt", err);
       }
     }
-    toast.error("Hệ thống chưa cấu hình VITE_GOOGLE_CLIENT_ID hoặc trình duyệt chặn Google One-Tap. Vui lòng đăng nhập bằng Email và Mật khẩu.");
+    toast.error("Cửa sổ đăng nhập Google đang bị trình duyệt chặn hoặc tạm thời gián đoạn. Vui lòng đăng nhập bằng Email và Mật khẩu.");
   };
 
   const handleVerify2FA = async (e?: React.FormEvent) => {
@@ -488,7 +550,7 @@ export default function Login() {
   };
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= 700);
+    const check = () => setIsMobile(window.innerWidth <= 720);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
@@ -503,7 +565,7 @@ export default function Login() {
         {/* Back link */}
         <div
           className="mb-3 flex justify-start"
-          style={{ width: "100%", maxWidth: "clamp(340px, 85vw, 760px)" }}
+          style={{ width: "100%", maxWidth: isMobile ? "min(94vw, 440px)" : "clamp(680px, 86vw, 820px)" }}
         >
           <Link
             to="/"
@@ -525,100 +587,111 @@ export default function Login() {
             {...(isRegister ? { inert: "" as unknown as boolean } : {})}
             aria-hidden={isRegister}
           >
-            <Link
-              to="/"
-              className="brand mb-2 block text-center text-lg text-emerald-deep font-bold transition-all duration-200 hover:text-emerald-600 hover:scale-[1.01]"
-            >
-              Phòng Trọ Xanh
-            </Link>
-            <h2 className="text-center text-base font-bold text-charcoal mb-1">
-              Đăng nhập
-            </h2>
-            <p className="text-center text-[11px] text-muted-foreground mb-4">
-              Đăng nhập để tìm phòng trọ phù hợp với bạn
-            </p>
-
-            {!isRegister && error && (
-              <p className="mb-3 text-xs text-destructive font-medium text-center">
-                {error}
-              </p>
-            )}
-
-            <form onSubmit={handleEmailLogin} className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="login-email" className="text-xs">
-                  Email đăng nhập
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="login-email"
-                    name="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com"
-                    className="pl-9 h-9 text-xs transition-all duration-200 hover:border-emerald-400/60 hover:bg-emerald-50/30 focus:bg-white"
-                    required
-                    autoComplete="username"
-                    tabIndex={isRegister ? -1 : 0}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="login-password" className="text-xs">
-                    Mật khẩu
-                  </Label>
-                  <Link
-                    to="/forgot-password"
-                    className="text-[11px] text-emerald-600 font-semibold transition-all duration-200 hover:text-emerald-800 hover:translate-x-0.5 underline-offset-4 hover:underline cursor-pointer"
-                    tabIndex={isRegister ? -1 : 0}
-                  >
-                    Quên mật khẩu?
-                  </Link>
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="login-password"
-                    name="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="pl-9 h-9 text-xs transition-all duration-200 hover:border-emerald-400/60 hover:bg-emerald-50/30 focus:bg-white"
-                    required
-                    autoComplete="current-password"
-                    tabIndex={isRegister ? -1 : 0}
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full h-9 text-xs mt-1 bg-emerald-brand hover:bg-emerald-deep text-white flex items-center justify-center gap-1.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(5,150,105,0.55)] active:translate-y-0 active:scale-[0.98]"
+            {/* Header Lockup + Left-Aligned Title */}
+            <div>
+              <Link
+                to="/"
+                className="inline-flex items-center gap-2.5 group mb-5"
                 tabIndex={isRegister ? -1 : 0}
               >
-                {isSubmitting && <Loader2 className="size-3.5 animate-spin" />}
-                {isSubmitting ? "Đang xử lý..." : "Đăng nhập"}
-              </Button>
-
-              <div className="relative my-3">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
+                <div className="grid size-8 place-items-center rounded-xl bg-emerald-600 text-white shadow-xs transition-transform duration-200 group-hover:scale-105">
+                  <Home className="size-4" />
                 </div>
-                <div className="relative flex justify-center">
-                  <span className="bg-white px-2 text-[10px] text-muted-foreground">
-                    Hoặc tiếp tục với
-                  </span>
-                </div>
-              </div>
+                <span className="font-display text-base font-extrabold tracking-tight text-slate-900">
+                  Phòng Trọ Xanh
+                </span>
+              </Link>
 
-              <div className="mt-1">
-                <div className="group relative h-9 rounded-md overflow-hidden flex items-center justify-center">
+              <h1 className="font-display text-2xl font-extrabold tracking-tight text-slate-900">
+                Đăng nhập tài khoản
+              </h1>
+              <p className="mt-1 text-xs sm:text-[13px] leading-relaxed text-slate-500">
+                Tiếp tục tìm phòng xác thực và kết nối bạn ở ghép phù hợp.
+              </p>
+            </div>
+
+            {/* Form Block */}
+            <div className="my-auto py-3">
+              {!isRegister && error && (
+                <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-2 text-xs font-medium text-rose-700">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleEmailLogin} className="space-y-3.5">
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-email" className="text-xs font-semibold text-slate-700">
+                    Email đăng nhập
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      id="login-email"
+                      name="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="tenban@gmail.com"
+                      className="pl-10 h-11 rounded-xl border-slate-200/90 bg-[#f8faf9] text-sm transition-all duration-200 hover:border-emerald-500/40 focus:bg-white"
+                      required
+                      autoComplete="username"
+                      tabIndex={isRegister ? -1 : 0}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="login-password" className="text-xs font-semibold text-slate-700">
+                      Mật khẩu
+                    </Label>
+                    <Link
+                      to="/forgot-password"
+                      className="text-xs text-emerald-700 font-semibold transition-colors duration-150 hover:text-emerald-800 underline-offset-4 hover:underline cursor-pointer"
+                      tabIndex={isRegister ? -1 : 0}
+                    >
+                      Quên mật khẩu?
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      id="login-password"
+                      name="password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Nhập mật khẩu của bạn"
+                      className="pl-10 h-11 rounded-xl border-slate-200/90 bg-[#f8faf9] text-sm transition-all duration-200 hover:border-emerald-500/40 focus:bg-white"
+                      required
+                      autoComplete="current-password"
+                      tabIndex={isRegister ? -1 : 0}
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full h-11 rounded-xl text-sm font-bold mt-1 bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-2 shadow-sm transition-all duration-200 hover:shadow-[0_10px_22px_-8px_rgba(5,150,105,0.55)] active:scale-[0.98] cursor-pointer"
+                  tabIndex={isRegister ? -1 : 0}
+                >
+                  {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+                  {isSubmitting ? "Đang xử lý..." : "Đăng nhập"}
+                </Button>
+
+                <div className="relative py-1">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-slate-200/80" />
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-white px-2.5 text-[11px] font-medium text-slate-400">
+                      Hoặc tiếp tục với
+                    </span>
+                  </div>
+                </div>
+
+                <div className="group relative h-11 rounded-xl overflow-hidden flex items-center justify-center">
                   <div
                     ref={googleBtnLoginRef}
                     onClick={triggerGoogleLogin}
@@ -630,11 +703,14 @@ export default function Login() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full gap-2 h-9 text-xs font-medium text-charcoal border-slate-200 bg-white group-hover:bg-slate-100 group-hover:border-slate-300 group-hover:shadow-sm group-hover:text-black group-hover:scale-[1.005] group-active:scale-[0.99] transition-all duration-200"
+                    className={cn(
+                      "w-full gap-2.5 h-11 rounded-xl text-xs sm:text-[13px] font-semibold text-slate-700 border-slate-200/90 bg-white group-hover:bg-slate-50 group-hover:border-slate-300 group-hover:shadow-2xs group-hover:text-slate-900 group-active:scale-[0.99] transition-all duration-200",
+                      highlightGoogleBtn && "border-emerald-500 bg-emerald-50/70 text-emerald-900 ring-2 ring-emerald-500/30 shadow-sm"
+                    )}
                     onClick={triggerGoogleLogin}
                     tabIndex={isRegister ? -1 : 0}
                   >
-                    <svg className="size-4 group-hover:scale-110 transition-transform duration-200" viewBox="0 0 24 24">
+                    <svg className="size-4 shrink-0 group-hover:scale-105 transition-transform duration-200" viewBox="0 0 24 24">
                       <path
                         fill="#4285F4"
                         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
@@ -655,26 +731,30 @@ export default function Login() {
                     Đăng nhập bằng Google
                   </Button>
                 </div>
-              </div>
-            </form>
+              </form>
+            </div>
 
+            {/* Footer Block */}
+            <div>
+              {isMobile && (
+                <button
+                  type="button"
+                  onClick={switchMode}
+                  className="mb-3 w-full text-center text-xs text-emerald-700 font-semibold hover:underline cursor-pointer"
+                >
+                  Chưa có tài khoản?{" "}
+                  <span className="underline">Đăng ký ngay</span>
+                </button>
+              )}
 
-
-            {/* Mobile-only toggle */}
-            {isMobile && (
-              <button
-                onClick={switchMode}
-                className="mt-4 w-full text-center text-xs text-emerald-brand font-semibold hover:underline"
-              >
-                Chưa có tài khoản?{" "}
-                <span className="underline">Đăng ký ngay</span>
-              </button>
-            )}
-
-            <p className="mt-3 text-center text-[10px] text-muted-foreground">
-              Bằng việc tiếp tục, bạn đồng ý với Điều khoản và Chính sách bảo
-              mật.
-            </p>
+              <p className="text-[10.5px] tracking-[-0.01em] leading-relaxed text-slate-400 sm:whitespace-nowrap">
+                Bằng việc tiếp tục, bạn đồng ý với{" "}
+                <Link to="/about?tab=privacy" className="text-slate-600 font-semibold hover:text-emerald-700 underline-offset-2 hover:underline">
+                  Điều khoản & Chính sách bảo mật
+                </Link>
+                .
+              </p>
+            </div>
           </div>
 
           {/* ──── RIGHT COLUMN: Register Form ──── */}
@@ -684,169 +764,180 @@ export default function Login() {
             {...(!isRegister ? { inert: "" as unknown as boolean } : {})}
             aria-hidden={!isRegister}
           >
-            <Link
-              to="/"
-              className="brand mb-1 block text-center text-lg text-emerald-deep font-bold"
-            >
-              Phòng Trọ Xanh
-            </Link>
-            <h2 className="text-center text-sm font-bold text-charcoal mb-0.5">
-              Tạo tài khoản
-            </h2>
-            <p className="text-center text-[10px] text-muted-foreground mb-2.5">
-              Đăng ký để bắt đầu tìm phòng trọ và bạn ở ghép
-            </p>
-
-            {isRegister && error && (
-              <p className="mb-2 text-xs text-destructive font-medium text-center">
-                {error}
-              </p>
-            )}
-
-            <form onSubmit={handleRegister} className="space-y-2">
-              <div className="space-y-0.5">
-                <Label htmlFor="reg-name" className="text-[11px] leading-tight">
-                  Họ và tên
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="reg-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Nguyễn Văn A"
-                    className="pl-9 h-[34px] text-xs transition-all duration-200 hover:border-emerald-400/60 hover:bg-emerald-50/30 focus:bg-white"
-                    required
-                    tabIndex={!isRegister ? -1 : 0}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-0.5">
-                <Label
-                  htmlFor="reg-phone"
-                  className="text-[11px] leading-tight"
-                >
-                  Số điện thoại
-                </Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="reg-phone"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="0912345678"
-                    className="pl-9 h-[34px] text-xs transition-all duration-200 hover:border-emerald-400/60 hover:bg-emerald-50/30 focus:bg-white"
-                    required
-                    tabIndex={!isRegister ? -1 : 0}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-0.5">
-                <Label
-                  htmlFor="reg-email"
-                  className="text-[11px] leading-tight"
-                >
-                  Email
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="reg-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="email@example.com"
-                    className="pl-9 h-[34px] text-xs transition-all duration-200 hover:border-emerald-400/60 hover:bg-emerald-50/30 focus:bg-white"
-                    required
-                    tabIndex={!isRegister ? -1 : 0}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-0.5">
-                <Label htmlFor="reg-pass" className="text-[11px] leading-tight">
-                  Mật khẩu
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="reg-pass"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Tối thiểu 6 ký tự"
-                    className="pl-9 h-[34px] text-xs transition-all duration-200 hover:border-emerald-400/60 hover:bg-emerald-50/30 focus:bg-white"
-                    required
-                    tabIndex={!isRegister ? -1 : 0}
-                  />
-                </div>
-              </div>
-
-              {/* Shakeable, validated Confirm Password field */}
-              <div
-                className={`space-y-0.5 transition-all duration-200 ${shouldShakeConfirm ? "animate-shake" : ""}`}
+            {/* Header Lockup + Left-Aligned Title */}
+            <div>
+              <Link
+                to="/"
+                className="inline-flex items-center gap-2.5 group mb-3"
+                tabIndex={!isRegister ? -1 : 0}
               >
-                <Label
-                  htmlFor="reg-confirm-pass"
-                  className="text-[11px] leading-tight"
-                >
-                  Xác nhận mật khẩu
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="reg-confirm-pass"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={handleConfirmPasswordChange}
-                    onBlur={handleConfirmPasswordBlur}
-                    placeholder="Xác nhận lại mật khẩu"
-                    className={`pl-9 h-[34px] text-xs transition-colors duration-200 ${
-                      confirmPassword !== "" && confirmPassword !== password
-                        ? "border-destructive focus-visible:ring-destructive focus-visible:border-destructive"
-                        : ""
-                    }`}
-                    required
-                    tabIndex={!isRegister ? -1 : 0}
-                    aria-invalid={
-                      confirmPassword !== "" && confirmPassword !== password
-                        ? "true"
-                        : undefined
-                    }
-                  />
+                <div className="grid size-8 place-items-center rounded-xl bg-emerald-600 text-white shadow-xs transition-transform duration-200 group-hover:scale-105">
+                  <Home className="size-4" />
                 </div>
+                <span className="font-display text-base font-extrabold tracking-tight text-slate-900">
+                  Phòng Trọ Xanh
+                </span>
+              </Link>
+
+              <h2 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+                Tạo tài khoản mới
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Miễn phí đăng ký cho người thuê trọ, tìm bạn ở ghép và chủ nhà.
+              </p>
+            </div>
+
+            {/* Form Block (Balanced 2-Col Grid so height matches Login Panel) */}
+            <div className="my-auto py-2">
+              {isRegister && error && (
+                <div className="mb-2.5 rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-2 text-xs font-medium text-rose-700">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleRegister} className="space-y-2.5">
+                {/* Row 1: Họ và tên + Số điện thoại */}
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-2.5">
+                  <div className="space-y-1">
+                    <Label htmlFor="reg-name" className="text-xs font-semibold text-slate-700">
+                      Họ và tên
+                    </Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        id="reg-name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Nguyễn Văn An"
+                        className="pl-8.5 h-10 rounded-xl border-slate-200/90 bg-[#f8faf9] text-xs sm:text-[13px] transition-all duration-200 hover:border-emerald-500/40 focus:bg-white"
+                        required
+                        tabIndex={!isRegister ? -1 : 0}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="reg-phone" className="text-xs font-semibold text-slate-700">
+                      Số điện thoại
+                    </Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        id="reg-phone"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="0912 345 678"
+                        className="pl-8.5 h-10 rounded-xl border-slate-200/90 bg-[#f8faf9] text-xs sm:text-[13px] transition-all duration-200 hover:border-emerald-500/40 focus:bg-white"
+                        required
+                        tabIndex={!isRegister ? -1 : 0}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 2: Email */}
+                <div className="space-y-1">
+                  <Label htmlFor="reg-email" className="text-xs font-semibold text-slate-700">
+                    Email xác thực
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      id="reg-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="tenban@gmail.com"
+                      className="pl-8.5 h-10 rounded-xl border-slate-200/90 bg-[#f8faf9] text-xs sm:text-[13px] transition-all duration-200 hover:border-emerald-500/40 focus:bg-white"
+                      required
+                      tabIndex={!isRegister ? -1 : 0}
+                    />
+                  </div>
+                </div>
+
+                {/* Row 3: Mật khẩu + Xác nhận mật khẩu */}
+                <div
+                  className={`grid grid-cols-1 min-[420px]:grid-cols-2 gap-2.5 transition-all duration-200 ${
+                    shouldShakeConfirm ? "animate-shake" : ""
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <Label htmlFor="reg-pass" className="text-xs font-semibold text-slate-700">
+                      Mật khẩu
+                    </Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        id="reg-pass"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Tối thiểu 6 ký tự"
+                        className="pl-8.5 h-10 rounded-xl border-slate-200/90 bg-[#f8faf9] text-xs sm:text-[13px] transition-all duration-200 hover:border-emerald-500/40 focus:bg-white"
+                        required
+                        tabIndex={!isRegister ? -1 : 0}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="reg-confirm-pass" className="text-xs font-semibold text-slate-700">
+                      Nhập lại mật khẩu
+                    </Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        id="reg-confirm-pass"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={handleConfirmPasswordChange}
+                        onBlur={handleConfirmPasswordBlur}
+                        placeholder="Xác nhận mật khẩu"
+                        className={`pl-8.5 h-10 rounded-xl border-slate-200/90 bg-[#f8faf9] text-xs sm:text-[13px] transition-colors duration-200 focus:bg-white ${
+                          confirmPassword !== "" && confirmPassword !== password
+                            ? "border-destructive focus-visible:ring-destructive focus-visible:border-destructive"
+                            : "hover:border-emerald-500/40"
+                        }`}
+                        required
+                        tabIndex={!isRegister ? -1 : 0}
+                        aria-invalid={
+                          confirmPassword !== "" && confirmPassword !== password
+                            ? "true"
+                            : undefined
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {confirmPassword !== "" && confirmPassword !== password && (
-                  <p className="text-[10px] text-destructive font-medium mt-0.5 animate-fade-in">
+                  <p className="text-[11px] text-destructive font-medium animate-fade-in">
                     Mật khẩu xác nhận không trùng khớp
                   </p>
                 )}
-              </div>
 
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full h-[34px] text-xs mt-1.5 bg-emerald-brand hover:bg-emerald-deep text-white flex items-center justify-center gap-1.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-6px_rgba(5,150,105,0.55)] active:translate-y-0 active:scale-[0.98]"
-                tabIndex={!isRegister ? -1 : 0}
-              >
-                {isSubmitting && <Loader2 className="size-3.5 animate-spin" />}
-                {isSubmitting ? "Đang xử lý..." : "Đăng ký tài khoản"}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full h-10 rounded-xl text-xs sm:text-[13px] font-bold mt-1 bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-2 shadow-sm transition-all duration-200 hover:shadow-[0_10px_22px_-8px_rgba(5,150,105,0.55)] active:scale-[0.98] cursor-pointer"
+                  tabIndex={!isRegister ? -1 : 0}
+                >
+                  {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+                  {isSubmitting ? "Đang xử lý..." : "Đăng ký tài khoản"}
+                </Button>
 
-              <div className="relative my-1.5">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
+                <div className="relative py-0.5">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-slate-200/80" />
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-white px-2.5 text-[11px] font-medium text-slate-400">
+                      Hoặc đăng ký nhanh bằng
+                    </span>
+                  </div>
                 </div>
-                <div className="relative flex justify-center">
-                  <span className="bg-white px-2 text-[9px] text-muted-foreground">
-                    Hoặc đăng ký nhanh bằng
-                  </span>
-                </div>
-              </div>
 
-              <div className="mt-0.5">
-                <div className="group relative h-[34px] rounded-md overflow-hidden flex items-center justify-center">
+                <div className="group relative h-10 rounded-xl overflow-hidden flex items-center justify-center">
                   <div
                     ref={googleBtnRegRef}
                     onClick={triggerGoogleLogin}
@@ -858,11 +949,11 @@ export default function Login() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full gap-2 h-[34px] text-xs font-medium text-charcoal border-slate-200 bg-white group-hover:bg-slate-100 group-hover:border-slate-300 group-hover:shadow-sm group-hover:text-black group-hover:scale-[1.005] group-active:scale-[0.99] transition-all duration-200"
+                    className="w-full gap-2 h-10 rounded-xl text-xs font-semibold text-slate-700 border-slate-200/90 bg-white group-hover:bg-slate-50 group-hover:border-slate-300 group-hover:shadow-2xs group-hover:text-slate-900 group-active:scale-[0.99] transition-all duration-200"
                     onClick={triggerGoogleLogin}
                     tabIndex={!isRegister ? -1 : 0}
                   >
-                    <svg className="size-4 group-hover:scale-110 transition-transform duration-200" viewBox="0 0 24 24">
+                    <svg className="size-4 shrink-0 group-hover:scale-105 transition-transform duration-200" viewBox="0 0 24 24">
                       <path
                         fill="#4285F4"
                         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
@@ -883,64 +974,84 @@ export default function Login() {
                     Đăng ký nhanh bằng Google
                   </Button>
                 </div>
-              </div>
-            </form>
+              </form>
+            </div>
 
-            {/* Mobile-only toggle */}
-            {isMobile && (
-              <button
-                onClick={switchMode}
-                className="mt-4 w-full text-center text-xs text-emerald-brand font-semibold hover:underline"
-              >
-                Đã có tài khoản? <span className="underline">Đăng nhập</span>
-              </button>
-            )}
+            {/* Footer Block */}
+            <div>
+              {isMobile && (
+                <button
+                  type="button"
+                  onClick={switchMode}
+                  className="mb-3 w-full text-center text-xs text-emerald-700 font-semibold hover:underline cursor-pointer"
+                >
+                  Đã có tài khoản? <span className="underline">Đăng nhập</span>
+                </button>
+              )}
 
-            <p className="mt-3 text-center text-[10px] text-muted-foreground">
-              Bằng việc tiếp tục, bạn đồng ý với Điều khoản và Chính sách bảo
-              mật.
-            </p>
+              <p className="text-[10.5px] tracking-[-0.01em] leading-relaxed text-slate-400 sm:whitespace-nowrap">
+                Bằng việc tiếp tục, bạn đồng ý với{" "}
+                <Link to="/about?tab=privacy" className="text-slate-600 font-semibold hover:text-emerald-700 underline-offset-2 hover:underline">
+                  Điều khoản & Chính sách bảo mật
+                </Link>
+                .
+              </p>
+            </div>
           </div>
 
           {/* ──── OVERLAY PANEL (Desktop only) ──── */}
           <div className="auth-slider__overlay" aria-hidden="true">
             <div className="auth-slider__gif-track" />
             <div className="auth-slider__overlay-content">
-              {isRegister ? (
-                <>
-                  <h2 className="brand" style={{ color: "#fff" }}>
-                    Đã có tài khoản?
-                  </h2>
-                  <p>
-                    Đăng nhập để tiếp tục tìm phòng trọ và quản lý tài khoản của
-                    bạn trên Phòng Trọ Xanh.
-                  </p>
-                  <button
-                    className="auth-slider__overlay-btn"
-                    onClick={switchMode}
-                    type="button"
+              <AnimatePresence mode="wait" initial={false}>
+                {isRegister ? (
+                  <motion.div
+                    key="overlay-login-cta"
+                    initial={{ opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 16 }}
+                    transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+                    className="w-full"
                   >
-                    Đăng nhập
-                  </button>
-                </>
-              ) : (
-                <>
-                  <h2 className="brand" style={{ color: "#fff" }}>
-                    Chưa có tài khoản?
-                  </h2>
-                  <p>
-                    Đăng ký miễn phí để tìm phòng trọ, kết nối bạn ở ghép và
-                    nhận ưu đãi từ Phòng Trọ Xanh.
-                  </p>
-                  <button
-                    className="auth-slider__overlay-btn"
-                    onClick={switchMode}
-                    type="button"
+                    <h2 className="brand">Đã có tài khoản?</h2>
+                    <p>
+                      Đăng nhập để tiếp tục xem các phòng đã lưu, nhắn tin với chủ
+                      trọ và quản lý hồ sơ của bạn.
+                    </p>
+                    <button
+                      className="auth-slider__overlay-btn group/btn"
+                      onClick={switchMode}
+                      type="button"
+                    >
+                      <span>Đăng nhập ngay</span>
+                      <ArrowRight className="size-3.5 transition-transform duration-200 ease-out group-hover/btn:translate-x-0.5" />
+                    </button>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="overlay-register-cta"
+                    initial={{ opacity: 0, x: 16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -16 }}
+                    transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+                    className="w-full"
                   >
-                    Đăng ký ngay
-                  </button>
-                </>
-              )}
+                    <h2 className="brand">Chưa có tài khoản?</h2>
+                    <p>
+                      Tạo tài khoản miễn phí để lưu phòng yêu thích, xem chi tiết
+                      chủ trọ và tìm bạn ở ghép hợp lối sống.
+                    </p>
+                    <button
+                      className="auth-slider__overlay-btn group/btn"
+                      onClick={switchMode}
+                      type="button"
+                    >
+                      <ArrowLeft className="size-3.5 transition-transform duration-200 ease-out group-hover/btn:-translate-x-0.5" />
+                      <span>Đăng ký tài khoản mới</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
