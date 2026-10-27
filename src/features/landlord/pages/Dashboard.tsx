@@ -133,7 +133,6 @@ export default function LandlordDashboard() {
   if (tab === "rooms") return <LandlordRooms />;
   if (tab === "post") return <PostRoom />;
   if (tab === "tenants") return <LandlordTenants />;
-  if (tab === "swaps") return <Swaps />;
   if (tab === "reviews") return <LandlordReviews />;
   if (tab === "chat") return <LandlordChat />;
   if (tab === "packages") return <LandlordPackages />;
@@ -148,7 +147,7 @@ export default function LandlordDashboard() {
         <Button className="gap-2" onClick={() => navigate("/landlord?tab=post")}><PlusCircle className="size-4" /> Đăng phòng mới</Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div data-tour="landlord-overview-kpis" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className="rounded-2xl bg-card p-5 ring-1 ring-border">
             <div className="flex items-center justify-between">
@@ -161,7 +160,7 @@ export default function LandlordDashboard() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div data-tour="landlord-overview-chart" className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="rounded-2xl bg-card p-5 ring-1 ring-border">
           <h2 className="text-lg">Lượt xem 7 ngày qua</h2>
           <div className="mt-4 h-56">

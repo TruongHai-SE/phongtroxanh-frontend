@@ -98,7 +98,7 @@ export default function Matches() {
       {/* Main 12-Column Desktop Grid */}
       <div className="mt-8 grid gap-8 lg:grid-cols-12">
         {/* Left / Main Section (8 cols) */}
-        <div className="space-y-6 lg:col-span-8">
+        <div data-tour="matches-main-list" className="space-y-6 lg:col-span-8">
           {isLoading ? (
             <div className="grid gap-4 sm:grid-cols-2">
               {[1, 2, 3, 4].map((k) => (

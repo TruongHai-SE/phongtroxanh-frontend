@@ -17,6 +17,7 @@ interface AppFeedbackModalProps {
 
 export function AppFeedbackModal({ open, onOpenChange }: AppFeedbackModalProps) {
   const { user } = useAuth();
+  const isLandlord = user?.role === "LANDLORD";
   const [rating, setRating] = useState<number>(5);
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [category, setCategory] = useState<string>("app_experience");
@@ -26,13 +27,86 @@ export function AppFeedbackModal({ open, onOpenChange }: AppFeedbackModalProps) 
   const [hasExisting, setHasExisting] = useState<boolean>(false);
   const [isLoadingExisting, setIsLoadingExisting] = useState<boolean>(false);
 
-  const categories = [
-    { id: "app_experience", label: "Trải nghiệm ứng dụng" },
-    { id: "landlord_quality", label: "Đánh giá chất lượng chủ trọ" },
-    { id: "matching_feature", label: "Tính năng ghép bạn trọ" },
-    { id: "payment_system", label: "Thanh toán VietQR & Cọc" },
-    { id: "other", label: "Góp ý khác" },
+  const tenantCategories = [
+    {
+      id: "app_experience",
+      label: "Tìm phòng & Bản đồ",
+      placeholder:
+        "Chia sẻ cảm nhận của bạn về bộ lọc tìm phòng, bản đồ trực quan, bảng so sánh phòng hoặc tốc độ tải trang...",
+    },
+    {
+      id: "matching_feature",
+      label: "Tính năng ghép bạn trọ",
+      placeholder:
+        "Chia sẻ đánh giá về độ chính xác khi gợi ý bạn cùng phòng, bộ lọc lối sống và trò chuyện sau khi ghép đôi...",
+    },
+    {
+      id: "booking_swap",
+      label: "Đặt lịch xem & Nhận phòng",
+      placeholder:
+        "Chia sẻ trải nghiệm khi đặt lịch hẹn xem phòng, theo dõi hợp đồng thuê và xác nhận nhận bàn giao phòng...",
+    },
+    {
+      id: "payment_system",
+      label: "Thanh toán PayOS & Gói VIP",
+      placeholder:
+        "Chia sẻ trải nghiệm khi nâng cấp gói Hội viên qua cổng thanh toán PayOS và tốc độ kích hoạt quyền lợi...",
+    },
+    {
+      id: "landlord_quality",
+      label: "Chất lượng tin đăng & Chủ trọ",
+      placeholder:
+        "Chia sẻ nhận xét về độ xác thực của hình ảnh phòng trọ, thông tin chi phí điện nước và sự hỗ trợ của chủ trọ...",
+    },
+    {
+      id: "other",
+      label: "Góp ý khác",
+      placeholder:
+        "Nhập đề xuất tính năng mới hoặc bất kỳ góp ý nào để Phòng Trọ Xanh phục vụ người thuê tốt hơn...",
+    },
   ];
+
+  const landlordCategories = [
+    {
+      id: "app_experience",
+      label: "Bảng điều khiển & Giao diện",
+      placeholder:
+        "Chia sẻ cảm nhận về bố cục bảng điều khiển Chủ trọ, biểu đồ thống kê lượt xem 7 ngày và tốc độ thao tác...",
+    },
+    {
+      id: "room_management",
+      label: "Đăng tin & Quản lý phòng",
+      placeholder:
+        "Chia sẻ góp ý về quy trình 4 bước đăng phòng mới, tải ảnh thực tế, tạm ẩn/hiện tin hoặc cập nhật giá phòng...",
+    },
+    {
+      id: "tenant_management",
+      label: "Quản lý người thuê & Hợp đồng",
+      placeholder:
+        "Chia sẻ trải nghiệm khi duyệt lịch hẹn xem phòng, xác nhận bàn giao hợp đồng thuê hoặc nhắn tin với khách...",
+    },
+    {
+      id: "service_package",
+      label: "Gói dịch vụ & Đẩy Top phòng",
+      placeholder:
+        "Chia sẻ đánh giá về hiệu quả tiếp cận khách thuê khi Đẩy Top phòng và quyền lợi các gói Hội viên Chủ trọ...",
+    },
+    {
+      id: "payment_system",
+      label: "Thanh toán PayOS",
+      placeholder:
+        "Chia sẻ trải nghiệm khi quét mã QR thanh toán qua cổng PayOS, tốc độ cộng lượt đẩy tin và kích hoạt gói dịch vụ...",
+    },
+    {
+      id: "other",
+      label: "Góp ý khác",
+      placeholder:
+        "Nhập đề xuất công cụ mới hoặc bất kỳ góp ý nào để Phòng Trọ Xanh hỗ trợ chủ trọ quản lý hiệu quả hơn...",
+    },
+  ];
+
+  const categories = isLandlord ? landlordCategories : tenantCategories;
+  const activeCategoryObj = categories.find((c) => c.id === category) ?? categories[0];
 
   const ratingDescriptions: Record<number, string> = {
     1: "Rất không hài lòng (1 sao)",
@@ -112,15 +186,34 @@ export function AppFeedbackModal({ open, onOpenChange }: AppFeedbackModalProps) 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <div className="size-8 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center">
+            <div className="size-8 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
               <MessageSquareHeart className="size-4" />
             </div>
-            <DialogTitle className="text-base font-bold text-foreground">
-              {hasExisting ? "Chỉnh sửa đánh giá nền tảng" : "Đánh giá ứng dụng & Chủ trọ"}
-            </DialogTitle>
+            <div className="flex items-center gap-2 flex-wrap">
+              <DialogTitle className="text-base font-bold text-foreground">
+                {hasExisting
+                  ? "Chỉnh sửa đánh giá nền tảng"
+                  : isLandlord
+                  ? "Đánh giá nền tảng Quản lý Trọ"
+                  : "Đánh giá ứng dụng Phòng Trọ Xanh"}
+              </DialogTitle>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] px-2 py-0 font-semibold",
+                  isLandlord
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-blue-50 text-blue-700 border-blue-200"
+                )}
+              >
+                {isLandlord ? "Chủ trọ" : "Người thuê"}
+              </Badge>
+            </div>
           </div>
           <DialogDescription className="text-xs text-muted-foreground">
-            Phản hồi thực tế của bạn giúp Phòng Trọ Xanh nâng cấp chất lượng phục vụ và kiểm soát độ uy tín của chủ trọ.
+            {isLandlord
+              ? "Phản hồi của bạn giúp Phòng Trọ Xanh tối ưu công cụ đăng tin, quản lý khách thuê, hợp đồng và thanh toán qua cổng PayOS."
+              : "Phản hồi thực tế của bạn giúp Phòng Trọ Xanh nâng cấp trải nghiệm tìm phòng, ghép bạn ở ghép và chất lượng dịch vụ trên nền tảng."}
           </DialogDescription>
         </DialogHeader>
 
@@ -214,7 +307,7 @@ export function AppFeedbackModal({ open, onOpenChange }: AppFeedbackModalProps) 
                 rows={4}
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Nhập cảm nhận của bạn về trải nghiệm sử dụng, thái độ của chủ trọ, tốc độ tìm phòng hoặc các tính năng mong muốn bổ sung..."
+                placeholder={activeCategoryObj.placeholder}
                 className="text-xs resize-none"
               />
             </div>

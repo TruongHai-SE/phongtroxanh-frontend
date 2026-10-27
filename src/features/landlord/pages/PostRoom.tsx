@@ -308,7 +308,7 @@ export default function PostRoom() {
   return (
     <div className="w-full space-y-4">
       {/* Header + Compact Step Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl bg-card px-5 py-3.5 ring-1 ring-border shadow-2xs">
+      <div data-tour="landlord-post-stepper" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl bg-card px-5 py-3.5 ring-1 ring-border shadow-2xs">
         <div>
           <h1 className="brand text-xl sm:text-2xl text-foreground">Đăng phòng mới</h1>
           <p className="text-xs text-muted-foreground">
@@ -356,7 +356,7 @@ export default function PostRoom() {
       </div>
 
       {/* Responsive 12-Column Split Layout: Left Form + Right Live Preview */}
-      <div className="grid gap-5 lg:grid-cols-12 items-start w-full">
+      <div data-tour="landlord-post-form" className="grid gap-5 lg:grid-cols-12 items-start w-full">
         {/* LEFT COLUMN: Active Step Form (hugs content naturally, no artificial min-height) */}
         <div className="lg:col-span-7 xl:col-span-8 rounded-2xl bg-card p-5 ring-1 ring-border shadow-2xs flex flex-col justify-between">
           <div>
@@ -457,8 +457,11 @@ export default function PostRoom() {
                   />
                 </Field>
 
-                <Field label="Tiện nghi có sẵn trong phòng (Wi-Fi & Bãi xe sẽ tự động mở ô nhập phí ở bước sau)">
+                <Field label="Tiện nghi chuẩn của phòng (Đồng bộ với Bộ lọc tìm phòng của người thuê)">
                   <AmenityPicker value={amenities} onChange={setAmenities} />
+                  <p className="text-[11px] text-muted-foreground pt-1">
+                    Chọn từ 10 tiện nghi cốt lõi (chọn <strong>Wi-Fi</strong> hoặc <strong>Bãi xe</strong> sẽ mở ô nhập phí ở bước sau). Các nội thất riêng lẻ khác (tủ lạnh, máy giặt, bàn học...) vui lòng ghi trong phần <strong>Mô tả chi tiết</strong> ở trên.
+                  </p>
                 </Field>
               </div>
             )}

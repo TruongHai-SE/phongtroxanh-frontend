@@ -51,7 +51,7 @@ const roleCls: Record<string, string> = {
   "Chủ trọ": "bg-indigo-50 text-indigo-700 border-indigo-200/80 font-medium",
 };
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 6;
 
 function PaginationBar({
   page, totalPages, total, onPage,
@@ -73,21 +73,23 @@ function PaginationBar({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t text-sm bg-muted/20">
-      <span className="text-muted-foreground text-xs">{from}–{to} trong {total} tài khoản</span>
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-t text-sm bg-muted/20">
+      <span className="text-muted-foreground text-xs font-medium">
+        Hiển thị <strong className="text-foreground">{from}–{to}</strong> trong tổng số <strong className="text-foreground">{total}</strong> tài khoản
+      </span>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="size-8" disabled={page === 1} onClick={() => onPage(1)}><ChevronsLeft className="size-4" /></Button>
-        <Button variant="ghost" size="icon" className="size-8" disabled={page === 1} onClick={() => onPage(page - 1)}><ChevronLeft className="size-4" /></Button>
+        <Button variant="ghost" size="icon" className="size-8 cursor-pointer active:scale-95" disabled={page === 1} onClick={() => onPage(1)}><ChevronsLeft className="size-4" /></Button>
+        <Button variant="ghost" size="icon" className="size-8 cursor-pointer active:scale-95" disabled={page === 1} onClick={() => onPage(page - 1)}><ChevronLeft className="size-4" /></Button>
         {pages.map((p, i) => p === "…"
           ? <span key={`d${i}`} className="px-1 text-muted-foreground text-xs">…</span>
-          : <Button key={p} variant={page === p ? "default" : "ghost"} size="icon" className="size-8 text-xs" onClick={() => onPage(p as number)}>{p}</Button>
+          : <Button key={p} variant={page === p ? "default" : "ghost"} size="icon" className={cn("size-8 text-xs font-semibold cursor-pointer active:scale-95", page === p && "bg-primary text-primary-foreground shadow-2xs")} onClick={() => onPage(p as number)}>{p}</Button>
         )}
-        <Button variant="ghost" size="icon" className="size-8" disabled={page === totalPages} onClick={() => onPage(page + 1)}><ChevronRight className="size-4" /></Button>
-        <Button variant="ghost" size="icon" className="size-8" disabled={page === totalPages} onClick={() => onPage(totalPages)}><ChevronsRight className="size-4" /></Button>
+        <Button variant="ghost" size="icon" className="size-8 cursor-pointer active:scale-95" disabled={page === totalPages} onClick={() => onPage(page + 1)}><ChevronRight className="size-4" /></Button>
+        <Button variant="ghost" size="icon" className="size-8 cursor-pointer active:scale-95" disabled={page === totalPages} onClick={() => onPage(totalPages)}><ChevronsRight className="size-4" /></Button>
       </div>
       <div className="flex items-center gap-2">
         <span className="text-muted-foreground text-xs">Đến trang</span>
-        <Input className="w-12 h-8 text-center text-xs" value={gotoVal}
+        <Input className="w-12 h-7 text-center text-xs bg-background" value={gotoVal}
           onChange={(e) => setGotoVal(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { const p = parseInt(gotoVal); if (!isNaN(p) && p >= 1 && p <= totalPages) { onPage(p); setGotoVal(""); } } }}
           placeholder={String(page)} />
@@ -241,57 +243,91 @@ export default function AdminUsers() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-3">
+      {/* ── COMPACT HEADER & SEARCH TOOLBAR ── */}
+      <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Quản lý người dùng</h1>
-          <p className="text-sm text-muted-foreground">Theo dõi, kiểm tra danh tính và can thiệp tài khoản hệ thống</p>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Quản lý người dùng</h1>
+            <Badge className="bg-mint text-emerald-deep border-primary/20 font-semibold text-xs px-2.5 py-0.5">
+              {users.length} tài khoản
+            </Badge>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+            Theo dõi hoạt động, xác minh danh tính và hỗ trợ người dùng trên toàn hệ thống
+          </p>
         </div>
-        <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-lg border">
-          Tổng cộng: <span className="font-semibold text-foreground">{users.length}</span> tài khoản
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 sm:w-64 sm:flex-initial">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => { setQ(e.target.value); resetPage(); }}
+              placeholder="Tìm theo họ tên, email..."
+              className="pl-9 h-9 text-xs sm:text-sm rounded-xl bg-card"
+            />
+          </div>
+          <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); resetPage(); }}>
+            <SelectTrigger className="w-38 h-9 text-xs sm:text-sm rounded-xl bg-card cursor-pointer">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="cursor-pointer">Tất cả vai trò</SelectItem>
+              <SelectItem value="tenant" className="cursor-pointer">Người thuê</SelectItem>
+              <SelectItem value="landlord" className="cursor-pointer">Chủ trọ</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="relative max-w-xs flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => { setQ(e.target.value); resetPage(); }} placeholder="Tìm theo tên, email..." className="pl-9 bg-card" />
-        </div>
-        <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); resetPage(); }}>
-          <SelectTrigger className="w-40 bg-card cursor-pointer"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all" className="cursor-pointer">Tất cả vai trò</SelectItem>
-            <SelectItem value="tenant" className="cursor-pointer">Người thuê</SelectItem>
-            <SelectItem value="landlord" className="cursor-pointer">Chủ trọ</SelectItem>
-          </SelectContent>
-        </Select>
-        <Tabs value={tab} onValueChange={(v) => { setTab(v); resetPage(); }} className="ml-auto">
-          <TabsList className="bg-muted/70 p-1">
-            <TabsTrigger value="all">Tất cả</TabsTrigger>
-            <TabsTrigger value="verified">Đã xác minh</TabsTrigger>
-            <TabsTrigger value="unverified">Chưa xác minh</TabsTrigger>
-            <TabsTrigger value="warned">Đang cảnh cáo</TabsTrigger>
-            <TabsTrigger value="locked">Bị khóa</TabsTrigger>
-          </TabsList>
-        </Tabs>
+      {/* ── STATUS FILTER TABS (Đồng bộ kích thước với Chủ trọ) ── */}
+      <div className="flex flex-wrap border-b border-border gap-1">
+        {[
+          { id: "all", label: `Tất cả (${users.length})` },
+          { id: "verified", label: `Đã xác minh (${users.filter((u) => u.verified).length})` },
+          { id: "unverified", label: `Chưa xác minh (${users.filter((u) => !u.verified).length})` },
+          {
+            id: "warned",
+            label: `Đang nhắc nhở (${users.filter((u) => u.status === "warned" || (u.strikeCount > 0 && u.status !== "locked")).length})`,
+          },
+          { id: "locked", label: `Đang khóa (${users.filter((u) => u.status === "locked").length})` },
+        ].map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => {
+              setTab(item.id);
+              resetPage();
+            }}
+            className={cn(
+              "pb-2.5 px-3.5 text-sm font-semibold transition-all cursor-pointer border-b-2",
+              tab === item.id
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl bg-card border shadow-sm">
+      <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-border shadow-2xs">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="w-[320px]">Người dùng</TableHead>
-              <TableHead className="w-[140px]">Vai trò</TableHead>
-              <TableHead className="w-[140px]">Trạng thái</TableHead>
-              <TableHead className="w-[160px]">Xác minh</TableHead>
-              <TableHead className="w-[110px]">Điểm uy tín</TableHead>
-              <TableHead className="text-right pr-4">Thao tác</TableHead>
+            <TableRow className="bg-secondary/50 hover:bg-secondary/50">
+              <TableHead className="w-[300px] py-2.5 text-xs font-semibold">Người dùng</TableHead>
+              <TableHead className="w-[130px] py-2.5 text-xs font-semibold">Vai trò</TableHead>
+              <TableHead className="w-[150px] py-2.5 text-xs font-semibold">Trạng thái</TableHead>
+              <TableHead className="w-[150px] py-2.5 text-xs font-semibold">Xác minh CCCD</TableHead>
+              <TableHead className="w-[110px] py-2.5 text-xs font-semibold">Điểm uy tín</TableHead>
+              <TableHead className="text-right pr-4 py-2.5 text-xs font-semibold">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-16 text-center">
+                <TableCell colSpan={6} className="py-12 text-center">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Loader2 className="size-6 animate-spin text-primary" />
                     <span className="text-sm text-muted-foreground">Đang tải danh sách người dùng...</span>
@@ -300,7 +336,7 @@ export default function AdminUsers() {
               </TableRow>
             ) : paginated.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-16 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-12 text-center text-muted-foreground text-sm">
                   Không tìm thấy người dùng phù hợp với tiêu chí lọc.
                 </TableCell>
               </TableRow>
@@ -312,12 +348,12 @@ export default function AdminUsers() {
                     key={u.id}
                     className={cn(
                       "cursor-pointer transition-colors duration-150 border-b",
-                      "hover:bg-emerald-50/70 dark:hover:bg-emerald-950/25",
-                      isSelected && "bg-emerald-50/90 dark:bg-emerald-950/40 border-l-4 border-l-emerald-600"
+                      "hover:bg-mint/35",
+                      isSelected && "bg-mint/60 border-l-4 border-l-primary"
                     )}
                     onClick={() => { setSelectedUser(u); setModalOpen(true); }}
                   >
-                    <TableCell>
+                    <TableCell className="py-2.5">
                       <div className="flex items-center gap-3">
                         <Avatar className="size-9 ring-1 ring-border shrink-0">
                           <AvatarImage src={u.avatar || undefined} />
@@ -331,13 +367,13 @@ export default function AdminUsers() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-2.5">
                       <Badge variant="outline" className={cn("text-xs font-medium px-2 py-0.5", roleCls[u.role] ?? "")}>
                         {u.role}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1 items-start">
+                    <TableCell className="py-2.5">
+                      <div className="flex items-center gap-2">
                         <Badge variant="outline" className={cn("text-xs font-medium px-2 py-0.5", statusCls[u.status])}>
                           {statusLabel[u.status]}
                         </Badge>
@@ -346,14 +382,14 @@ export default function AdminUsers() {
                           u.strikeCount >= 3 ? "text-rose-600" : u.strikeCount > 0 ? "text-amber-600" : "text-muted-foreground"
                         )}>
                           {u.strikeCount >= 3
-                            ? `Vi phạm ${u.strikeCount}/3`
+                            ? `${u.strikeCount}/3`
                             : u.strikeCount > 0
-                            ? `Nhắc nhở ${u.strikeCount}/3`
-                            : "Tuân thủ tốt (0/3)"}
+                            ? `${u.strikeCount}/3`
+                            : "0/3"}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-2.5">
                       {u.verified ? (
                         <Badge variant="outline" className="gap-1 bg-emerald-50 text-emerald-700 border-emerald-200/80 text-xs font-medium px-2 py-0.5">
                           <ShieldCheck className="size-3 text-emerald-600" /> Đã xác minh
@@ -364,25 +400,25 @@ export default function AdminUsers() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-sm text-emerald-600 dark:text-emerald-400">{u.trustScore}</span>
-                        <span className="text-[10px] text-muted-foreground">/100</span>
+                    <TableCell className="py-2.5">
+                      <div className="flex items-center gap-1">
+                        <span className="font-semibold text-sm text-emerald-600">{u.trustScore}</span>
+                        <span className="text-[11px] text-muted-foreground">/100</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right pr-4" onClick={(e) => e.stopPropagation()}>
+                    <TableCell className="text-right pr-4 py-2.5" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          className="h-8 px-2.5 text-xs text-foreground/80 hover:text-foreground hover:bg-muted cursor-pointer"
+                          className="h-8 px-2.5 text-xs text-foreground/80 hover:text-foreground hover:bg-secondary cursor-pointer active:scale-95"
                           onClick={() => { setSelectedUser(u); setModalOpen(true); }}
                         >
                           Hồ sơ
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="size-8 cursor-pointer text-muted-foreground hover:text-foreground">
+                            <Button variant="ghost" size="icon" className="size-8 cursor-pointer text-muted-foreground hover:text-foreground active:scale-95">
                               <MoreHorizontal className="size-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -394,7 +430,7 @@ export default function AdminUsers() {
                               <Mail className="mr-2 size-4 text-muted-foreground" /> Gửi thông báo / Email
                             </DropdownMenuItem>
                             <DropdownMenuItem className="cursor-pointer text-xs py-2" onClick={() => openAction(u, "reset_password")}>
-                              <KeyRound className="mr-2 size-4 text-muted-foreground" /> Reset & gửi mật khẩu qua email
+                              <KeyRound className="mr-2 size-4 text-muted-foreground" /> Đặt lại & gửi mật khẩu qua email
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="my-1" />
                             {u.verified ? (
@@ -644,8 +680,8 @@ export default function AdminUsers() {
               </AlertDialogHeader>
               {actionDialogConfig[actionType].needsReason && (
                 <div className="py-2">
-                  <label className="text-xs font-medium text-muted-foreground block mb-1.5">Lý do thực hiện (tùy chọn lưu log)</label>
-                  <Textarea value={actionReason} onChange={(e) => setActionReason(e.target.value)} placeholder="Nhập lý do gửi đến người dùng hoặc lưu nhật ký kiểm toán..." rows={3} className="resize-none text-sm" />
+                  <label className="text-xs font-medium text-muted-foreground block mb-1.5">Lý do thực hiện (gửi kèm thông báo cho người dùng)</label>
+                  <Textarea value={actionReason} onChange={(e) => setActionReason(e.target.value)} placeholder="Nhập lý do cụ thể để người dùng nắm rõ nguyên nhân..." rows={3} className="resize-none text-sm" />
                 </div>
               )}
               <AlertDialogFooter>

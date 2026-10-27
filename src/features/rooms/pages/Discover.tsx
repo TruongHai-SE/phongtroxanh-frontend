@@ -16,6 +16,9 @@ import {
   Eye,
   Layers,
   X,
+  BellRing,
+  CheckCircle2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -45,6 +48,36 @@ const ROOM_TYPE_LABELS: Record<string, string> = {
   SLEEPBOX: "Sleepbox",
   KY_TUC_XA: "Ký túc xá",
 };
+
+function formatFilterBadges(criteria?: RoomFilterState | null, amenities?: string[]): string[] {
+  if (!criteria && (!amenities || amenities.length === 0)) return [];
+  const badges: string[] = [];
+  if (criteria?.district) {
+    badges.push(`Khu vực: ${criteria.district}`);
+  }
+  if (criteria?.roomType) {
+    badges.push(`Loại phòng: ${ROOM_TYPE_LABELS[criteria.roomType] || criteria.roomType}`);
+  }
+  if (criteria?.minPrice != null || criteria?.maxPrice != null) {
+    const minM = criteria.minPrice ? (criteria.minPrice / 1_000_000).toFixed(1).replace(".0", "") : "0";
+    const maxM = criteria.maxPrice ? (criteria.maxPrice / 1_000_000).toFixed(1).replace(".0", "") : "";
+    if (criteria.minPrice && criteria.maxPrice) {
+      badges.push(`Ngân sách: ${minM} – ${maxM} triệu/tháng`);
+    } else if (criteria.maxPrice) {
+      badges.push(`Ngân sách: ≤ ${maxM} triệu/tháng`);
+    } else if (criteria.minPrice) {
+      badges.push(`Ngân sách: Từ ${minM} triệu/tháng`);
+    }
+  }
+  if (criteria?.keyword) {
+    badges.push(`Từ khóa: "${criteria.keyword}"`);
+  }
+  const allAmenities = amenities && amenities.length > 0 ? amenities : criteria?.amenities || [];
+  for (const a of allAmenities) {
+    badges.push(`Tiện ích: ${a}`);
+  }
+  return badges;
+}
 
 function BigRoomCard({
   room,
@@ -182,7 +215,7 @@ function BigRoomCard({
       </div>
 
       {/* Bottom 45%: Clean 3-tier hierarchy (Identity + Price -> Inline Specs -> Amenities) */}
-      <div className="flex flex-1 flex-col justify-between p-4 sm:px-6 sm:py-4 min-w-0 min-h-0">
+      <div className="flex flex-1 flex-col justify-between p-3.5 sm:px-5 sm:py-3 min-w-0 min-h-0">
         {/* Tier 1: Title & Location on Left | Price & Deposit on Right */}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1 space-y-1">
@@ -364,7 +397,8 @@ export default function Discover() {
 
   const [sidebarResetKey, setSidebarResetKey] = useState(0);
 
-  // Track rooms swiped in this session so they aren't repeatedly presented
+  // Track rooms swiped in prior navigation so they aren't re-shown on remount,
+  // while keeping activeRooms stable during active swipes so SwipeStage index & Undo work without flickering.
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
     try {
       const cached = sessionStorage.getItem("ptx_dismissed_room_ids");
@@ -373,6 +407,8 @@ export default function Discover() {
       return new Set();
     }
   });
+  const swipedSessionRef = useRef<Set<string>>(new Set(dismissedIds));
+  const [hasSwipedInSession, setHasSwipedInSession] = useState<boolean>(dismissedIds.size > 0);
   const [initialFilters, setInitialFilters] = useState<RoomFilterState | undefined>(
     hasUrlFilters
       ? {
@@ -501,6 +537,20 @@ export default function Discover() {
   }, [user]);
 
   const [selectedAmenitiesFilter, setSelectedAmenitiesFilter] = useState<string[]>([]);
+  const [activeFilterCriteria, setActiveFilterCriteria] = useState<RoomFilterState | undefined>(
+    initialFilters
+  );
+  const [unmatchedCriteria, setUnmatchedCriteria] = useState<RoomFilterState | null>(null);
+  const [showCriteriaAlertModal, setShowCriteriaAlertModal] = useState(false);
+  const [isSubscribingAlert, setIsSubscribingAlert] = useState(false);
+  const [isAlertSubscribed, setIsAlertSubscribed] = useState(false);
+  const lastAlertSignatureRef = useRef<string>("");
+
+  useEffect(() => {
+    if (initialFilters) {
+      setActiveFilterCriteria(initialFilters);
+    }
+  }, [initialFilters]);
 
   const handleApplyFilters = (newFilters: RoomFilterState) => {
     setSelectedAmenitiesFilter(newFilters.amenities || []);
@@ -509,6 +559,15 @@ export default function Discover() {
       : undefined;
     const effectiveDistrict = newFilters.district || inferredSchoolDist;
     const effectiveKeyword = inferredSchoolDist && !newFilters.district ? undefined : newFilters.keyword;
+
+    const normalizedCriteria: RoomFilterState = {
+      ...newFilters,
+      district: effectiveDistrict,
+    };
+    setActiveFilterCriteria(normalizedCriteria);
+    setUnmatchedCriteria(normalizedCriteria);
+    setIsAlertSubscribed(false);
+    lastAlertSignatureRef.current = "";
 
     const nextParams: Record<string, string> = {};
     if (effectiveDistrict) nextParams.district = effectiveDistrict;
@@ -531,16 +590,100 @@ export default function Discover() {
     toast.info("Đã áp dụng bộ lọc");
   };
 
-  const handleResetFilters = () => {
+  const handleResetFilters = async () => {
     setSelectedAmenitiesFilter([]);
     setSidebarResetKey((prev) => prev + 1);
     setInitialFilters(undefined);
+    setActiveFilterCriteria(undefined);
+    setUnmatchedCriteria(null);
+    setShowCriteriaAlertModal(false);
     setSearchParams({}, { replace: true });
     setDismissedIds(new Set());
+    swipedSessionRef.current = new Set();
+    setHasSwipedInSession(false);
     sessionStorage.removeItem("ptx_dismissed_room_ids");
     sessionStorage.removeItem("ptx_discover_filters");
+    try {
+      await roomsApi.resetSwipes();
+    } catch {
+      // quiet fallback
+    }
     updateFilters({ excludeSwiped: true }, true);
-    toast.info("Đã đặt lại bộ lọc");
+    toast.info("Đã đặt lại bộ lọc & làm mới danh sách phòng");
+  };
+
+  const handleSubscribeRoomAlert = async (browseOtherRoomsAfter = false) => {
+    const target = unmatchedCriteria || activeFilterCriteria || initialFilters;
+    if (!user) {
+      toast.error("Vui lòng đăng nhập để bật thông báo khi có phòng phù hợp!", {
+        action: {
+          label: "Đăng nhập ngay",
+          onClick: () => navigate("/login"),
+        },
+      });
+      return;
+    }
+
+    setIsSubscribingAlert(true);
+    try {
+      // 1. Enable room_recommend in local notification preferences
+      try {
+        const rawPrefs = localStorage.getItem("ptx_notification_prefs_tenant");
+        const parsedPrefs = rawPrefs ? JSON.parse(rawPrefs) : {};
+        parsedPrefs.room_recommend = true;
+        localStorage.setItem("ptx_notification_prefs_tenant", JSON.stringify(parsedPrefs));
+      } catch {
+        // ignore storage errors
+      }
+
+      // 2. Save matching criteria to Backend UserProfile so RoomService.notifyMatchingTenants dispatches alerts
+      if (target) {
+        const minP = target.minPrice != null ? Number(target.minPrice) : undefined;
+        const maxP =
+          target.maxPrice != null
+            ? Number(target.maxPrice)
+            : minP != null
+            ? Math.max(minP * 1.5, 6_000_000)
+            : undefined;
+
+        await accountApi
+          .updatePreferences({
+            preferredDistricts: target.district ? [target.district] : undefined,
+            preferredRoomType: target.roomType || undefined,
+            budgetMin: minP,
+            budgetMax: maxP,
+          })
+          .catch(() => {});
+      }
+
+      // 3. Request Browser Notification permission if supported
+      if (
+        typeof window !== "undefined" &&
+        "Notification" in window &&
+        window.Notification.permission === "default"
+      ) {
+        window.Notification.requestPermission().catch(() => {});
+      }
+
+      setIsAlertSubscribed(true);
+      toast.success("Đã bật thông báo khi có phòng phù hợp!", {
+        description:
+          "Hệ thống sẽ gửi thông báo ngay khi có chủ trọ đăng phòng khớp với yêu cầu của bạn.",
+      });
+
+      if (browseOtherRoomsAfter) {
+        setShowCriteriaAlertModal(false);
+        setSelectedAmenitiesFilter([]);
+        setInitialFilters(undefined);
+        setActiveFilterCriteria(undefined);
+        setSidebarResetKey((prev) => prev + 1);
+        setSearchParams({}, { replace: true });
+        sessionStorage.removeItem("ptx_discover_filters");
+        updateFilters({ excludeSwiped: true }, true);
+      }
+    } finally {
+      setIsSubscribingAlert(false);
+    }
   };
 
   const handleToggleSave = async (r: Room) => {
@@ -574,6 +717,12 @@ export default function Discover() {
         localStorage.setItem("ptx_saved_room_ids", JSON.stringify(Array.from(next)));
         return next;
       });
+      localStorage.setItem("ptx_sample_room_id", String(r.id));
+      window.dispatchEvent(
+        new CustomEvent("ptx:flow-hint", {
+          detail: { type: "ROOM_LIKED", roomId: String(r.id), roomTitle: r.title || "Phòng trọ" },
+        })
+      );
       toast.success("Đã lưu phòng vào danh sách yêu thích", { description: r.title });
       try {
         await roomsApi.saveRoom(r.id);
@@ -602,11 +751,22 @@ export default function Discover() {
         localStorage.setItem("ptx_saved_room_ids", JSON.stringify(Array.from(next)));
         return next;
       });
-      setDismissedIds((prev) => {
-        const next = new Set(prev).add(idStr);
-        sessionStorage.setItem("ptx_dismissed_room_ids", JSON.stringify(Array.from(next)));
-        return next;
-      });
+      swipedSessionRef.current.add(idStr);
+      setHasSwipedInSession(true);
+      try {
+        sessionStorage.setItem(
+          "ptx_dismissed_room_ids",
+          JSON.stringify(Array.from(swipedSessionRef.current))
+        );
+      } catch {
+        // ignore
+      }
+      localStorage.setItem("ptx_sample_room_id", idStr);
+      window.dispatchEvent(
+        new CustomEvent("ptx:flow-hint", {
+          detail: { type: "ROOM_LIKED", roomId: idStr, roomTitle: r.title || "Phòng trọ" },
+        })
+      );
       toast.success("Đã thích & lưu phòng", { description: r.title });
       try {
         await roomsApi.swipeRoom(r.id, "LIKE");
@@ -621,17 +781,25 @@ export default function Discover() {
     decrementSwipes();
     if (r?.id) {
       const idStr = String(r.id);
-      setDismissedIds((prev) => {
-        const next = new Set(prev).add(idStr);
-        sessionStorage.setItem("ptx_dismissed_room_ids", JSON.stringify(Array.from(next)));
-        return next;
-      });
+      swipedSessionRef.current.add(idStr);
+      setHasSwipedInSession(true);
+      try {
+        sessionStorage.setItem(
+          "ptx_dismissed_room_ids",
+          JSON.stringify(Array.from(swipedSessionRef.current))
+        );
+      } catch {
+        // ignore
+      }
       roomsApi.swipeRoom(r.id, "PASS").catch(() => {});
     }
   };
 
   const handleResetSession = async () => {
     setDismissedIds(new Set());
+    swipedSessionRef.current = new Set();
+    setHasSwipedInSession(false);
+    setSidebarResetKey((prev) => prev + 1);
     sessionStorage.removeItem("ptx_dismissed_room_ids");
     try {
       await roomsApi.resetSwipes();
@@ -645,7 +813,7 @@ export default function Discover() {
   const activeRooms = rooms.filter((r) => {
     if (!hasUrlFilters && dismissedIds.has(String(r.id))) return false;
     if (selectedAmenitiesFilter.length > 0) {
-      const roomAmenities: string[] = Array.isArray(r.amenities) ? r.amenities : [];
+      const roomAmenities: string[] = normalizeAmenitiesList(r.amenities);
       const hasAll = selectedAmenitiesFilter.every((a) =>
         roomAmenities.some((item) => item.toLowerCase().trim() === a.toLowerCase().trim())
       );
@@ -654,17 +822,62 @@ export default function Discover() {
     return true;
   });
 
+  const activeFilterBadges = formatFilterBadges(
+    unmatchedCriteria || activeFilterCriteria || initialFilters,
+    selectedAmenitiesFilter
+  );
+
+  const isFilterZeroResults =
+    !isLoading &&
+    !isError &&
+    (isEmpty || (activeRooms.length === 0 && !hasSwipedInSession)) &&
+    activeFilterBadges.length > 0;
+
+  // Trigger the centered empty-criteria alert popup once per distinct filter combination
+  useEffect(() => {
+    if (!isFilterZeroResults) return;
+    const sig = activeFilterBadges.join("|");
+    if (!sig || lastAlertSignatureRef.current === sig) return;
+    lastAlertSignatureRef.current = sig;
+    if (!unmatchedCriteria && (activeFilterCriteria || initialFilters)) {
+      setUnmatchedCriteria(activeFilterCriteria || initialFilters || null);
+    }
+    setShowCriteriaAlertModal(true);
+  }, [isFilterZeroResults, activeFilterBadges, unmatchedCriteria, activeFilterCriteria, initialFilters]);
+
+  useEffect(() => {
+    if (rooms.length > 0 && rooms[0]?.id) {
+      try {
+        if (!localStorage.getItem("ptx_sample_room_id")) {
+          localStorage.setItem("ptx_sample_room_id", String(rooms[0].id));
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [rooms]);
+
   return (
-    <div className="mx-auto w-full max-w-[1440px] px-6 pt-2 md:pt-3 pb-6">
-      <div className="mb-2 md:mb-3 flex items-end justify-between flex-wrap gap-2 animate-fade-in">
+    <div className="mx-auto w-full max-w-[1440px] px-6 pt-1.5 md:pt-2 pb-2">
+      <div className="mb-1.5 md:mb-2 flex items-end justify-between flex-wrap gap-2 animate-fade-in">
         <div>
-          <h1 className="brand text-3xl text-foreground">Khám phá phòng trọ</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="brand text-2xl md:text-[26px] text-foreground leading-tight">Khám phá phòng trọ</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Vuốt phải để lưu, vuốt trái để bỏ qua theo tiêu chí của bạn
           </p>
         </div>
-        <div className="flex gap-2">
+        <div data-tour="discover-view-switcher" className="flex items-center gap-2">
           <Button
+            data-tour="discover-btn-compare"
+            variant="outline"
+            className="gap-2 hover-lift press-active hover:border-primary/40 hover:bg-mint text-sm cursor-pointer"
+            onClick={() => navigate("/compare")}
+          >
+            <Layers className="size-4 text-primary" />
+            <span>So sánh{savedIds.size > 0 ? ` (${savedIds.size})` : ""}</span>
+          </Button>
+          <Button
+            data-tour="discover-btn-map"
             variant="outline"
             className="gap-2 hover-lift press-active hover:border-primary/40 hover:bg-mint text-sm cursor-pointer"
             onClick={() => navigate("/map")}
@@ -704,7 +917,7 @@ export default function Discover() {
             </Button>
           </div>
         ) : loaded && swipesLeft <= 0 ? (
-          <div className="flex h-[450px] flex-col items-center justify-center rounded-3xl bg-white border border-slate-200 p-8 text-center shadow-sm">
+          <div data-tour="discover-center-stage" className="flex h-[450px] flex-col items-center justify-center rounded-3xl bg-white border border-slate-200 p-8 text-center shadow-sm">
             <div className="relative mb-5 flex size-20 items-center justify-center rounded-full bg-red-50 text-red-500">
               <AlertCircle className="size-9 text-red-500" />
             </div>
@@ -721,21 +934,74 @@ export default function Discover() {
               </Button>
             )}
           </div>
-        ) : isEmpty ? (
-          <div className="flex h-[450px] flex-col items-center justify-center rounded-3xl bg-card border border-border p-8 text-center shadow-xs">
-            <div className="mx-auto grid size-16 place-items-center rounded-full bg-mint text-primary mb-4">
-              <MapIcon className="size-8" />
+        ) : isEmpty || isFilterZeroResults ? (
+          <div
+            data-tour="discover-center-stage"
+            className="flex min-h-[clamp(380px,calc(100dvh-235px),545px)] flex-col items-center justify-center rounded-3xl bg-card border border-border p-6 sm:p-8 text-center shadow-xs animate-fade-in"
+          >
+            <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 mb-4">
+              <BellRing className="size-7" />
             </div>
-            <h3 className="text-lg font-bold text-foreground">Không tìm thấy phòng phù hợp</h3>
-            <p className="mt-1 text-sm text-muted-foreground max-w-sm">
-              Không có phòng trọ nào khớp với tiêu chí tìm kiếm hiện tại. Hãy thử mở rộng phạm vi giá hoặc chọn quận khác.
+
+            <h3 className="text-lg sm:text-xl font-bold text-foreground">
+              Chưa có phòng trọ phù hợp với yêu cầu hiện tại
+            </h3>
+            <p className="mt-1.5 text-xs sm:text-sm text-muted-foreground max-w-md leading-relaxed">
+              Hệ thống hiện chưa có phòng đang mở khớp với bộ tiêu chí này. Bạn có muốn{" "}
+              <strong className="font-semibold text-foreground">
+                nhận thông báo ngay khi có chủ trọ đăng phòng phù hợp
+              </strong>{" "}
+              không?
             </p>
-            <Button className="mt-5 cursor-pointer" onClick={handleResetFilters}>
-              Đặt lại bộ lọc
-            </Button>
+
+            {activeFilterBadges.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5 max-w-md">
+                {activeFilterBadges.map((badge) => (
+                  <span
+                    key={badge}
+                    className="inline-flex items-center gap-1 rounded-full bg-mint/90 border border-primary/20 px-3 py-1 text-xs font-semibold text-emerald-900"
+                  >
+                    {badge}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2.5 w-full max-w-md">
+              {isAlertSubscribed ? (
+                <div className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-xs sm:text-sm font-semibold text-emerald-800">
+                  <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                  <span>Đã bật thông báo cho tiêu chí này</span>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  disabled={isSubscribingAlert}
+                  onClick={() => handleSubscribeRoomAlert(false)}
+                  className="w-full sm:w-auto gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer"
+                >
+                  <BellRing className="size-4" />
+                  <span>
+                    {isSubscribingAlert
+                      ? "Đang lưu tiêu chí..."
+                      : "Nhận thông báo khi có phòng phù hợp"}
+                  </span>
+                </Button>
+              )}
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto gap-1.5 rounded-xl cursor-pointer"
+                onClick={handleResetFilters}
+              >
+                <RefreshCw className="size-3.5" />
+                <span>Xem tất cả phòng hiện có</span>
+              </Button>
+            </div>
           </div>
         ) : (
-          <div className="flex flex-col -mt-3 md:-mt-6">
+          <div data-tour="discover-center-stage" className="flex flex-col -mt-3 md:-mt-6">
             {loaded && swipesLeft > 0 && (
               <div className="mb-1.5 md:mb-2 flex flex-wrap items-center justify-center gap-2">
                 {hasUrlFilters && (
@@ -788,16 +1054,14 @@ export default function Discover() {
                   </div>
                   <h3 className="mt-4 text-lg font-semibold">Đã xem hết phòng phù hợp</h3>
                   <p className="mt-1 text-sm text-muted-foreground max-w-sm">
-                    {dismissedIds.size > 0
+                    {hasSwipedInSession
                       ? "Bạn đã xem hết danh sách phòng trong phiên này. Bạn có thể xem lại từ đầu hoặc mở rộng bộ lọc."
                       : "Thử điều chỉnh hoặc mở rộng bộ lọc để xem thêm phòng"}
                   </p>
                   <div className="mt-4 flex items-center justify-center gap-2">
-                    {dismissedIds.size > 0 && (
-                      <Button variant="outline" className="cursor-pointer gap-1.5" onClick={handleResetSession}>
-                        <RefreshCw className="size-4" /> Xem lại từ đầu
-                      </Button>
-                    )}
+                    <Button variant="outline" className="cursor-pointer gap-1.5" onClick={handleResetSession}>
+                      <RefreshCw className="size-4" /> Xem lại từ đầu
+                    </Button>
                     <Button className="cursor-pointer" onClick={handleResetFilters}>
                       Đặt lại bộ lọc
                     </Button>
@@ -809,7 +1073,7 @@ export default function Discover() {
         )}
 
         {/* Right Sidebar: Real Notifications / Activity + Recommendations */}
-        <div className="hidden space-y-4 lg:block">
+        <div data-tour="discover-right-sidebar" className="hidden space-y-4 lg:block">
           <div className="rounded-2xl bg-card p-5 ring-1 ring-border shadow-xs">
             <h3 className="flex items-center gap-2 font-semibold text-sm">
               <Activity className="size-4 text-primary" /> Hoạt động gần đây
@@ -867,16 +1131,16 @@ export default function Discover() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 backdrop-blur-[3px] p-4"
             onClick={handleDismissPendingRoom}
           >
             <motion.div
               key="pending-room-dialog"
-              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 12 }}
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 8 }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.26, ease: [0.22, 1, 0.36, 1] }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
               onClick={(e) => e.stopPropagation()}
               className="relative w-full max-w-[440px] rounded-2xl bg-card border border-border p-6 shadow-2xl"
               role="dialog"
@@ -962,6 +1226,116 @@ export default function Discover() {
                   Xem chi tiết phòng
                   <ArrowRight className="size-3.5" />
                 </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {showCriteriaAlertModal && activeFilterBadges.length > 0 && (
+          <motion.div
+            key="criteria-alert-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 backdrop-blur-[3px] p-4"
+            onClick={() => setShowCriteriaAlertModal(false)}
+          >
+            <motion.div
+              key="criteria-alert-dialog"
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-[460px] rounded-2xl bg-card border border-border p-6 shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="criteria-alert-title"
+            >
+              <button
+                type="button"
+                onClick={() => setShowCriteriaAlertModal(false)}
+                aria-label="Đóng thông báo"
+                className="absolute right-4 top-4 grid size-8 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+
+              <div className="flex items-start gap-3.5 pr-6">
+                <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                  <BellRing className="size-5" />
+                </div>
+                <div>
+                  <h2
+                    id="criteria-alert-title"
+                    className="text-base sm:text-lg font-bold text-foreground leading-snug"
+                  >
+                    Chưa có phòng phù hợp với nhu cầu hiện tại
+                  </h2>
+                  <p className="mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Hiện chưa có phòng trọ nào khớp với bộ lọc bạn đang chọn. Bạn có muốn hệ thống{" "}
+                    <strong className="font-semibold text-foreground">
+                      gửi thông báo ngay khi có chủ trọ đăng phòng phù hợp
+                    </strong>{" "}
+                    không?
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-border bg-muted/35 p-3.5">
+                <p className="text-[11px] font-semibold text-muted-foreground mb-2">
+                  Tiêu chí tìm phòng của bạn:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {activeFilterBadges.map((badge) => (
+                    <span
+                      key={badge}
+                      className="inline-flex items-center rounded-full bg-mint px-2.5 py-0.5 text-xs font-semibold text-emerald-900 border border-primary/20"
+                    >
+                      {badge}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-col gap-2">
+                <Button
+                  type="button"
+                  disabled={isSubscribingAlert}
+                  onClick={() => handleSubscribeRoomAlert(true)}
+                  className="w-full rounded-xl h-10 text-xs sm:text-sm font-semibold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                >
+                  <BellRing className="size-4" />
+                  <span>
+                    {isSubscribingAlert
+                      ? "Đang lưu tiêu chí..."
+                      : "Bật thông báo & Xem tạm các phòng khác"}
+                  </span>
+                </Button>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSubscribingAlert}
+                    onClick={() => {
+                      handleSubscribeRoomAlert(false);
+                      setShowCriteriaAlertModal(false);
+                    }}
+                    className="w-full rounded-xl h-9 text-xs font-semibold cursor-pointer"
+                  >
+                    Chỉ bật thông báo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleResetFilters}
+                    className="w-full rounded-xl h-9 text-xs font-semibold cursor-pointer"
+                  >
+                    Xem tất cả phòng
+                  </Button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

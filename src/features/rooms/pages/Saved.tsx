@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   Heart,
@@ -71,10 +71,20 @@ export default function Saved() {
     return list;
   }, [savedRooms, selectedDistrict, sortBy]);
 
+  useEffect(() => {
+    if (displayedRooms.length > 0 && displayedRooms[0]?.id) {
+      try {
+        localStorage.setItem("ptx_sample_room_id", String(displayedRooms[0].id));
+      } catch {
+        // ignore
+      }
+    }
+  }, [displayedRooms]);
+
   return (
     <div className="mx-auto w-full max-w-[1440px] px-6 pt-2 md:pt-3 pb-12">
       {/* Top Header Bar aligned with /discover and /roommates */}
-      <div className="mb-4 md:mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between animate-fade-in">
+      <div data-tour="saved-header-toolbar" className="mb-4 md:mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between animate-fade-in">
         <div>
           <h1 className="brand text-3xl text-foreground">Phòng đã lưu</h1>
           <p className="text-sm text-muted-foreground">
@@ -94,7 +104,7 @@ export default function Saved() {
 
       {/* Filter & Sort Toolbar when rooms exist */}
       {!isLoading && !isError && !isEmpty && (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-card p-3.5 ring-1 ring-border shadow-2xs">
+        <div data-tour="saved-filter-bar" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-card p-3.5 ring-1 ring-border shadow-2xs">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-muted-foreground">
               <Building2 className="size-3.5 text-primary" /> Khu vực:
@@ -188,7 +198,7 @@ export default function Saved() {
           </Button>
         </div>
       ) : isEmpty ? (
-        <div className="flex min-h-[420px] flex-col items-center justify-center rounded-3xl bg-card ring-1 ring-border px-6 py-14 text-center shadow-2xs animate-fade-in">
+        <div data-tour="saved-rooms-grid" className="flex min-h-[420px] flex-col items-center justify-center rounded-3xl bg-card ring-1 ring-border px-6 py-14 text-center shadow-2xs animate-fade-in">
           <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-mint text-primary">
             <Heart className="size-7" />
           </div>
@@ -215,7 +225,7 @@ export default function Saved() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div data-tour="saved-rooms-grid" className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {displayedRooms.map((r) => (
             <RoomCard key={r.id} room={r as unknown as Room} saved onToggleSave={toggle} />
           ))}

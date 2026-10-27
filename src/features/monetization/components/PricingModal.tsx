@@ -61,8 +61,14 @@ export function PricingModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-4xl overflow-hidden rounded-3xl bg-card shadow-2xl ring-1 ring-border">
+    <div
+      className="ptx-overlay-animate fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-[3px] p-4"
+      onClick={closePricing}
+    >
+      <div
+        className="ptx-modal-animate relative w-full max-w-4xl overflow-hidden rounded-3xl bg-card shadow-2xl ring-1 ring-border"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={closePricing}
           className="absolute right-5 top-5 rounded-full p-2 text-muted-foreground hover:bg-muted z-10 cursor-pointer"

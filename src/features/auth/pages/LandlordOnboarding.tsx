@@ -184,7 +184,7 @@ export default function LandlordOnboarding() {
       setOnboarded(true);
       await refreshProfile();
       toast.success("Khảo sát và thiết lập hồ sơ chủ trọ thành công!");
-      navigate("/landlord");
+      navigate("/landlord?tab=overview&tour=1");
     } catch (err: any) {
       console.error("Landlord onboarding error:", err);
       if (err?.code === "PHONE_EXISTS" || err?.message?.toLowerCase().includes("số điện thoại")) {

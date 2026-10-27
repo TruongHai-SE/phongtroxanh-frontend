@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { formatVND } from "@/lib/utils";
+import { formatVND, cn } from "@/lib/utils";
 import { paymentApi, parseFeatures } from "@/features/monetization/api/paymentApi";
 import type { PackagePlan } from "@/features/monetization/types/payment.types";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ import { toast } from "sonner";
 export default function AdminPackages() {
   const [plans, setPlans] = useState<PackagePlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [roleTab, setRoleTab] = useState<"ALL" | "TENANT" | "LANDLORD">("ALL");
 
   // Form modal state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -91,7 +92,16 @@ export default function AdminPackages() {
   const savePlan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim()) return toast.error("Vui lòng nhập tên gói dịch vụ");
-    if (!isEditing && !formId.trim()) return toast.error("Vui lòng nhập mã gói (ID)");
+
+    const autoSlug = formName
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/gi, "d")
+      .replace(/[^a-zA-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .toUpperCase();
+    const resolvedId = isEditing ? formId : (formId.trim().toUpperCase() || autoSlug || `PLAN_${Date.now()}`);
 
     const featuresJson = JSON.stringify({
       swipes_per_day: formRole === "TENANT" ? formSwipes : 0,
@@ -99,7 +109,7 @@ export default function AdminPackages() {
     });
 
     const payload = {
-      id: isEditing ? formId : formId.trim().toUpperCase(),
+      id: resolvedId,
       name: formName.trim(),
       targetRole: formRole,
       priceMonthly: formMonthly,
@@ -112,12 +122,12 @@ export default function AdminPackages() {
       if (isEditing) {
         await paymentApi.adminUpdatePlan(formId, payload);
         toast.success("Đã cập nhật gói dịch vụ thành công!", {
-          description: "Thông báo điều chỉnh giá & quyền lợi đã được tự động phát tới toàn bộ người dùng.",
+          description: "Thông báo điều chỉnh giá & quyền lợi đã được tự động gửi tới người dùng.",
         });
       } else {
         await paymentApi.adminCreatePlan(payload);
         toast.success("Đã tạo gói dịch vụ mới thành công!", {
-          description: "Thông báo ra mắt gói mới đã được tự động phát tới người dùng.",
+          description: "Thông báo ra mắt gói mới đã được tự động gửi tới người dùng.",
         });
       }
       setIsDialogOpen(false);
@@ -144,114 +154,158 @@ export default function AdminPackages() {
     }
   };
 
+  const filteredPlans = plans.filter((p) => {
+    if (roleTab === "ALL") return true;
+    return p.targetRole === roleTab;
+  });
+
+  const tenantPlansCount = plans.filter((p) => p.targetRole === "TENANT").length;
+  const landlordPlansCount = plans.filter((p) => p.targetRole === "LANDLORD").length;
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
+      {/* ── COMPACT HEADER ── */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Quản lý Gói dịch vụ</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Cấu hình giá cước và quyền lợi các gói dịch vụ dành cho Người thuê &amp; Chủ trọ ({plans.length} gói)
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Quản lý Gói dịch vụ</h1>
+            <Badge className="bg-mint text-emerald-deep border-primary/20 font-semibold text-xs px-2.5 py-0.5">
+              {plans.length} gói đang mở
+            </Badge>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+            Thiết lập mức phí và quyền lợi các gói thành viên dành cho Người thuê &amp; Chủ trọ
           </p>
         </div>
-        <Button onClick={openCreate} className="gap-2 cursor-pointer">
-          <Plus className="size-4" /> Tạo gói mới
+        <Button onClick={openCreate} size="sm" className="h-9 px-3.5 gap-1.5 cursor-pointer rounded-xl active:scale-95">
+          <Plus className="size-4" /> Tạo gói dịch vụ mới
         </Button>
       </div>
 
+      {/* ── ROLE FILTER TABS (Đồng bộ kích thước với Chủ trọ) ── */}
+      <div className="flex flex-wrap border-b border-border gap-1">
+        {[
+          { id: "ALL" as const, label: `Tất cả gói dịch vụ (${plans.length})` },
+          { id: "TENANT" as const, label: `Dành cho Người thuê (${tenantPlansCount})` },
+          { id: "LANDLORD" as const, label: `Dành cho Chủ trọ (${landlordPlansCount})` },
+        ].map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setRoleTab(item.id)}
+            className={cn(
+              "pb-2.5 px-3.5 text-sm font-semibold transition-all cursor-pointer border-b-2",
+              roleTab === item.id
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="size-8 animate-spin text-primary" />
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="size-7 animate-spin text-primary" />
         </div>
-      ) : plans.length === 0 ? (
+      ) : filteredPlans.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
-          <Zap className="mx-auto size-12 text-muted-foreground/40" />
-          <h3 className="mt-3 text-base font-semibold text-foreground">Chưa có gói dịch vụ nào</h3>
-          <Button onClick={openCreate} className="mt-4 gap-2">
-            <Plus className="size-4" /> Tạo gói đầu tiên
+          <Zap className="mx-auto size-10 text-muted-foreground/40" />
+          <h3 className="mt-3 text-base font-semibold text-foreground">Chưa có gói dịch vụ nào trong mục này</h3>
+          <Button onClick={openCreate} size="sm" className="mt-4 gap-2 cursor-pointer">
+            <Plus className="size-4" /> Tạo gói dịch vụ mới
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-border">
+        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-border shadow-2xs">
           <Table>
             <TableHeader>
-              <TableRow className="bg-secondary/50">
-                <TableHead>Mã / Tên gói</TableHead>
-                <TableHead>Đối tượng</TableHead>
-                <TableHead>Giá theo tháng</TableHead>
-                <TableHead>Giá theo năm</TableHead>
-                <TableHead>Tính năng & Quyền lợi</TableHead>
-                <TableHead className="text-right">Thao tác</TableHead>
+              <TableRow className="bg-secondary/50 hover:bg-secondary/50">
+                <TableHead className="py-2.5 text-xs font-semibold">Tên gói dịch vụ</TableHead>
+                <TableHead className="py-2.5 text-xs font-semibold">Nhóm người dùng</TableHead>
+                <TableHead className="py-2.5 text-xs font-semibold">Phí theo tháng</TableHead>
+                <TableHead className="py-2.5 text-xs font-semibold">Phí theo năm</TableHead>
+                <TableHead className="py-2.5 text-xs font-semibold">Quyền lợi đi kèm</TableHead>
+                <TableHead className="text-right pr-4 py-2.5 text-xs font-semibold">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {plans.map((p) => {
+              {filteredPlans.map((p) => {
                 const f = parseFeatures(p);
                 const isFree = Number(p.priceMonthly) === 0 && Number(p.priceYearly) === 0;
                 return (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-semibold text-foreground">{p.name}</p>
-                        <code className="text-xs text-muted-foreground font-mono">{p.id}</code>
+                  <TableRow key={p.id} className="hover:bg-mint/35 transition-colors">
+                    <TableCell className="py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm text-foreground">{p.name}</span>
+                        {isFree && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted/60 text-muted-foreground">
+                            Mặc định
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-3">
                       {p.targetRole === "LANDLORD" ? (
-                        <Badge variant="secondary" className="bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300">
+                        <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200/80 font-medium text-xs">
                           Chủ trọ
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300">
+                        <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200/80 font-medium text-xs">
                           Người thuê
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="py-3 font-medium text-sm">
                       {isFree ? (
                         <span className="text-emerald-600 font-semibold">Miễn phí</span>
                       ) : (
                         formatVND(Number(p.priceMonthly) || 0)
                       )}
                     </TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="py-3 font-medium text-sm">
                       {isFree ? (
                         <span className="text-emerald-600 font-semibold">Miễn phí</span>
                       ) : (
                         formatVND(Number(p.priceYearly) || 0)
                       )}
                     </TableCell>
-                    <TableCell>
-                      <div className="space-y-0.5 text-xs text-muted-foreground">
+                    <TableCell className="py-3">
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                         {p.targetRole === "TENANT" && (
-                          <div className="flex items-center gap-1.5">
-                            <Sparkles className="size-3 text-sky-500" />
-                            <span>Quẹt tìm bạn: <strong>{f.swipes_per_day} lượt/ngày</strong></span>
-                          </div>
+                          <span className="inline-flex items-center gap-1 bg-sky-50/70 text-sky-800 px-2 py-0.5 rounded-md border border-sky-200/60">
+                            <Sparkles className="size-3 text-sky-600" />
+                            Lượt xem &amp; ghép: <strong>{f.swipes_per_day >= 999 ? "Không giới hạn" : `${f.swipes_per_day} lượt/ngày`}</strong>
+                          </span>
                         )}
-                        <div className="flex items-center gap-1.5">
-                          <CheckCircle2 className="size-3 text-emerald-500" />
-                          <span>Lượt đẩy tin: <strong>{f.boosts} lượt</strong></span>
-                        </div>
+                        <span className="inline-flex items-center gap-1 bg-emerald-50/70 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                          <CheckCircle2 className="size-3 text-emerald-600" />
+                          Đẩy tin nổi bật: <strong>{f.boosts} lượt</strong>
+                        </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right whitespace-nowrap">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        title="Chỉnh sửa gói"
-                        onClick={() => openEdit(p)}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        title={p.id === "FREE" ? "Không thể xóa gói mặc định FREE" : "Xóa gói"}
-                        disabled={p.id === "FREE"}
-                        onClick={() => setDeleteTarget(p)}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
+                    <TableCell className="text-right pr-4 py-3 whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2.5 text-xs gap-1 cursor-pointer active:scale-95"
+                          onClick={() => openEdit(p)}
+                        >
+                          <Pencil className="size-3.5" /> Chỉnh sửa
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 cursor-pointer active:scale-95"
+                          title={p.id === "FREE" ? "Gói mặc định của hệ thống (không thể xóa)" : "Xóa gói dịch vụ"}
+                          disabled={p.id === "FREE"}
+                          onClick={() => setDeleteTarget(p)}
+                        >
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -270,8 +324,8 @@ export default function AdminPackages() {
             </DialogTitle>
             <DialogDescription>
               {isEditing
-                ? "Thay đổi giá hoặc quyền lợi sẽ phát thông báo hệ thống đến tất cả người dùng."
-                : "Điền thông tin gói dịch vụ hội viên mới cho hệ thống."}
+                ? "Thay đổi mức phí hoặc quyền lợi sẽ tự động gửi thông báo cập nhật đến người dùng."
+                : "Thiết lập tên gói, đối tượng sử dụng và quyền lợi đi kèm."}
             </DialogDescription>
           </DialogHeader>
 
@@ -282,43 +336,30 @@ export default function AdminPackages() {
                 <Input
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  placeholder="Ví dụ: Gói VIP Đẩy Tin Sinh Viên"
+                  placeholder="Ví dụ: Gói VIP Sinh Viên / Gói Chủ Trọ Chuyên Nghiệp"
                   maxLength={100}
                   required
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Mã gói (ID duy nhất)</Label>
-                <Input
-                  value={formId}
-                  onChange={(e) => setFormId(e.target.value)}
-                  placeholder="VD: PRO_VIP"
-                  disabled={isEditing}
-                  maxLength={50}
-                  required
-                />
-                <span className="text-[11px] text-muted-foreground">In hoa, không dấu, dùng gạch dưới</span>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Đối tượng áp dụng</Label>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs font-semibold">Nhóm người dùng áp dụng</Label>
                 <Select
                   value={formRole}
                   onValueChange={(v: "TENANT" | "LANDLORD") => setFormRole(v)}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full cursor-pointer">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="TENANT">Người thuê (Tenant)</SelectItem>
-                    <SelectItem value="LANDLORD">Chủ trọ (Landlord)</SelectItem>
+                    <SelectItem value="TENANT" className="cursor-pointer">Người thuê phòng</SelectItem>
+                    <SelectItem value="LANDLORD" className="cursor-pointer">Chủ nhà trọ</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Giá theo tháng (VND)</Label>
+                <Label className="text-xs font-semibold">Phí theo tháng (VNĐ)</Label>
                 <Input
                   type="number"
                   min={0}
@@ -330,7 +371,7 @@ export default function AdminPackages() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Giá theo năm (VND)</Label>
+                <Label className="text-xs font-semibold">Phí theo năm (VNĐ)</Label>
                 <Input
                   type="number"
                   min={0}
@@ -343,7 +384,7 @@ export default function AdminPackages() {
 
               {formRole === "TENANT" && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Lượt quẹt phòng/ngày</Label>
+                  <Label className="text-xs font-semibold">Lượt xem &amp; ghép bạn mỗi ngày</Label>
                   <Input
                     type="number"
                     min={0}
@@ -355,7 +396,7 @@ export default function AdminPackages() {
               )}
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Lượt đẩy tin (Boosts)</Label>
+                <Label className="text-xs font-semibold">Số lượt đẩy tin nổi bật</Label>
                 <Input
                   type="number"
                   min={0}
@@ -366,18 +407,18 @@ export default function AdminPackages() {
               </div>
             </div>
 
-            <div className="rounded-lg bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
-              <Info className="size-4 shrink-0 mt-0.5" />
-              <span>Khi bấm lưu, người dùng sẽ nhận được thông báo về các cập nhật quyền lợi của gói này.</span>
+            <div className="rounded-xl bg-amber-500/10 p-3 text-xs text-amber-800 flex items-start gap-2">
+              <Info className="size-4 shrink-0 mt-0.5 text-amber-600" />
+              <span>Khi bấm lưu, hệ thống sẽ tự động gửi thông báo về gói dịch vụ này tới người dùng.</span>
             </div>
 
             <DialogFooter className="pt-2 gap-2">
-              <Button type="button" variant="outline" disabled={saving} onClick={() => setIsDialogOpen(false)}>
+              <Button type="button" variant="outline" disabled={saving} onClick={() => setIsDialogOpen(false)} className="cursor-pointer">
                 Hủy
               </Button>
-              <Button type="submit" disabled={saving} className="gap-2">
+              <Button type="submit" disabled={saving} className="gap-2 cursor-pointer">
                 {saving && <Loader2 className="size-4 animate-spin" />}
-                {isEditing ? "Lưu thay đổi & Báo người dùng" : "Tạo gói & Thông báo"}
+                {isEditing ? "Lưu thay đổi" : "Tạo gói dịch vụ"}
               </Button>
             </DialogFooter>
           </form>
@@ -392,15 +433,15 @@ export default function AdminPackages() {
               <AlertTriangle className="size-5" /> Xác nhận xóa gói dịch vụ
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc chắn muốn xóa gói <strong>{deleteTarget?.name}</strong> ({deleteTarget?.id})? Thao tác này không thể hoàn tác.
+              Bạn có chắc chắn muốn xóa gói <strong>{deleteTarget?.name}</strong>? Thao tác này không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Hủy</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting} className="cursor-pointer">Hủy</AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={confirmDelete}
-              className="bg-destructive hover:bg-destructive/90 gap-2"
+              className="bg-destructive hover:bg-destructive/90 gap-2 cursor-pointer"
             >
               {deleting && <Loader2 className="size-4 animate-spin" />} Xóa gói
             </AlertDialogAction>

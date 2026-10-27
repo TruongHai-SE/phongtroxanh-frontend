@@ -216,7 +216,7 @@ export default function Swaps() {
       </div>
 
       {/* Info Warning Banner */}
-      <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/5 p-4 text-sm text-amber-800">
+      <div data-tour="landlord-swaps-header" className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/5 p-4 text-sm text-amber-800">
         <AlertTriangle className="mt-0.5 size-5 text-warning shrink-0" />
         <div>
           <span className="font-semibold block">Quy định chuyển quyền thuê phòng:</span>
@@ -251,7 +251,7 @@ export default function Swaps() {
       </div>
 
       {/* Requests List */}
-      <div className="space-y-6">
+      <div data-tour="landlord-swaps-list" className="space-y-6">
         {activeList.length > 0 ? (
           activeList.map((req) => (
             <div key={req.id} className="rounded-2xl bg-card p-6 ring-1 ring-border shadow-sm space-y-6">

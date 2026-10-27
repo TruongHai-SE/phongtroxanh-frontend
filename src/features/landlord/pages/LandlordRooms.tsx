@@ -229,7 +229,7 @@ export default function LandlordRooms() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div data-tour="landlord-rooms-header" className="flex items-center justify-between">
         <div>
           <h1 className="brand text-2xl text-foreground">Phòng của tôi</h1>
           <p className="text-sm text-muted-foreground">
@@ -244,7 +244,7 @@ export default function LandlordRooms() {
           <Loader2 className="size-8 animate-spin text-primary" />
         </div>
       ) : rooms.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-card p-12 text-center ring-1 ring-border">
+        <div data-tour="landlord-rooms-table" className="flex flex-col items-center justify-center rounded-2xl bg-card p-12 text-center ring-1 ring-border">
           <Home className="size-12 text-muted-foreground/50 mb-3" />
           <h3 className="text-base font-semibold text-foreground">Bạn chưa có phòng trọ nào</h3>
           <Button className="mt-5 gap-2" onClick={() => navigate("/landlord?tab=post")}>
@@ -252,7 +252,7 @@ export default function LandlordRooms() {
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-border">
+        <div data-tour="landlord-rooms-table" className="overflow-hidden rounded-2xl bg-card ring-1 ring-border">
           <Table>
             <TableHeader>
               <TableRow className="bg-secondary/50">

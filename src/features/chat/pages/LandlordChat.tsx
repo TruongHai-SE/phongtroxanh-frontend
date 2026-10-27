@@ -83,20 +83,21 @@ export default function LandlordChat() {
                 const created = await chatApi.createConversation({
                   partnerId: partnerIdParam,
                   roomId: roomParam || undefined,
-                  type: "ROOM",
+                  type: roomParam ? "ROOM" : "ROOMMATE",
                 });
                 if (created?.id) {
                   const newConv: Conversation = {
                     id: String(created.id),
                     name: created.partnerName || created.name || "Khách thuê",
                     avatar: created.partnerAvatar || created.avatar || "",
-                    type: "room",
+                    type: roomParam ? "room" : "roommate",
                     last: "Bắt đầu cuộc trò chuyện...",
                     time: "Mới",
                     unread: 0,
                     online: true,
                     messages: [],
                     partnerId: partnerIdParam,
+                    roomId: roomParam || undefined,
                   };
                   mapped = [newConv, ...mapped];
                   setActiveId(String(created.id));
@@ -208,9 +209,12 @@ export default function LandlordChat() {
     return () => chatSocket.unsubscribe();
   }, [activeId, user?.id]);
 
+  const isRoomInquiry = (c: Conversation) =>
+    Boolean(c.roomId) || ((c.type === "room" || c.type === "ROOM") && Boolean(c.roomTitle));
+
   const filteredList = convos.filter((c) => {
-    if (tab === "group") return c.type === "room" || c.type === "ROOM";
-    if (tab === "direct") return c.type !== "room" && c.type !== "ROOM";
+    if (tab === "group") return isRoomInquiry(c);
+    if (tab === "direct") return !isRoomInquiry(c);
     return true;
   });
 
@@ -219,8 +223,8 @@ export default function LandlordChat() {
   const switchTab = (t: TabType) => {
     setTab(t);
     const nextList = convos.filter((c) => {
-      if (t === "group") return c.type === "room" || c.type === "ROOM";
-      if (t === "direct") return c.type !== "room" && c.type !== "ROOM";
+      if (t === "group") return isRoomInquiry(c);
+      if (t === "direct") return !isRoomInquiry(c);
       return true;
     });
     if (nextList.length > 0 && !nextList.some((c) => c.id === activeId)) {
@@ -289,7 +293,7 @@ export default function LandlordChat() {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] -m-4 lg:-m-5 h-[calc(100dvh-3.5rem)]">
+    <div data-tour="landlord-chat-area" className="grid grid-cols-1 md:grid-cols-[320px_1fr] -m-4 lg:-m-5 h-[calc(100dvh-3.5rem)]">
       {/* ── Conversation list panel ── */}
       <div className="flex flex-col border-r border-border overflow-hidden bg-card">
         {/* Header + tab switcher */}

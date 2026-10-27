@@ -189,7 +189,7 @@ export function SwipeStageSkeleton({ variant = "room" }: { variant?: "room" | "r
       </div>
 
       {/* Card deck placeholder */}
-      <div className="relative h-[clamp(370px,calc(100dvh-250px),500px)] w-full max-w-[380px] sm:max-w-[440px] md:max-w-[680px]">
+      <div className="relative h-[clamp(380px,calc(100dvh-235px),545px)] w-full max-w-[380px] sm:max-w-[440px] md:max-w-[680px]">
         {variant === "room" ? <RoomCardSkeleton /> : <RoommateCardSkeleton />}
       </div>
 
