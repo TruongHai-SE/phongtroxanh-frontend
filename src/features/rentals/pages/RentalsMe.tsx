@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import { useRentals } from "../hooks/useRentals";
 import { formatVND, formatDate, getInitials } from "@/lib/utils";
@@ -61,6 +61,27 @@ export default function RentalsMe() {
   const [reportType, setReportType] = useState("LUA_COC");
   const [reportDetail, setReportDetail] = useState("");
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  // Post-booking workflow guide banner when user just submitted a room viewing request
+  const [justBookedInfo, setJustBookedInfo] = useState<{
+    roomId?: string;
+    roomTitle?: string;
+    landlordName?: string;
+    viewingDate?: string;
+    rentStartDate?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("ptx_just_booked_room");
+      if (raw) {
+        setJustBookedInfo(JSON.parse(raw));
+        sessionStorage.removeItem("ptx_just_booked_room");
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const handleConfirmReceipt = async (rental: RentalResponse) => {
     const isApproved = rental.approvalStatus === "APPROVED" || rental.checkInCode === "APPROVED";
@@ -163,7 +184,7 @@ export default function RentalsMe() {
     <div className="min-h-screen bg-slate-50/50 pb-20 pt-6">
       <div className="mx-auto max-w-5xl px-4">
         {/* Header */}
-        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div data-tour="rentals-header-bar" className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Phòng của tôi — Yêu cầu xem & thuê phòng
@@ -183,6 +204,75 @@ export default function RentalsMe() {
             Làm mới
           </Button>
         </div>
+
+        {/* Post-Booking Next-Step Guide Banner (Triggered right after submitting a viewing request) */}
+        {justBookedInfo && (
+          <div className="mb-6 rounded-2xl border-2 border-emerald-500/40 bg-emerald-50/90 p-5 shadow-md animate-fade-in">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-600 text-white shadow-xs">
+                  <CheckCircle2 className="size-5" />
+                </span>
+                <div>
+                  <h2 className="text-base font-extrabold text-emerald-950">
+                    Bạn đã gửi đơn hẹn xem phòng thành công! Vui lòng chờ Chủ trọ phản hồi
+                  </h2>
+                  <p className="mt-0.5 text-xs font-medium text-emerald-800">
+                    Phòng: <strong>{justBookedInfo.roomTitle || "Phòng trọ"}</strong> • Chủ trọ:{" "}
+                    <strong>{justBookedInfo.landlordName || "Chủ phòng trọ"}</strong>
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setJustBookedInfo(null)}
+                className="h-7 px-2 text-xs text-emerald-800 hover:bg-emerald-100 cursor-pointer"
+              >
+                Đóng
+              </Button>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl bg-white p-3 border border-emerald-200/80">
+                <p className="text-xs font-bold text-emerald-900">1. Theo dõi tại Phòng của tôi</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                  Đơn đang ở <strong>Bước 1/3 (Chờ duyệt)</strong>. Khi Chủ trọ duyệt, chuông thông báo sẽ báo ngay và mở khóa nút <strong>Xác nhận đã nhận phòng</strong>.
+                </p>
+              </div>
+              <div className="rounded-xl bg-white p-3 border border-emerald-200/80">
+                <p className="text-xs font-bold text-emerald-900">2. Chủ động nhắn tin Chủ trọ</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                  Qua tab <strong>Tin nhắn</strong> để trao đổi giờ đến xem phòng thực tế và hỏi kỹ các chi tiết trước khi đặt cọc.
+                </p>
+              </div>
+              <div className="rounded-xl bg-white p-3 border border-emerald-200/80">
+                <p className="text-xs font-bold text-emerald-900">3. Nhận phòng & Đánh giá (+10đ)</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                  Sau khi nhận chìa khóa và bấm xác nhận nhận phòng, bạn được <strong>+10 điểm Uy tín</strong> và mở khóa quyền <strong>Đánh giá Chủ trọ</strong>.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2.5">
+              <Button
+                size="sm"
+                onClick={() => navigate("/rentals/me?tour=1")}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
+              >
+                Xem hướng dẫn chi tiết màn hình này
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate("/chat")}
+                className="border-emerald-400 bg-white text-emerald-800 hover:bg-emerald-100 text-xs font-bold cursor-pointer gap-1.5"
+              >
+                <MessageCircle className="size-3.5" /> Qua tab Tin nhắn theo dõi & trao đổi →
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* 1. Loading State */}
         {isLoading && (
@@ -215,7 +305,7 @@ export default function RentalsMe() {
 
         {/* 3. Empty State */}
         {!isLoading && !isError && isEmpty && (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-sm">
+          <div data-tour="rentals-list-area" className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-sm">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
               <Home className="h-8 w-8" />
             </div>
@@ -233,8 +323,8 @@ export default function RentalsMe() {
 
         {/* 4. Success State */}
         {!isLoading && !isError && !isEmpty && (
-          <div className="space-y-6">
-            {rentals.map((rental) => {
+          <div data-tour="rentals-list-area" className="space-y-6">
+            {rentals.map((rental, rentalIdx) => {
               const isPendingApproval =
                 rental.status === "PENDING_CHECKIN" &&
                 rental.approvalStatus !== "APPROVED" &&
@@ -300,7 +390,10 @@ export default function RentalsMe() {
 
                     {/* 4-Stage Visual Progress Bar */}
                     {!isCancelled && (
-                      <div className="mt-4 grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 text-xs">
+                      <div
+                        data-tour={rentalIdx === 0 ? "rentals-progress-bar" : undefined}
+                        className="mt-4 grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 text-xs"
+                      >
                         <div className="flex items-center gap-2 text-emerald-700 font-semibold">
                           <span className="flex size-5 items-center justify-center rounded-full bg-emerald-600 text-white text-[10px]">
                             ✓
@@ -435,7 +528,10 @@ export default function RentalsMe() {
                         )}
 
                         {/* Permanent Landlord Identity & Deposit Protection Record */}
-                        <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/30 p-4">
+                        <div
+                          data-tour={rentalIdx === 0 ? "rentals-landlord-record" : undefined}
+                          className="rounded-xl border border-emerald-200/80 bg-emerald-50/30 p-4"
+                        >
                           <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
                             <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
                               <ShieldCheck className="size-4 text-emerald-600" />
@@ -514,7 +610,10 @@ export default function RentalsMe() {
                       </div>
 
                       {/* Column 2: Stage Actions */}
-                      <div className="flex flex-col justify-between space-y-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                      <div
+                        data-tour={rentalIdx === 0 ? "rentals-stage-actions" : undefined}
+                        className="flex flex-col justify-between space-y-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+                      >
                         <div className="space-y-2">
                           <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                             Thao tác hợp đồng
@@ -604,15 +703,10 @@ export default function RentalsMe() {
                                 </span>
                               </div>
 
-                              <div className="grid grid-cols-2 gap-2">
-                                <Link to="/swap">
-                                  <Button size="sm" variant="outline" className="w-full text-xs cursor-pointer">
-                                    <Repeat className="mr-1.5 h-3.5 w-3.5 text-slate-500" /> Pass/Đổi phòng
-                                  </Button>
-                                </Link>
+                              <div>
                                 <Link to={`/reviews?rentalId=${rental.id}&roomId=${rental.roomId}`}>
                                   <Button size="sm" variant="outline" className="w-full text-xs cursor-pointer">
-                                    <Star className="mr-1.5 h-3.5 w-3.5 text-amber-500" /> Viết đánh giá
+                                    <Star className="mr-1.5 h-3.5 w-3.5 text-amber-500" /> Viết đánh giá phòng & chủ trọ
                                   </Button>
                                 </Link>
                               </div>

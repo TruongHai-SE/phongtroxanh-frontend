@@ -93,7 +93,7 @@ export function PackageTermsConsent({
               ) : (
                 <ul className="space-y-1 pl-1 text-slate-700">
                   <li>
-                    • <strong>Vi phạm lần 1 (Nhắc nhở):</strong> Gỡ lời giới thiệu hồ sơ hoặc đóng tin sang nhượng phòng vi phạm (nếu có), trừ 15 điểm uy tín và gửi thông báo nhắc nhở.
+                    • <strong>Vi phạm lần 1 (Nhắc nhở):</strong> Gỡ lời giới thiệu hồ sơ vi phạm (nếu có), trừ 15 điểm uy tín và gửi thông báo nhắc nhở.
                   </li>
                   <li>
                     • <strong>Vi phạm lần 2 (Cảnh báo nghiêm khắc):</strong> Trừ 25 điểm uy tín và <strong>tạm dừng hiệu ứng Đẩy hồ sơ tìm bạn ưu tiên (24 giờ)</strong> đang sử dụng.
@@ -126,7 +126,7 @@ export function PackageTermsConsent({
                     Các quyền lợi dành cho người thuê (<strong>mở rộng lượt quẹt mỗi ngày, lượt đẩy hồ sơ tìm bạn ở ghép ưu tiên 24 giờ</strong>) được kích hoạt và cộng trực tiếp vào tài khoản ngay sau khi thanh toán thành công.
                   </p>
                   <p>
-                    Trong trường hợp tài khoản người thuê bị khóa do vi phạm đến lần thứ 3 (<strong>khai báo danh tính/hồ sơ giả mạo, quấy rối hoặc gửi tin nhắn phản cảm cho thành viên khác, spam kết nối hoặc gian lận khi thỏa thuận ở ghép/đổi phòng</strong>), Phòng Trọ Xanh có quyền đơn phương chấm dứt cung cấp dịch vụ và <strong>không hoàn lại phí gói dịch vụ đã mua hoặc đang còn hạn</strong>.
+                    Trong trường hợp tài khoản người thuê bị khóa do vi phạm đến lần thứ 3 (<strong>khai báo danh tính/hồ sơ giả mạo, quấy rối hoặc gửi tin nhắn phản cảm cho thành viên khác, spam kết nối hoặc gian lận khi thỏa thuận ở ghép</strong>), Phòng Trọ Xanh có quyền đơn phương chấm dứt cung cấp dịch vụ và <strong>không hoàn lại phí gói dịch vụ đã mua hoặc đang còn hạn</strong>.
                   </p>
                 </>
               )}

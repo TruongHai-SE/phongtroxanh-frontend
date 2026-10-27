@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Check, X, Eye, ZoomIn, ShieldCheck, ShieldX, Calendar,
-  User, Loader2, RefreshCw, FileText, AlertCircle, Building2, CreditCard,
+  Loader2, RefreshCw, FileText, AlertCircle, Mail, Phone,
   Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from "lucide-react";
 import { toast } from "sonner";
@@ -9,10 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImageWithFallback } from "@/components/shared/ImageWithFallback";
 import { ImageZoomOverlay } from "@/components/shared/ImageZoomOverlay";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials, cn } from "@/lib/utils";
@@ -52,30 +51,45 @@ function PaginationBar({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-card border text-sm shadow-xs">
-      <span className="text-muted-foreground text-xs">{from}–{to} trong {total} hồ sơ chờ duyệt</span>
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-muted/20 border-t border-border text-sm">
+      <span className="text-muted-foreground text-xs font-medium">
+        Hiển thị <strong className="text-foreground">{from}–{to}</strong> trong tổng số <strong className="text-foreground">{total}</strong> hồ sơ chờ duyệt
+      </span>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="size-8 cursor-pointer" disabled={page === 1} onClick={() => onPage(1)}>
+        <Button variant="ghost" size="icon" className="size-8 cursor-pointer active:scale-95" disabled={page === 1} onClick={() => onPage(1)}>
           <ChevronsLeft className="size-4" />
         </Button>
-        <Button variant="ghost" size="icon" className="size-8 cursor-pointer" disabled={page === 1} onClick={() => onPage(page - 1)}>
+        <Button variant="ghost" size="icon" className="size-8 cursor-pointer active:scale-95" disabled={page === 1} onClick={() => onPage(page - 1)}>
           <ChevronLeft className="size-4" />
         </Button>
         {pages.map((p, i) => p === "…"
           ? <span key={`d${i}`} className="px-1 text-muted-foreground text-xs">…</span>
-          : <Button key={p} variant={page === p ? "default" : "ghost"} size="icon" className="size-8 text-xs cursor-pointer" onClick={() => onPage(p as number)}>{p}</Button>
+          : (
+            <Button
+              key={p}
+              variant={page === p ? "default" : "ghost"}
+              size="icon"
+              className={cn(
+                "size-8 text-xs font-semibold cursor-pointer active:scale-95",
+                page === p && "bg-primary text-primary-foreground shadow-2xs"
+              )}
+              onClick={() => onPage(p as number)}
+            >
+              {p}
+            </Button>
+          )
         )}
-        <Button variant="ghost" size="icon" className="size-8 cursor-pointer" disabled={page === totalPages} onClick={() => onPage(page + 1)}>
+        <Button variant="ghost" size="icon" className="size-8 cursor-pointer active:scale-95" disabled={page === totalPages} onClick={() => onPage(page + 1)}>
           <ChevronRight className="size-4" />
         </Button>
-        <Button variant="ghost" size="icon" className="size-8 cursor-pointer" disabled={page === totalPages} onClick={() => onPage(totalPages)}>
+        <Button variant="ghost" size="icon" className="size-8 cursor-pointer active:scale-95" disabled={page === totalPages} onClick={() => onPage(totalPages)}>
           <ChevronsRight className="size-4" />
         </Button>
       </div>
       <div className="flex items-center gap-2">
         <span className="text-muted-foreground text-xs">Đến trang</span>
         <Input
-          className="w-12 h-8 text-center text-xs"
+          className="w-12 h-7 text-center text-xs bg-background"
           value={gotoVal}
           onChange={(e) => setGotoVal(e.target.value)}
           onKeyDown={(e) => {
@@ -95,15 +109,14 @@ function PaginationBar({
   );
 }
 
-// Clean SVG illustration for ID card placeholder instead of room images
 function IdCardPlaceholder({ side }: { side: "front" | "back" }) {
   return (
-    <div className="size-full flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-400 p-2 text-center select-none">
-      <FileText className="size-6 text-slate-400 mb-1" />
-      <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-        {side === "front" ? "Mặt trước CCCD" : "Mặt sau CCCD"}
+    <div className="size-full flex flex-col items-center justify-center bg-slate-100 text-slate-400 p-1.5 text-center select-none">
+      <FileText className="size-4 text-slate-400 mb-0.5" />
+      <span className="text-[10px] font-medium text-slate-600 leading-tight">
+        {side === "front" ? "Mặt trước" : "Mặt sau"}
       </span>
-      <span className="text-[9px] text-slate-400">Chưa có ảnh tải lên</span>
+      <span className="text-[9px] text-slate-400">Chưa có ảnh</span>
     </div>
   );
 }
@@ -220,100 +233,122 @@ export default function CccdQueue() {
   const landlordCount = queue.filter((q) => q.role === "Chủ trọ").length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-3">
+      {/* ── COMPACT HEADER & UNIFIED FILTER BAR ── */}
+      <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Duyệt xác minh CCCD</h1>
-          <p className="text-sm text-muted-foreground">
-            {queue.length} hồ sơ đang chờ kiểm duyệt danh tính
-            <span className="ml-2 text-xs text-muted-foreground/70">· Kích hoạt tích xanh chính chủ và cộng điểm uy tín</span>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+              Duyệt xác minh CCCD
+            </h1>
+            <Badge className="bg-mint text-emerald-deep border-primary/20 font-semibold text-xs px-2.5 py-0.5">
+              {queue.length} chờ duyệt
+            </Badge>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+            Đối chiếu ảnh chụp Căn cước công dân 2 mặt để cấp huy hiệu xác minh và cộng 25 điểm uy tín
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 cursor-pointer text-xs"
-          onClick={loadQueue}
-          disabled={loading}
-        >
-          <RefreshCw className={cn("size-3.5", loading && "animate-spin")} /> Làm mới
-        </Button>
-      </div>
 
-      {/* ── TOOLBAR: SEARCH & ROLE FILTER TABS ── */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setPage(1);
-            }}
-            placeholder="Tìm theo họ tên, email, số điện thoại..."
-            className="pl-9 h-9 text-xs rounded-xl"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => {
-                setSearchQuery("");
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 sm:w-64 sm:flex-initial">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
                 setPage(1);
               }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground p-1 cursor-pointer"
-            >
-              <X className="size-3.5" />
-            </button>
-          )}
-        </div>
+              placeholder="Tìm tên, email, số điện thoại..."
+              className="pl-9 pr-8 h-9 text-xs sm:text-sm rounded-xl bg-card"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setPage(1);
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 cursor-pointer"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
 
-        <Tabs
-          value={roleFilter}
-          onValueChange={(v: any) => {
-            setRoleFilter(v);
-            setPage(1);
-          }}
-          className="w-full sm:w-auto"
-        >
-          <TabsList className="h-9 rounded-xl bg-muted/60 p-1">
-            <TabsTrigger value="all" className="text-xs cursor-pointer">
-              Tất cả ({queue.length})
-            </TabsTrigger>
-            <TabsTrigger value="TENANT" className="text-xs cursor-pointer">
-              Người thuê ({tenantCount})
-            </TabsTrigger>
-            <TabsTrigger value="LANDLORD" className="text-xs cursor-pointer">
-              Chủ trọ ({landlordCount})
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 px-3 gap-1.5 cursor-pointer text-xs sm:text-sm rounded-xl bg-card active:scale-95"
+            onClick={loadQueue}
+            disabled={loading}
+          >
+            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+            <span>Làm mới</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* ── ROLE FILTER TABS (Đồng bộ kích thước với Chủ trọ) ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border">
+        <div className="flex flex-wrap gap-1">
+          {[
+            { id: "all" as const, label: `Tất cả hồ sơ (${queue.length})` },
+            { id: "TENANT" as const, label: `Người thuê (${tenantCount})` },
+            { id: "LANDLORD" as const, label: `Chủ trọ (${landlordCount})` },
+          ].map((tabItem) => {
+            const active = roleFilter === tabItem.id;
+            return (
+              <button
+                key={tabItem.id}
+                type="button"
+                onClick={() => {
+                  setRoleFilter(tabItem.id);
+                  setPage(1);
+                }}
+                className={cn(
+                  "pb-2.5 px-3.5 text-sm font-semibold transition-all cursor-pointer border-b-2",
+                  active
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tabItem.label}
+              </button>
+            );
+          })}
+        </div>
+        <span className="hidden sm:inline text-xs text-muted-foreground pb-2">
+          Nhấp trực tiếp vào ảnh CCCD để phóng to kiểm tra
+        </span>
       </div>
 
       {loading && (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 rounded-2xl bg-card border">
-          <Loader2 className="size-8 animate-spin text-primary" />
+        <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl bg-card border">
+          <Loader2 className="size-7 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Đang tải danh sách hồ sơ CCCD...</p>
         </div>
       )}
 
       {!loading && queue.length === 0 && (
-        <div className="flex flex-col items-center py-20 gap-3 rounded-2xl bg-card border text-center shadow-xs">
-          <div className="grid size-14 place-items-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40">
-            <ShieldCheck className="size-7" />
+        <div className="flex flex-col items-center py-14 gap-3 rounded-2xl bg-card border text-center shadow-xs">
+          <div className="grid size-12 place-items-center rounded-full bg-mint text-primary">
+            <ShieldCheck className="size-6" />
           </div>
           <div>
-            <p className="font-semibold text-foreground text-base">Hàng đợi trống!</p>
+            <p className="font-semibold text-foreground text-base">Đã duyệt hết hồ sơ!</p>
             <p className="text-sm text-muted-foreground max-w-sm mt-0.5">
-              Tất cả các hồ sơ CCCD đã được duyệt hoặc chưa có yêu cầu xác minh mới nào.
+              Hiện không còn yêu cầu xác minh CCCD nào đang chờ xử lý.
             </p>
           </div>
         </div>
       )}
 
       {!loading && queue.length > 0 && filtered.length === 0 && (
-        <div className="flex flex-col items-center py-16 gap-3 rounded-2xl bg-card border text-center shadow-xs">
+        <div className="flex flex-col items-center py-12 gap-2.5 rounded-2xl bg-card border text-center shadow-xs">
           <p className="font-semibold text-foreground text-sm">Không tìm thấy hồ sơ phù hợp</p>
           <p className="text-xs text-muted-foreground">
-            Không có kết quả khớp với từ khóa "{searchQuery}" trong bộ lọc hiện tại.
+            Không có hồ sơ nào khớp với từ khóa &ldquo;{searchQuery}&rdquo;.
           </p>
           <Button
             variant="outline"
@@ -325,118 +360,159 @@ export default function CccdQueue() {
             }}
             className="text-xs mt-1 cursor-pointer"
           >
-            Đặt lại bộ lọc
+            Xem lại tất cả
           </Button>
         </div>
       )}
 
-      {/* FIXED-COLUMN UNIFORM ROWS */}
+      {/* ── UNIFIED TABLE CARD CONTAINER (5 hồ sơ + Phân trang hiển thị trọn trong 1 màn hình) ── */}
       {!loading && paginated.length > 0 && (
-        <div className="space-y-3">
-          {paginated.map((u) => {
-            const isProcessing = processingId === u.id;
-            return (
-              <div
-                key={u.id}
-                className={cn(
-                  "flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-2xl bg-card p-4 border shadow-xs transition-all duration-150",
-                  "hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 hover:border-emerald-200"
-                )}
-              >
-                {/* Cột 1: Thông tin người dùng (Chiều rộng cố định 260px) */}
-                <div className="w-full lg:w-[260px] shrink-0 flex items-center gap-3">
-                  <Avatar className="size-11 ring-1 ring-border shrink-0">
-                    <AvatarImage src={u.avatar || undefined} />
-                    <AvatarFallback className="bg-emerald-100 text-emerald-800 text-xs font-bold">
-                      {getInitials(u.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 pr-2">
-                    <p className="text-sm font-semibold text-foreground truncate" title={u.name}>{u.name}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium bg-muted/60">
+        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-border shadow-2xs">
+          {/* Desktop Column Header */}
+          <div className="hidden lg:grid lg:grid-cols-[240px_1fr_140px_216px_240px] items-center gap-3 px-4 py-2.5 bg-secondary/50 border-b border-border text-xs font-semibold text-muted-foreground">
+            <span>Người gửi hồ sơ</span>
+            <span>Thông tin liên hệ</span>
+            <span>Ngày gửi</span>
+            <span>Ảnh chụp CCCD (2 mặt)</span>
+            <span className="text-right pr-1">Thao tác kiểm duyệt</span>
+          </div>
+
+          <div className="divide-y divide-border/70">
+            {paginated.map((u) => {
+              const isProcessing = processingId === u.id;
+              return (
+                <div
+                  key={u.id}
+                  className={cn(
+                    "flex flex-col lg:grid lg:grid-cols-[240px_1fr_140px_216px_240px] lg:items-center gap-3 px-4 py-2.5 transition-colors duration-150",
+                    "hover:bg-mint/35"
+                  )}
+                >
+                  {/* Cột 1: Người gửi hồ sơ */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar className="size-10 ring-1 ring-border shrink-0">
+                      <AvatarImage src={u.avatar || undefined} />
+                      <AvatarFallback className="bg-emerald-100 text-emerald-800 text-xs font-bold">
+                        {getInitials(u.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate" title={u.name}>
+                        {u.name}
+                      </p>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "mt-0.5 text-[11px] px-2 py-0 font-medium",
+                          u.role === "Chủ trọ"
+                            ? "bg-indigo-50 text-indigo-700 border-indigo-200/80"
+                            : "bg-sky-50 text-sky-700 border-sky-200/80"
+                        )}
+                      >
                         {u.role}
                       </Badge>
-                      <span className="text-[11px] text-muted-foreground truncate">{u.submitted}</span>
                     </div>
                   </div>
-                </div>
 
-                {/* Cột 2: Thông tin giấy tờ xác minh */}
-                <div className="w-full lg:w-[220px] shrink-0 bg-muted/30 px-3.5 py-2.5 rounded-xl border border-border/60">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                    <CreditCard className="size-3.5 text-emerald-600 shrink-0" />
-                    <span>CCCD gắn chip (2 mặt ảnh)</span>
+                  {/* Cột 2: Thông tin liên hệ */}
+                  <div className="min-w-0 space-y-0.5 text-xs">
+                    <div className="flex items-center gap-1.5 text-foreground font-medium truncate">
+                      <Mail className="size-3.5 text-emerald-600 shrink-0" />
+                      <span className="truncate">{u.email || "Chưa cập nhật email"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Phone className="size-3.5 text-muted-foreground shrink-0" />
+                      <span>{u.phone || "Chưa cập nhật số điện thoại"}</span>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Gửi ngày: {u.submitted}</p>
-                </div>
 
-                {/* Cột 3: Thumbnail ảnh CCCD (Chiều rộng cố định 230px, 2 ảnh 108px x 68px) */}
-                <div className="w-full lg:w-[230px] shrink-0 flex items-center gap-2">
-                  {[
-                    { src: u.frontUrl, label: "Mặt trước", side: "front" as const },
-                    { src: u.backUrl, label: "Mặt sau", side: "back" as const },
-                  ].map((card, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => card.src && setZoomSrc(card.src)}
-                      className={cn(
-                        "relative aspect-[3/2] w-[110px] overflow-hidden rounded-xl border bg-muted shrink-0 text-left transition group",
-                        card.src ? "cursor-pointer hover:ring-2 hover:ring-emerald-500/80" : "cursor-default opacity-80"
-                      )}
+                  {/* Cột 3: Ngày gửi */}
+                  <div className="text-xs">
+                    <div className="flex items-center gap-1.5 font-medium text-foreground">
+                      <Calendar className="size-3.5 text-emerald-600 shrink-0" />
+                      <span>{u.submitted}</span>
+                    </div>
+                    <span className="text-[11px] text-emerald-700 font-medium">
+                      +25 điểm uy tín
+                    </span>
+                  </div>
+
+                  {/* Cột 4: Ảnh chụp 2 mặt CCCD (Compact 98x58px) */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {[
+                      { src: u.frontUrl, label: "Mặt trước", side: "front" as const },
+                      { src: u.backUrl, label: "Mặt sau", side: "back" as const },
+                    ].map((card, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => card.src && setZoomSrc(card.src)}
+                        className={cn(
+                          "relative h-[58px] w-[98px] overflow-hidden rounded-lg border bg-muted shrink-0 text-left transition-all duration-150 group",
+                          card.src
+                            ? "cursor-pointer hover:ring-2 hover:ring-primary/80 active:scale-[0.97]"
+                            : "cursor-default opacity-80"
+                        )}
+                      >
+                        {card.src ? (
+                          <>
+                            <ImageWithFallback
+                              src={card.src}
+                              alt={`CCCD ${card.label}`}
+                              className="size-full object-cover"
+                            />
+                            <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.2 text-[9px] font-medium text-white">
+                              {card.label}
+                            </span>
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition grid place-items-center">
+                              <ZoomIn className="size-4 text-white" />
+                            </div>
+                          </>
+                        ) : (
+                          <IdCardPlaceholder side={card.side} />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Cột 5: Nút hành động */}
+                  <div className="flex items-center lg:justify-end gap-1.5 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs gap-1 cursor-pointer hover:bg-secondary active:scale-95"
+                      onClick={() => {
+                        setSelected(u);
+                        setModalOpen(true);
+                      }}
                     >
-                      {card.src ? (
-                        <>
-                          <ImageWithFallback src={card.src} alt={`CCCD ${card.label}`} className="size-full object-cover" />
-                          <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-medium text-white shadow-xs">
-                            {card.label}
-                          </span>
-                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition grid place-items-center">
-                            <ZoomIn className="size-4 text-white" />
-                          </div>
-                        </>
-                      ) : (
-                        <IdCardPlaceholder side={card.side} />
-                      )}
-                    </button>
-                  ))}
+                      <Eye className="size-3.5 text-muted-foreground" /> Chi tiết
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={isProcessing}
+                      className="h-8 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs active:scale-95"
+                      onClick={() => approve(u)}
+                    >
+                      {isProcessing ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+                      Duyệt
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isProcessing}
+                      className="h-8 px-2.5 text-xs gap-1 text-rose-700 bg-rose-50/50 border-rose-200/80 hover:bg-rose-100/70 cursor-pointer active:scale-95"
+                      onClick={() => openReject(u)}
+                    >
+                      <X className="size-3.5" /> Từ chối
+                    </Button>
+                  </div>
                 </div>
+              );
+            })}
+          </div>
 
-                {/* Cột 4: Nút hành động đồng bộ, thanh lịch */}
-                <div className="flex items-center gap-2 shrink-0 ml-auto pt-2 lg:pt-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-3 text-xs gap-1.5 cursor-pointer hover:bg-muted"
-                    onClick={() => { setSelected(u); setModalOpen(true); }}
-                  >
-                    <Eye className="size-3.5 text-muted-foreground" /> Chi tiết
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={isProcessing}
-                    className="h-8 px-3 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs"
-                    onClick={() => approve(u)}
-                  >
-                    {isProcessing ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
-                    Duyệt
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isProcessing}
-                    className="h-8 px-3 text-xs gap-1.5 text-rose-700 bg-rose-50/50 border-rose-200/80 hover:bg-rose-100/70 cursor-pointer"
-                    onClick={() => openReject(u)}
-                  >
-                    <X className="size-3.5" /> Từ chối
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Phân trang */}
+          {/* Thanh phân trang tích hợp ngay đáy bảng */}
           <PaginationBar
             page={currentPage}
             totalPages={totalPages}

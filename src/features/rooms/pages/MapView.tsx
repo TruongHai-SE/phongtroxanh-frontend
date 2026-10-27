@@ -589,7 +589,7 @@ export default function MapView() {
                   : `${mapRooms.length} phòng thực tế tại TP.HCM`}
               </p>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div data-tour="map-gps-controls" className="flex items-center gap-1.5">
               <Button
                 variant={userLocation ? "default" : "outline"}
                 size="sm"
@@ -634,7 +634,7 @@ export default function MapView() {
           </div>
 
           {/* Thanh tìm kiếm Trường ĐH / Công ty / Tuyến đường để bay bản đồ tới xem phòng quanh đó */}
-          <div className="relative">
+          <div data-tour="map-landmark-search" className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
             <Input
               value={placeQuery}
@@ -808,7 +808,7 @@ export default function MapView() {
 
         {/* Danh sách phòng thực tế từ Database */}
         {!loading && adjustedRooms.length > 0 && (
-          <div className="flex-1 space-y-2.5 overflow-y-auto p-4">
+          <div data-tour="map-room-list" className="flex-1 space-y-2.5 overflow-y-auto p-4">
             {adjustedRooms.map((r) => (
               <button
                 key={r.id}

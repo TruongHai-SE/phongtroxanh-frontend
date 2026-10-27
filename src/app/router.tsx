@@ -145,7 +145,7 @@ export const router = createBrowserRouter([
               { path: "/notifications", Component: Notifications },
               { path: "/chat", Component: Chat },
               { path: "/check-in", element: <Navigate to="/rentals/me" replace /> },
-              { path: "/swap", Component: TenantSwap },
+              { path: "/swap", element: <Navigate to="/rentals/me" replace /> },
               { path: "/rentals/me", Component: RentalsMe },
               { path: "/payment/callback", Component: PaymentCallback },
               { path: "/payment/payos-return", Component: PaymentCallback },

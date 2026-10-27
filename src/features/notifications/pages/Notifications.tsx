@@ -1,7 +1,9 @@
+import { useNavigate } from "react-router";
 import { Heart, MessageCircle, Home, ShieldCheck, Star, Bell, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNotifications } from "../hooks/useNotifications";
+import { useAuth } from "@/app/context/AuthContext";
 
 const iconMap: Record<string, any> = {
   match: Heart,
@@ -16,6 +18,8 @@ const iconMap: Record<string, any> = {
 };
 
 export default function Notifications() {
+  const navigate = useNavigate();
+  const { role } = useAuth();
   const {
     notifications,
     isLoading,
@@ -26,6 +30,33 @@ export default function Notifications() {
     refetch,
   } = useNotifications();
 
+  const handleItemClick = (n: any) => {
+    if (!n.read) {
+      markAsRead(n.id);
+    }
+    const d = n.data || {};
+    const titleLower = (n.title || "").toLowerCase();
+    if (d.roomId) {
+      navigate(`/rooms/${d.roomId}`);
+      return;
+    }
+    if (role === "landlord") {
+      if (d.rentalId || titleLower.includes("thuê") || titleLower.includes("hợp đồng")) {
+        navigate("/landlord?tab=tenants");
+      } else if (d.conversationId || titleLower.includes("tin nhắn")) {
+        navigate(`/landlord?tab=chat${d.conversationId ? `&cid=${d.conversationId}` : ""}`);
+      }
+      return;
+    }
+    if (d.rentalId || titleLower.includes("thuê") || titleLower.includes("hợp đồng") || titleLower.includes("nhận phòng")) {
+      navigate("/rentals/me");
+    } else if (d.conversationId || titleLower.includes("tin nhắn")) {
+      navigate(`/chat${d.conversationId ? `?cid=${d.conversationId}` : ""}`);
+    } else if (n.type === "match" || titleLower.includes("ghép")) {
+      navigate("/matches");
+    }
+  };
+
   const groups = {
     "Mới": notifications.filter((n) => !n.read),
     "Đã đọc": notifications.filter((n) => n.read),
@@ -33,7 +64,7 @@ export default function Notifications() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div data-tour="notifications-header" className="flex items-center justify-between">
         <h1 className="brand text-2xl text-foreground">Thông báo</h1>
         <Button variant="ghost" className="text-primary hover-lift" onClick={() => markAllAsRead()}>
           Đánh dấu đã đọc
@@ -64,7 +95,7 @@ export default function Notifications() {
           </Button>
         </div>
       ) : notifications.length === 0 ? (
-        <div className="mt-12 text-center">
+        <div data-tour="notifications-list" className="mt-12 text-center">
           <div className="mx-auto grid size-16 place-items-center rounded-full bg-mint text-primary">
             <Bell className="size-8" />
           </div>
@@ -72,7 +103,8 @@ export default function Notifications() {
           <p className="mt-1 text-sm text-muted-foreground">Bạn sẽ nhận được cập nhật về tin nhắn, ghép bạn và phòng trọ tại đây.</p>
         </div>
       ) : (
-        Object.entries(groups).map(([label, groupItems]) =>
+        <div data-tour="notifications-list">
+        {Object.entries(groups).map(([label, groupItems]) =>
           groupItems.length === 0 ? null : (
             <div key={label} className="mt-6">
               <p className="mb-2 text-sm text-muted-foreground font-medium">{label}</p>
@@ -82,7 +114,7 @@ export default function Notifications() {
                   return (
                     <div
                       key={n.id}
-                      onClick={() => markAsRead(n.id)}
+                      onClick={() => handleItemClick(n)}
                       className={cn(
                         "flex items-start gap-3 rounded-xl p-4 ring-1 ring-border cursor-pointer transition-all hover-lift",
                         !n.read ? "bg-mint/40" : "bg-card"
@@ -105,7 +137,8 @@ export default function Notifications() {
               </div>
             </div>
           )
-        )
+        )}
+        </div>
       )}
     </div>
   );

@@ -38,8 +38,8 @@ const TENANT_STEPS = [
   },
   {
     step: "04",
-    title: "Nhận bàn giao & hỗ trợ sang nhượng",
-    desc: "Xác nhận nhận phòng để kích hoạt quyền đánh giá thực tế. Khi cần chuyển chỗ ở, hỗ trợ đăng tin sang nhượng hợp đồng hợp lệ.",
+    title: "Nhận bàn giao & đánh giá thực tế",
+    desc: "Xác nhận nhận phòng để kích hoạt quyền đánh giá hai chiều và cộng Điểm Uy Tín cho cả người thuê lẫn chủ trọ.",
   },
 ];
 
@@ -301,7 +301,7 @@ export function AboutPage() {
                     Thông báo trạng thái tức thì
                   </div>
                   <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-                    Nhận thông báo ngay khi chủ trọ duyệt lịch hẹn, xác nhận bàn giao hoặc duyệt sang nhượng.
+                    Nhận thông báo ngay khi chủ trọ duyệt lịch hẹn, xác nhận bàn giao hoặc có tin nhắn trao đổi mới.
                   </p>
                 </div>
                 <div className="p-5">

@@ -1,5 +1,5 @@
 import { Link, useNavigate, NavLink, useLocation } from "react-router";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Search,
@@ -25,6 +25,7 @@ import {
   Lock,
   FileCheck2,
   RotateCcw,
+  CircleHelp,
 } from "lucide-react";
 import {
   Select,
@@ -162,9 +163,92 @@ const EASE_OUT_CURVE: [number, number, number, number] = [0.23, 1, 0.32, 1];
 const HERO_ROTATION_MS = 4000;
 const HERO_MANUAL_HOLD_MS = 25000;
 
+/* ── Custom 60fps Smooth Scroll Engine (Bypasses Windows OS reduced-motion instant jump) ── */
+let activeScrollRafId: number | null = null;
+let cleanupScrollInterrupt: (() => void) | null = null;
+
+function cancelActiveSmoothScroll() {
+  if (activeScrollRafId !== null) {
+    window.cancelAnimationFrame(activeScrollRafId);
+    activeScrollRafId = null;
+  }
+  if (cleanupScrollInterrupt) {
+    cleanupScrollInterrupt();
+    cleanupScrollInterrupt = null;
+  }
+}
+
+function easeInOutCubicQuart(t: number): number {
+  return t < 0.5
+    ? 4 * t * t * t
+    : 1 - Math.pow(-2 * t + 2, 4) / 2;
+}
+
+function smoothScrollToY(targetY: number, customDuration?: number) {
+  cancelActiveSmoothScroll();
+
+  const startY = window.scrollY || window.pageYOffset || 0;
+  const maxScrollY = Math.max(
+    0,
+    document.documentElement.scrollHeight - window.innerHeight
+  );
+  const clampedTargetY = Math.max(0, Math.min(targetY, maxScrollY));
+  const deltaY = clampedTargetY - startY;
+
+  if (Math.abs(deltaY) < 2) {
+    window.scrollTo(0, clampedTargetY);
+    return;
+  }
+
+  // Dynamic duration scaled by distance (480ms for short hops -> 820ms for full-page glides)
+  const duration =
+    customDuration ??
+    Math.min(820, Math.max(480, Math.round(Math.abs(deltaY) * 0.42)));
+  const startTime = performance.now();
+
+  const onUserInterrupt = () => {
+    cancelActiveSmoothScroll();
+  };
+
+  window.addEventListener("wheel", onUserInterrupt, { passive: true, once: true });
+  window.addEventListener("touchstart", onUserInterrupt, { passive: true, once: true });
+  cleanupScrollInterrupt = () => {
+    window.removeEventListener("wheel", onUserInterrupt);
+    window.removeEventListener("touchstart", onUserInterrupt);
+  };
+
+  const step = (now: number) => {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, Math.max(0, elapsed / duration));
+    const eased = easeInOutCubicQuart(progress);
+
+    window.scrollTo(0, Math.round(startY + deltaY * eased));
+
+    if (progress < 1) {
+      activeScrollRafId = window.requestAnimationFrame(step);
+    } else {
+      cancelActiveSmoothScroll();
+    }
+  };
+
+  activeScrollRafId = window.requestAnimationFrame(step);
+}
+
+function smoothScrollToElement(elementOrId: Element | string | null, offsetPx = 72) {
+  const el =
+    typeof elementOrId === "string"
+      ? document.getElementById(elementOrId.replace(/^#/, "")) ||
+        document.querySelector(elementOrId)
+      : elementOrId;
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const targetY = rect.top + (window.scrollY || window.pageYOffset || 0) - offsetPx;
+  smoothScrollToY(targetY);
+}
+
 export default function Landing() {
   const navigate = useNavigate();
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = false;
   const { user, role } = useAuth();
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -410,8 +494,7 @@ export default function Landing() {
     setPageDirection(normalized > currentSafePage ? 1 : -1);
     setFeaturedPage(normalized);
     if (scrollGrid) {
-      const el = document.getElementById("featured-rooms-grid");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      smoothScrollToElement("featured-rooms-grid", 92);
     }
   };
 
@@ -487,8 +570,7 @@ export default function Landing() {
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const el = document.getElementById("featured-rooms");
-    if (el) el.scrollIntoView({ behavior: "smooth" });
+    smoothScrollToElement("featured-rooms", 72);
   };
 
   const getStartLink = () => {
@@ -506,12 +588,16 @@ export default function Landing() {
 
   return (
     <PageTransition>
-      <main className="min-h-[100dvh] overflow-x-hidden bg-[#f8faf9] text-slate-900 selection:bg-emerald-500/15 selection:text-emerald-950">
-        {/* ===== STICKY NAVBAR ===== */}
-        <LandingNavbar user={user} role={role} />
+      <main className="relative min-h-[100dvh] overflow-x-hidden bg-[#f8faf9] text-slate-900 selection:bg-emerald-500/15 selection:text-emerald-950">
+        {/* ===== UNIFORM ZERO-LAG AMBIENT BACKDROP (SYNCED WITH LOGIN AESTHETIC) ===== */}
+        <LandingAmbientBackdrop />
 
-        {/* ===== HERO SECTION (UNIFORM SURFACE, SYSTEM SELECTS, 1-ROW FILTERS) ===== */}
-        <section className="relative overflow-hidden pt-24 pb-10 sm:pt-28 lg:pt-28 lg:pb-12">
+        <div className="relative z-10">
+          {/* ===== STICKY NAVBAR ===== */}
+          <LandingNavbar user={user} role={role} />
+
+          {/* ===== HERO SECTION (UNIFORM SURFACE, SYSTEM SELECTS, 1-ROW FILTERS) ===== */}
+          <section className="relative overflow-hidden pt-24 pb-10 sm:pt-28 lg:pt-28 lg:pb-12">
           <div className="relative mx-auto max-w-7xl px-5 sm:px-8">
             <div className="grid items-start gap-8 lg:grid-cols-12 lg:items-center lg:gap-10">
               {/* LEFT COLUMN: Value Proposition + System Select Filters + 1-Row Quick Filters */}
@@ -545,8 +631,7 @@ export default function Landing() {
                         onValueChange={(val) => {
                           const next = val === "ALL" ? "" : val;
                           setSelectedDistrict(next);
-                          const el = document.getElementById("featured-rooms");
-                          if (el && next) el.scrollIntoView({ behavior: "smooth" });
+                          if (next) smoothScrollToElement("featured-rooms", 72);
                         }}
                       >
                         <SelectTrigger
@@ -577,8 +662,7 @@ export default function Landing() {
                         value={selectedPriceVal}
                         onValueChange={(val) => {
                           setSelectedPriceVal(val);
-                          const el = document.getElementById("featured-rooms");
-                          if (el && val !== "ALL") el.scrollIntoView({ behavior: "smooth" });
+                          if (val !== "ALL") smoothScrollToElement("featured-rooms", 72);
                         }}
                       >
                         <SelectTrigger
@@ -1014,7 +1098,7 @@ export default function Landing() {
                       Tự động cập nhật
                     </div>
                     <div className="text-xs font-medium text-slate-600">
-                      Tự gỡ tin ngay khi khách nhận phòng
+                      Tự gỡ tin khi khách nhận phòng
                     </div>
                   </div>
                 </div>
@@ -1409,220 +1493,362 @@ export default function Landing() {
         </section>
 
         {/* ===== CORE PLATFORM CAPABILITIES (SWITCHABLE TENANT VS LANDLORD) ===== */}
-        <section id="how" className="bg-white py-14 lg:py-20 border-y border-slate-200/70">
+        <section id="how" className="bg-white/60 backdrop-blur-[2px] py-14 lg:py-20 border-y border-slate-200/70">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
             <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
               <div className="max-w-2xl">
-                <h2 className="font-display text-2xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-                  Giải quyết trọn vẹn bài toán thuê trọ & ở ghép thực tế
+                <h2 className="font-display text-2xl font-extrabold tracking-tight text-slate-900 sm:text-4xl text-balance">
+                  Giải quyết trọn vẹn bài toán thuê trọ & ở ghép{"\u00A0"}thực{"\u00A0"}tế
                 </h2>
-                <p className="mt-2.5 text-sm sm:text-base text-slate-600 leading-relaxed">
-                  Không chỉ là trang đăng tin rao vặt — Phòng Trọ Xanh đồng hành từ bước tìm phòng, so khớp người ở ghép, hẹn lịch xem phòng cho tới khi bàn giao nhận phòng.
+                <p className="mt-2.5 text-sm sm:text-base text-slate-600 leading-relaxed text-pretty">
+                  Không chỉ là trang đăng tin rao vặt — Phòng Trọ Xanh đồng hành từ bước tìm phòng, so khớp người ở ghép, hẹn lịch xem phòng cho tới khi bàn giao nhận{"\u00A0"}phòng.
                 </p>
               </div>
 
               {/* Role Switcher */}
-              <div className="inline-flex rounded-2xl border border-slate-200 bg-slate-100/80 p-1.5 self-start">
+              <div className="inline-flex rounded-2xl border border-slate-200 bg-slate-100/80 p-1.5 self-start shrink-0">
                 <button
                   type="button"
                   onClick={() => setActiveRoleView("tenant")}
-                  className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150 cursor-pointer sm:text-sm ${
+                  className={`relative flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-colors duration-150 cursor-pointer sm:text-sm ${
                     activeRoleView === "tenant"
-                      ? "bg-white text-emerald-800 shadow-xs"
+                      ? "text-emerald-800"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  <Users className="size-4" />
-                  Dành cho Người đi thuê
+                  {activeRoleView === "tenant" && (
+                    <motion.span
+                      layoutId="how-role-active-pill"
+                      transition={{ duration: 0.24, ease: EASE_OUT_CURVE }}
+                      className="absolute inset-0 rounded-xl bg-white shadow-xs"
+                    />
+                  )}
+                  <Users className="relative z-10 size-4" />
+                  <span className="relative z-10">Dành cho Người đi thuê</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveRoleView("landlord")}
-                  className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150 cursor-pointer sm:text-sm ${
+                  className={`relative flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-colors duration-150 cursor-pointer sm:text-sm ${
                     activeRoleView === "landlord"
-                      ? "bg-white text-emerald-800 shadow-xs"
+                      ? "text-emerald-800"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  <Building2 className="size-4" />
-                  Dành cho Chủ nhà trọ
+                  {activeRoleView === "landlord" && (
+                    <motion.span
+                      layoutId="how-role-active-pill"
+                      transition={{ duration: 0.24, ease: EASE_OUT_CURVE }}
+                      className="absolute inset-0 rounded-xl bg-white shadow-xs"
+                    />
+                  )}
+                  <Building2 className="relative z-10 size-4" />
+                  <span className="relative z-10">Dành cho Chủ nhà trọ</span>
                 </button>
               </div>
             </div>
 
-            {activeRoleView === "tenant" ? (
-              <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-3xl border border-slate-200/80 bg-[#f8faf9] p-5 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="grid size-10 place-items-center rounded-2xl bg-emerald-600 text-white shadow-xs">
-                        <SlidersHorizontal className="size-5" />
-                      </span>
-                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                        Bước 1 · Minh bạch phí
-                      </span>
+            <AnimatePresence mode="wait" initial={false}>
+              {activeRoleView === "tenant" ? (
+                <motion.div
+                  key="role-tenant-grid"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.22, ease: EASE_OUT_CURVE }}
+                  className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4"
+                >
+                  {/* Step 1 */}
+                  <div className="rounded-3xl border border-slate-200/85 bg-white/95 shadow-2xs p-5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-emerald-600 text-white shadow-xs">
+                          <SlidersHorizontal className="size-5" />
+                        </span>
+                        <span className="whitespace-nowrap rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                          Bước 1 · Minh bạch phí
+                        </span>
+                      </div>
+                      <h3 className="mt-4 min-h-[2.75rem] text-[15px] leading-snug font-bold text-slate-900">
+                        Biết rõ biểu phí & sức chứa{" "}
+                        <span className="inline-block">trước khi đi xem</span>
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+                        Mỗi tin đăng đều công khai tiền thuê, tiền cọc, sức chứa tối đa và đơn giá điện, nước theo đúng mức chủ trọ niêm{"\u00A0"}yết.
+                      </p>
                     </div>
-                    <h3 className="mt-4 text-base font-bold text-slate-900">
-                      Biết rõ biểu phí & sức chứa trước khi đi xem
-                    </h3>
-                    <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-600">
-                      Mỗi tin đăng đều công khai tiền thuê, tiền cọc, số người ở tối đa và đơn giá điện, nước, dịch vụ theo đúng mức chủ trọ niêm yết.
-                    </p>
-                  </div>
-                  <div className="mt-4 rounded-2xl border border-slate-200/80 bg-white p-3 text-xs space-y-1.5">
-                    <div className="flex justify-between text-slate-600">
-                      <span>Điện, nước & dịch vụ:</span>
-                      <span className="font-bold text-slate-900">Chủ trọ niêm yết rõ</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Sức chứa phòng:</span>
-                      <span className="font-bold text-emerald-700">Ghi rõ số người tối đa</span>
+                    <div className="mt-5 rounded-2xl border border-emerald-900/10 bg-[#f4faf6] p-3 text-xs space-y-2">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-slate-800">
+                          Niêm yết rõ điện, nước & dịch vụ
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-emerald-800">
+                          Ghi rõ số người ở tối đa mỗi phòng
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="rounded-3xl border border-slate-200/80 bg-[#f8faf9] p-5 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="grid size-10 place-items-center rounded-2xl bg-emerald-600 text-white shadow-xs">
-                        <Users className="size-5" />
-                      </span>
-                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                        Bước 2 · So khớp lối sống
-                      </span>
+                  {/* Step 2 */}
+                  <div className="rounded-3xl border border-slate-200/85 bg-white/95 shadow-2xs p-5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-emerald-600 text-white shadow-xs">
+                          <Users className="size-5" />
+                        </span>
+                        <span className="whitespace-nowrap rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                          Bước 2 · So khớp lối sống
+                        </span>
+                      </div>
+                      <h3 className="mt-4 min-h-[2.75rem] text-[15px] leading-snug font-bold text-slate-900">
+                        Ghép bạn ở ghép tương đồng{" "}
+                        <span className="inline-block">theo 5 tiêu chí sống</span>
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+                        Đối chiếu trực tiếp khảo sát của bạn với thành viên khác để gợi ý người cùng khu vực, ngân sách và thói quen{"\u00A0"}sinh{"\u00A0"}hoạt.
+                      </p>
                     </div>
-                    <h3 className="mt-4 text-base font-bold text-slate-900">
-                      Ghép bạn ở ghép theo 5 tiêu chí sinh hoạt
-                    </h3>
-                    <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-600">
-                      Hệ thống đối chiếu trực tiếp câu trả lời khảo sát của bạn với thành viên khác để gợi ý người cùng khu vực, ngân sách và thói quen sống.
-                    </p>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-1.5 rounded-2xl border border-slate-200/80 bg-white p-3 text-[11px] font-semibold text-emerald-800">
-                    <span className="rounded-md bg-emerald-50 px-2 py-0.5">Ngân sách</span>
-                    <span className="rounded-md bg-emerald-50 px-2 py-0.5">Khu vực</span>
-                    <span className="rounded-md bg-emerald-50 px-2 py-0.5">Giờ giấc</span>
-                    <span className="rounded-md bg-emerald-50 px-2 py-0.5">Mức độ sạch sẽ</span>
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border border-slate-200/80 bg-[#f8faf9] p-5 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="grid size-10 place-items-center rounded-2xl bg-emerald-600 text-white shadow-xs">
-                        <CalendarCheck className="size-5" />
-                      </span>
-                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                        Bước 3 · Hẹn xem & Nhận phòng
-                      </span>
+                    <div className="mt-5 rounded-2xl border border-emerald-900/10 bg-[#f4faf6] p-3 text-xs space-y-2">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-slate-800">
+                          So khớp khu vực, ngân sách, giờ giấc
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-emerald-800">
+                          Đối chiếu mức độ sạch sẽ & lối sống
+                        </span>
+                      </div>
                     </div>
-                    <h3 className="mt-4 text-base font-bold text-slate-900">
-                      Đặt lịch hẹn & xác nhận bàn giao 2 chiều
-                    </h3>
-                    <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-600">
-                      Chọn ngày hẹn xem phòng và ngày dự kiến dọn vào. Khi nhận bàn giao thành công, phòng tự động chuyển sang trạng thái Đã thuê.
-                    </p>
                   </div>
-                  <div className="mt-4 rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-3 text-xs text-emerald-900 font-medium flex items-center gap-2">
-                    <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-                    Lưu trữ hợp đồng & thông tin chủ trọ trong "Phòng của tôi"
-                  </div>
-                </div>
 
-                <div className="rounded-3xl border border-slate-200/80 bg-[#f8faf9] p-5 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="grid size-10 place-items-center rounded-2xl bg-emerald-600 text-white shadow-xs">
-                        <Repeat className="size-5" />
-                      </span>
-                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                        Bước 4 · Linh hoạt chuyển đổi
-                      </span>
+                  {/* Step 3 */}
+                  <div className="rounded-3xl border border-slate-200/85 bg-white/95 shadow-2xs p-5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-emerald-600 text-white shadow-xs">
+                          <CalendarCheck className="size-5" />
+                        </span>
+                        <span className="whitespace-nowrap rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                          Bước 3 · Hẹn & Nhận phòng
+                        </span>
+                      </div>
+                      <h3 className="mt-4 min-h-[2.75rem] text-[15px] leading-snug font-bold text-slate-900">
+                        Đặt lịch hẹn xem phòng &{" "}
+                        <span className="inline-block">nhận bàn giao 2 chiều</span>
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+                        Chọn ngày hẹn xem phòng và ngày dự kiến dọn vào. Khi nhận bàn giao thành công, phòng tự động chuyển sang trạng thái Đã{"\u00A0"}thuê.
+                      </p>
                     </div>
-                    <h3 className="mt-4 text-base font-bold text-slate-900">
-                      Đổi phòng & Sang nhượng hợp đồng
-                    </h3>
-                    <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-600">
-                      Khi đổi cơ sở học hoặc nơi thực tập, bạn có thể đăng tin tìm người nhận nhượng lại hợp đồng dưới sự phê duyệt minh bạch của chủ trọ.
-                    </p>
+                    <div className="mt-5 rounded-2xl border border-emerald-900/10 bg-[#f4faf6] p-3 text-xs space-y-2">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-slate-800">
+                          Cố định mức giá lúc gửi lịch hẹn
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-emerald-800">
+                          Lưu hợp đồng tại mục Phòng của tôi
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-4 rounded-2xl border border-slate-200/80 bg-white p-3 text-xs text-slate-600 flex items-center justify-between">
-                    <span>Chuyển quyền thuê hợp lệ</span>
-                    <span className="font-bold text-emerald-700">Bảo toàn tiền cọc</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-3xl border border-slate-200/80 bg-[#f8faf9] p-5 flex flex-col justify-between">
-                  <div>
-                    <span className="grid size-10 place-items-center rounded-2xl bg-emerald-700 text-white shadow-xs">
-                      <Building2 className="size-5" />
-                    </span>
-                    <h3 className="mt-4 text-base font-bold text-slate-900">
-                      Đăng phòng trực quan & Không lo hết hạn tin
-                    </h3>
-                    <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-600">
-                      Nhập rõ diện tích, số người ở tối đa và các khoản phí. Tin đăng duy trì hiển thị cho đến khi có khách nhận phòng hoặc chủ trọ chủ động tạm ẩn.
-                    </p>
-                  </div>
-                  <div className="mt-4 rounded-2xl border border-slate-200/80 bg-white p-3 text-xs font-semibold text-emerald-800">
-                    ✓ Không tự động ẩn tin sau 30 ngày
-                  </div>
-                </div>
 
-                <div className="rounded-3xl border border-slate-200/80 bg-[#f8faf9] p-5 flex flex-col justify-between">
-                  <div>
-                    <span className="grid size-10 place-items-center rounded-2xl bg-emerald-700 text-white shadow-xs">
-                      <FileCheck2 className="size-5" />
-                    </span>
-                    <h3 className="mt-4 text-base font-bold text-slate-900">
-                      Xem trước hồ sơ & Điểm uy tín người thuê
-                    </h3>
-                    <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-600">
-                      Trước khi duyệt lịch hẹn xem phòng, chủ trọ xem rõ Điểm Uy Tín, trạng thái xác minh CCCD, trường học/nơi làm việc và lời nhắn của khách thuê.
-                    </p>
+                  {/* Step 4 */}
+                  <div className="rounded-3xl border border-slate-200/85 bg-white/95 shadow-2xs p-5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-emerald-600 text-white shadow-xs">
+                          <Star className="size-5" />
+                        </span>
+                        <span className="whitespace-nowrap rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                          Bước 4 · Điểm Uy Tín
+                        </span>
+                      </div>
+                      <h3 className="mt-4 min-h-[2.75rem] text-[15px] leading-snug font-bold text-slate-900">
+                        Đánh giá thực tế hai chiều &{" "}
+                        <span className="inline-block">tích lũy Điểm Uy Tín</span>
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+                        Sau khi nhận bàn giao phòng, bạn có quyền chấm sao, viết đánh giá thực tế và tích lũy Điểm Uy Tín cho hồ sơ cá{"\u00A0"}nhân.
+                      </p>
+                    </div>
+                    <div className="mt-5 rounded-2xl border border-emerald-900/10 bg-[#f4faf6] p-3 text-xs space-y-2">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-slate-800">
+                          100% đánh giá từ người thuê thật
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-emerald-800">
+                          Cộng +15đ Uy Tín lịch sử thuê trọ
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-4 rounded-2xl border border-slate-200/80 bg-white p-3 text-xs font-semibold text-slate-700">
-                    ✓ Chủ động Duyệt hoặc Từ chối kèm lý do rõ ràng
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="role-landlord-grid"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.22, ease: EASE_OUT_CURVE }}
+                  className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4"
+                >
+                  {/* Landlord Step 1 */}
+                  <div className="rounded-3xl border border-slate-200/85 bg-white/95 shadow-2xs p-5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-emerald-700 text-white shadow-xs">
+                          <Building2 className="size-5" />
+                        </span>
+                        <span className="whitespace-nowrap rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                          Bước 1 · Đăng tin nhanh
+                        </span>
+                      </div>
+                      <h3 className="mt-4 min-h-[2.75rem] text-[15px] leading-snug font-bold text-slate-900">
+                        Đăng phòng trực quan &{" "}
+                        <span className="inline-block">không lo hết hạn tin</span>
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+                        Nhập rõ diện tích, sức chứa tối đa và biểu phí. Tin đăng luôn hiển thị cho đến khi có khách nhận phòng hoặc bạn tạm{"\u00A0"}ẩn.
+                      </p>
+                    </div>
+                    <div className="mt-5 rounded-2xl border border-emerald-900/10 bg-[#f4faf6] p-3 text-xs space-y-2">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-slate-800">
+                          Không tự động ẩn tin sau 30 ngày
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-emerald-800">
+                          Tự do bật/tắt hiển thị bất kỳ lúc nào
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                <div className="rounded-3xl border border-slate-200/80 bg-[#f8faf9] p-5 flex flex-col justify-between">
-                  <div>
-                    <span className="grid size-10 place-items-center rounded-2xl bg-emerald-700 text-white shadow-xs">
-                      <CheckCircle2 className="size-5" />
-                    </span>
-                    <h3 className="mt-4 text-base font-bold text-slate-900">
-                      Đẩy tin nổi bật minh bạch
-                    </h3>
-                    <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-600">
-                      Khi kích hoạt đẩy tin 7 ngày, phòng được gắn huy hiệu Nổi bật và ưu tiên hiển thị ở đầu danh sách theo đúng thời điểm kích hoạt mới nhất.
-                    </p>
+                  {/* Landlord Step 2 */}
+                  <div className="rounded-3xl border border-slate-200/85 bg-white/95 shadow-2xs p-5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-emerald-700 text-white shadow-xs">
+                          <FileCheck2 className="size-5" />
+                        </span>
+                        <span className="whitespace-nowrap rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                          Bước 2 · Duyệt khách thuê
+                        </span>
+                      </div>
+                      <h3 className="mt-4 min-h-[2.75rem] text-[15px] leading-snug font-bold text-slate-900">
+                        Xem trước hồ sơ &{" "}
+                        <span className="inline-block">Điểm Uy Tín khách thuê</span>
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+                        Trước khi duyệt lịch hẹn xem phòng, chủ trọ nắm rõ Điểm Uy Tín, trạng thái CCCD, nơi học tập/làm việc và lời nhắn của{"\u00A0"}khách.
+                      </p>
+                    </div>
+                    <div className="mt-5 rounded-2xl border border-emerald-900/10 bg-[#f4faf6] p-3 text-xs space-y-2">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-slate-800">
+                          Kiểm tra rõ trạng thái xác minh CCCD
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-emerald-800">
+                          Chủ động duyệt hoặc từ chối lịch hẹn
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-4 rounded-2xl border border-slate-200/80 bg-white p-3 text-xs font-semibold text-emerald-800">
-                    ✓ Tiếp cận nhanh người thuê đúng khu vực
-                  </div>
-                </div>
 
-                <div className="rounded-3xl border border-slate-200/80 bg-[#f8faf9] p-5 flex flex-col justify-between">
-                  <div>
-                    <span className="grid size-10 place-items-center rounded-2xl bg-emerald-700 text-white shadow-xs">
-                      <ShieldCheck className="size-5" />
-                    </span>
-                    <h3 className="mt-4 text-base font-bold text-slate-900">
-                      Tự động khóa tin khi bàn giao phòng
-                    </h3>
-                    <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-600">
-                      Ngay khi xác nhận bàn giao phòng cho khách thuê, hệ thống tự động chuyển phòng sang trạng thái Đã thuê để bạn không bị làm phiền bởi cuộc gọi hỏi phòng.
-                    </p>
+                  {/* Landlord Step 3 */}
+                  <div className="rounded-3xl border border-slate-200/85 bg-white/95 shadow-2xs p-5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-emerald-700 text-white shadow-xs">
+                          <CheckCircle2 className="size-5" />
+                        </span>
+                        <span className="whitespace-nowrap rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                          Bước 3 · Đẩy tin nổi bật
+                        </span>
+                      </div>
+                      <h3 className="mt-4 min-h-[2.75rem] text-[15px] leading-snug font-bold text-slate-900">
+                        Đẩy tin nổi bật minh bạch{" "}
+                        <span className="inline-block">lên đầu trang tìm kiếm</span>
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+                        Khi kích hoạt đẩy tin 7 ngày, phòng được gắn huy hiệu Nổi bật và ưu tiên hiển thị ở đầu danh sách theo thời điểm mới{"\u00A0"}nhất.
+                      </p>
+                    </div>
+                    <div className="mt-5 rounded-2xl border border-emerald-900/10 bg-[#f4faf6] p-3 text-xs space-y-2">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-slate-800">
+                          Ưu tiên hiển thị ngay trên trang chủ
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-emerald-800">
+                          Tiếp cận nhanh người thuê đúng quận
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-4 rounded-2xl border border-slate-200/80 bg-white p-3 text-xs font-semibold text-slate-700">
-                    ✓ Mở lại tin bất kỳ lúc nào khi khách trả phòng
+
+                  {/* Landlord Step 4 */}
+                  <div className="rounded-3xl border border-slate-200/85 bg-white/95 shadow-2xs p-5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-emerald-700 text-white shadow-xs">
+                          <ShieldCheck className="size-5" />
+                        </span>
+                        <span className="whitespace-nowrap rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                          Bước 4 · Quản lý tự động
+                        </span>
+                      </div>
+                      <h3 className="mt-4 min-h-[2.75rem] text-[15px] leading-snug font-bold text-slate-900">
+                        Tự động khóa tin đăng{" "}
+                        <span className="inline-block">ngay khi bàn giao phòng</span>
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+                        Khi xác nhận bàn giao phòng cho khách, hệ thống tự động chuyển phòng sang Đã thuê để bạn không bị làm phiền bởi cuộc gọi hỏi{"\u00A0"}phòng.
+                      </p>
+                    </div>
+                    <div className="mt-5 rounded-2xl border border-emerald-900/10 bg-[#f4faf6] p-3 text-xs space-y-2">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-slate-800">
+                          Tự gỡ khỏi danh sách khi đủ khách
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+                        <span className="truncate font-semibold text-emerald-800">
+                          Mở lại tin 1 chạm khi khách trả phòng
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </section>
 
@@ -1702,132 +1928,154 @@ export default function Landing() {
             {/* Right Interactive Policy Detail Card */}
             <div className="lg:col-span-7">
               <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-xs sm:p-7">
-                {activePolicyTab === "trustscore" && (
-                  <div className="space-y-5">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
-                      <div>
+                <AnimatePresence mode="wait" initial={false}>
+                  {activePolicyTab === "trustscore" && (
+                    <motion.div
+                      key="policy-trustscore"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.2, ease: EASE_OUT_CURVE }}
+                      className="space-y-5"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
+                        <div>
+                          <h3 className="text-lg font-extrabold text-slate-900">
+                            Cơ chế Điểm Uy Tín (Thang điểm 100)
+                          </h3>
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            Hiển thị công khai trên hồ sơ Chủ trọ và Người thuê, được cộng tự động từ thông tin xác{"\u00A0"}thực:
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-800 tabular-nums">
+                          Tối đa 100 điểm
+                        </span>
+                      </div>
+
+                      <div className="grid gap-3.5 sm:grid-cols-2">
+                        <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                          <div className="flex items-center justify-between text-sm font-bold text-slate-900">
+                            <span>1. Xác thực danh tính</span>
+                            <span className="text-emerald-700 tabular-nums">35 điểm</span>
+                          </div>
+                          <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+                            Xác thực Email/Số điện thoại (+10đ) và hoàn tất đối soát CCCD được Quản trị viên duyệt (+25đ, gắn huy hiệu Đã xác minh{"\u00A0"}CCCD).
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                          <div className="flex items-center justify-between text-sm font-bold text-slate-900">
+                            <span>2. Hồ sơ & Ảnh thực tế</span>
+                            <span className="text-emerald-700 tabular-nums">35 điểm</span>
+                          </div>
+                          <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+                            Có ảnh đại diện (+5đ), giới thiệu bản thân (+10đ), trường học/nơi làm việc (+10đ) và tiêu chí khu vực, ngân{"\u00A0"}sách{"\u00A0"}(+10đ).
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                          <div className="flex items-center justify-between text-sm font-bold text-slate-900">
+                            <span>3. Đánh giá cộng đồng</span>
+                            <span className="text-emerald-700 tabular-nums">15 điểm</span>
+                          </div>
+                          <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+                            Điểm trung bình từ các đánh giá 2 chiều hợp lệ sau khi ở thực tế và lịch sử hoạt động văn minh, không vi phạm quy{"\u00A0"}tắc.
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                          <div className="flex items-center justify-between text-sm font-bold text-slate-900">
+                            <span>4. Lịch sử nhận phòng</span>
+                            <span className="text-emerald-700 tabular-nums">15 điểm</span>
+                          </div>
+                          <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+                            Hoàn tất bàn giao nhận phòng thực tế trên hệ thống và duy trì lịch sử hợp đồng thuê trọ minh{"\u00A0"}bạch.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-4 text-xs leading-relaxed text-emerald-950 flex items-start gap-3">
+                        <Lock className="size-4 text-emerald-700 shrink-0 mt-0.5" />
+                        <div>
+                          <strong>Bảo mật tuyệt đối giấy tờ tùy thân:</strong> Hình ảnh và thông tin CCCD chỉ dùng duy nhất cho việc đối soát danh tính của Quản trị viên, được bảo mật nghiêm ngặt và không hiển thị công khai cho bất kỳ người dùng nào{"\u00A0"}khác.
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {activePolicyTab === "workflow" && (
+                    <motion.div
+                      key="policy-workflow"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.2, ease: EASE_OUT_CURVE }}
+                      className="space-y-5"
+                    >
+                      <div className="border-b border-slate-100 pb-4">
                         <h3 className="text-lg font-extrabold text-slate-900">
-                          Cơ chế Điểm Uy Tín (Thang điểm 100)
+                          Quy trình Đặt lịch xem phòng, Nhận bàn giao & Bảo vệ hợp đồng
                         </h3>
                         <p className="mt-0.5 text-xs text-slate-500">
-                          Hiển thị công khai trên hồ sơ Chủ trọ và Người thuê, được cộng tự động từ thông tin xác thực:
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-800 tabular-nums">
-                        Tối đa 100 điểm
-                      </span>
-                    </div>
-
-                    <div className="grid gap-3.5 sm:grid-cols-2">
-                      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                        <div className="flex items-center justify-between text-sm font-bold text-slate-900">
-                          <span>1. Xác thực danh tính</span>
-                          <span className="text-emerald-700 tabular-nums">35 điểm</span>
-                        </div>
-                        <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
-                          Xác thực Email/Số điện thoại (+10đ) và hoàn tất đối soát Căn cước công dân (CCCD) được Quản trị viên duyệt (+25đ, gắn huy hiệu Đã xác minh CCCD).
+                          Mọi thao tác từ lúc gửi yêu cầu đến khi thanh lý hợp đồng đều được ghi nhận rõ ràng cho cả hai{"\u00A0"}bên:
                         </p>
                       </div>
 
-                      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                        <div className="flex items-center justify-between text-sm font-bold text-slate-900">
-                          <span>2. Hồ sơ & Ảnh thực tế</span>
-                          <span className="text-emerald-700 tabular-nums">35 điểm</span>
+                      <div className="space-y-3.5">
+                        <div className="flex gap-3.5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-emerald-600 text-xs font-bold text-white">
+                            1
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900">
+                              Đặt lịch hẹn xem phòng & cố định mức giá niêm yết
+                            </h4>
+                            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                              Người thuê chọn ngày hẹn xem phòng trực tiếp kèm ngày dự kiến dọn vào. Hệ thống ghi nhận ngay mức giá thuê và tiền cọc tại thời điểm gửi yêu cầu để tránh việc tự ý tăng giá khi khách đến{"\u00A0"}xem.
+                            </p>
+                          </div>
                         </div>
-                        <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
-                          Có ảnh đại diện (+5đ), giới thiệu bản thân (+10đ), trường học/nơi làm việc hoặc địa chỉ chủ trọ (+10đ) và tiêu chí khu vực/ngân sách (+10đ).
-                        </p>
-                      </div>
 
-                      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                        <div className="flex items-center justify-between text-sm font-bold text-slate-900">
-                          <span>3. Đánh giá cộng đồng</span>
-                          <span className="text-emerald-700 tabular-nums">15 điểm</span>
+                        <div className="flex gap-3.5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-emerald-600 text-xs font-bold text-white">
+                            2
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900">
+                              Chủ trọ duyệt lịch hẹn → Nhận bàn giao → Tự động đóng tin phòng
+                            </h4>
+                            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                              Khi chủ trọ duyệt yêu cầu, hệ thống báo ngay cho người thuê. Sau khi xem phòng và xác nhận bàn giao nhận phòng thực tế, hợp đồng có hiệu lực và tin phòng tự động chuyển sang trạng thái <strong>Đã{"\u00A0"}thuê</strong>.
+                            </p>
+                          </div>
                         </div>
-                        <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
-                          Điểm trung bình từ các đánh giá 2 chiều hợp lệ sau khi ở thực tế và lịch sử hoạt động văn minh, không vi phạm quy tắc.
-                        </p>
-                      </div>
 
-                      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                        <div className="flex items-center justify-between text-sm font-bold text-slate-900">
-                          <span>4. Lịch sử nhận phòng</span>
-                          <span className="text-emerald-700 tabular-nums">15 điểm</span>
-                        </div>
-                        <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
-                          Hoàn tất bàn giao nhận phòng thực tế trên hệ thống và duy trì lịch sử hợp đồng thuê trọ minh bạch.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-4 text-xs leading-relaxed text-emerald-950 flex items-start gap-3">
-                      <Lock className="size-4 text-emerald-700 shrink-0 mt-0.5" />
-                      <div>
-                        <strong>Bảo mật tuyệt đối giấy tờ tùy thân:</strong> Hình ảnh và thông tin CCCD chỉ dùng duy nhất cho việc đối soát danh tính của Quản trị viên, được bảo mật nghiêm ngặt và không hiển thị công khai cho bất kỳ người dùng nào khác.
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activePolicyTab === "workflow" && (
-                  <div className="space-y-5">
-                    <div className="border-b border-slate-100 pb-4">
-                      <h3 className="text-lg font-extrabold text-slate-900">
-                        Quy trình Đặt lịch xem phòng, Nhận bàn giao & Bảo vệ hợp đồng
-                      </h3>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        Mọi thao tác từ lúc gửi yêu cầu đến khi thanh lý hợp đồng đều được ghi nhận rõ ràng cho cả hai bên:
-                      </p>
-                    </div>
-
-                    <div className="space-y-3.5">
-                      <div className="flex gap-3.5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-emerald-600 text-xs font-bold text-white">
-                          1
-                        </span>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900">
-                            Đặt lịch hẹn xem phòng & cố định mức giá niêm yết
-                          </h4>
-                          <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                            Người thuê chọn ngày hẹn xem phòng trực tiếp kèm ngày dự kiến dọn vào. Hệ thống ghi nhận ngay mức giá thuê và tiền cọc tại thời điểm gửi yêu cầu để tránh việc tự ý tăng giá khi khách đến xem.
-                          </p>
+                        <div className="flex gap-3.5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-emerald-600 text-xs font-bold text-white">
+                            3
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900">
+                              Chỉ người đã nhận phòng thực tế mới được viết đánh giá
+                            </h4>
+                            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                              Để ngăn chặn đánh giá ảo hoặc chơi xấu giữa các chủ trọ, chỉ người thuê có hợp đồng đã hoàn tất nhận phòng thực tế tại phòng đó mới có quyền đăng đánh giá công{"\u00A0"}khai.
+                            </p>
+                          </div>
                         </div>
                       </div>
+                    </motion.div>
+                  )}
 
-                      <div className="flex gap-3.5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-emerald-600 text-xs font-bold text-white">
-                          2
-                        </span>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900">
-                            Chủ trọ duyệt lịch hẹn → Nhận bàn giao → Tự động đóng tin phòng
-                          </h4>
-                          <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                            Khi chủ trọ duyệt yêu cầu, hệ thống báo ngay cho người thuê. Sau khi xem phòng và xác nhận bàn giao nhận phòng thực tế, hợp đồng có hiệu lực và tin phòng tự động chuyển sang trạng thái <strong>Đã thuê</strong>.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3.5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-emerald-600 text-xs font-bold text-white">
-                          3
-                        </span>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900">
-                            Chỉ người đã nhận phòng thực tế mới được viết đánh giá
-                          </h4>
-                          <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                            Để ngăn chặn đánh giá ảo hoặc chơi xấu giữa các chủ trọ, chỉ người thuê có hợp đồng đã hoàn tất nhận phòng thực tế tại phòng đó mới có quyền đăng đánh giá công khai.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activePolicyTab === "strikes" && (
-                  <div className="space-y-5">
+                  {activePolicyTab === "strikes" && (
+                    <motion.div
+                      key="policy-strikes"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.2, ease: EASE_OUT_CURVE }}
+                      className="space-y-5"
+                    >
                     <div className="border-b border-slate-100 pb-4">
                       <h3 className="text-lg font-extrabold text-slate-900">
                         Quy định Kiểm soát Vi phạm 3 cấp độ
@@ -1838,55 +2086,62 @@ export default function Landing() {
                     </div>
 
                     <div className="grid gap-3.5 sm:grid-cols-3">
-                      <div className="rounded-2xl border border-amber-200/80 bg-amber-50/50 p-4">
-                        <span className="inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">
-                          Vi phạm lần 1
-                        </span>
-                        <p className="mt-2 text-sm font-bold text-slate-900">
-                          Nhắc nhở & Trừ 15đ Uy tín
-                        </p>
-                        <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                          Gỡ nội dung sai quy định, trừ 15 điểm uy tín và gửi cảnh báo chính thức vào tài khoản.
-                        </p>
+                      <div className="rounded-2xl border border-amber-200/80 bg-amber-50/50 p-4 flex flex-col justify-between">
+                        <div>
+                          <span className="inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">
+                            Vi phạm lần 1
+                          </span>
+                          <p className="mt-2 text-sm font-bold text-slate-900">
+                            Nhắc nhở & Trừ 15đ
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                            Gỡ nội dung sai quy định, trừ 15 điểm uy tín và gửi cảnh báo chính thức vào tài{"\u00A0"}khoản.
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="rounded-2xl border border-orange-200/80 bg-orange-50/50 p-4">
-                        <span className="inline-block rounded-full bg-orange-100 px-2.5 py-0.5 text-[11px] font-bold text-orange-900">
-                          Vi phạm lần 2
-                        </span>
-                        <p className="mt-2 text-sm font-bold text-slate-900">
-                          Cảnh cáo & Trừ 25đ Uy tín
-                        </p>
-                        <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                          Gỡ tin đăng sai phạm, trừ tiếp 25 điểm uy tín và hạn chế quyền ưu tiên hiển thị trên toàn hệ thống.
-                        </p>
+                      <div className="rounded-2xl border border-orange-200/80 bg-orange-50/50 p-4 flex flex-col justify-between">
+                        <div>
+                          <span className="inline-block rounded-full bg-orange-100 px-2.5 py-0.5 text-[11px] font-bold text-orange-900">
+                            Vi phạm lần 2
+                          </span>
+                          <p className="mt-2 text-sm font-bold text-slate-900">
+                            Cảnh cáo & Trừ 25đ
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                            Gỡ tin đăng sai phạm, trừ tiếp 25 điểm uy tín và hạn chế quyền ưu tiên hiển{"\u00A0"}thị.
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="rounded-2xl border border-red-200/80 bg-red-50/50 p-4">
-                        <span className="inline-block rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-bold text-red-900">
-                          Vi phạm lần 3
-                        </span>
-                        <p className="mt-2 text-sm font-bold text-slate-900">
-                          Khóa vĩnh viễn (0đ)
-                        </p>
-                        <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                          Khóa tài khoản, ẩn toàn bộ phòng đang đăng và đưa điểm uy tín về 0 để bảo vệ cộng đồng.
-                        </p>
+                      <div className="rounded-2xl border border-red-200/80 bg-red-50/50 p-4 flex flex-col justify-between">
+                        <div>
+                          <span className="inline-block rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-bold text-red-900">
+                            Vi phạm lần 3
+                          </span>
+                          <p className="mt-2 text-sm font-bold text-slate-900">
+                            Khóa vĩnh viễn (0đ)
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                            Khóa tài khoản, ẩn toàn bộ phòng đang đăng và đưa điểm uy tín về 0 để bảo vệ cộng{"\u00A0"}đồng.
+                          </p>
+                        </div>
                       </div>
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
-                      <strong className="text-slate-900">Căn cứ pháp lý & Điều khoản dịch vụ trả phí:</strong> Theo Điều 423, Điều 428 Bộ luật Dân sự 2015 và Nghị định 52/2013/NĐ-CP (sửa đổi bởi Nghị định 85/2021/NĐ-CP), tài khoản bị khóa do đạt mức vi phạm lần 3 sẽ không được hoàn lại phí các gói dịch vụ đẩy tin/VIP đã mua. Người dùng có quyền gửi khiếu nại kèm bằng chứng đối chất trong vòng 07 ngày.
+                      <strong className="text-slate-900">Căn cứ pháp lý & Điều khoản dịch vụ trả phí:</strong> Theo Điều 423, Điều 428 Bộ luật Dân sự 2015 và Nghị định 52/2013/NĐ-CP (sửa đổi bởi Nghị định 85/2021/NĐ-CP), tài khoản bị khóa do đạt mức vi phạm lần 3 sẽ không được hoàn lại phí các gói dịch vụ đẩy tin/VIP đã mua. Người dùng có quyền gửi khiếu nại kèm bằng chứng đối chất trong vòng 07{"\u00A0"}ngày.
                     </div>
-                  </div>
-                )}
+                  </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
         </section>
 
         {/* ===== REAL COMMUNITY FEEDBACKS & INTERACTIVE FAQ ===== */}
-        <section className="bg-white py-14 lg:py-20 border-t border-slate-200/70">
+        <section className="bg-white/60 backdrop-blur-[2px] py-14 lg:py-20 border-t border-slate-200/70">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
             <div className="grid gap-10 lg:grid-cols-12">
               {/* Left 6 cols: Real System Feedbacks from API */}
@@ -2083,13 +2338,245 @@ export default function Landing() {
           </div>
         </section>
 
-        <Footer />
+          <Footer />
+        </div>
         <AuthPromptModal
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
         />
       </main>
     </PageTransition>
+  );
+}
+
+/* ── Zero-Lag Native 2D Canvas Particle Backdrop (Synced with Login Page Aesthetic, 0 KB Extra Bundle) ── */
+
+interface AmbientParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  color: string;
+  alpha: number;
+  shape: "circle" | "square";
+  rot: number;
+  vRot: number;
+  depth: number;
+  phase: number;
+  freq: number;
+}
+
+const PARTICLE_COLORS = ["#10b981", "#059669", "#34d399", "#0d9488", "#6ee7b7"] as const;
+
+function drawRoundedSquare(
+  ctx: CanvasRenderingContext2D,
+  half: number,
+  radius: number
+) {
+  const r = Math.min(radius, half);
+  ctx.beginPath();
+  ctx.moveTo(-half + r, -half);
+  ctx.lineTo(half - r, -half);
+  ctx.quadraticCurveTo(half, -half, half, -half + r);
+  ctx.lineTo(half, half - r);
+  ctx.quadraticCurveTo(half, half, half - r, half);
+  ctx.lineTo(-half + r, half);
+  ctx.quadraticCurveTo(-half, half, -half, half - r);
+  ctx.lineTo(-half, -half + r);
+  ctx.quadraticCurveTo(-half, -half, -half + r, -half);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function LandingAmbientBackdrop() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d", { alpha: true });
+    if (!ctx) return;
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    const resize = () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+
+    // Scale particle count smoothly by viewport width (64 on mobile -> 120 on desktop)
+    const count = width < 640 ? 64 : width < 1024 ? 92 : 120;
+    const particles: AmbientParticle[] = Array.from({ length: count }, (_, i) => {
+      const inOuterFlank = i % 3 !== 0;
+      let normX = Math.random();
+      if (inOuterFlank) {
+        normX = Math.random() < 0.5 ? Math.random() * 0.28 : 0.72 + Math.random() * 0.28;
+      }
+      const isSquare = i % 5 === 1;
+      const depth = 0.45 + Math.random() * 0.85;
+      const baseAlpha = inOuterFlank
+        ? 0.26 + Math.random() * 0.26
+        : 0.15 + Math.random() * 0.16;
+
+      return {
+        x: normX * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.55 * depth,
+        vy: (-0.38 - Math.random() * 0.52) * depth,
+        size: isSquare ? 6.5 + Math.random() * 5.5 : 4.0 + Math.random() * 5.5,
+        color: PARTICLE_COLORS[i % PARTICLE_COLORS.length],
+        alpha: baseAlpha,
+        shape: isSquare ? "square" : "circle",
+        rot: Math.random() * Math.PI * 2,
+        vRot: (i % 2 === 0 ? 1 : -1) * (0.008 + Math.random() * 0.012),
+        depth,
+        phase: Math.random() * Math.PI * 2,
+        freq: 0.0011 + Math.random() * 0.001,
+      };
+    });
+
+    let targetMouseX = 0;
+    let targetMouseY = 0;
+    let currentMouseX = 0;
+    let currentMouseY = 0;
+
+    const onPointerMove = (e: PointerEvent) => {
+      targetMouseX = (e.clientX / Math.max(1, width) - 0.5) * 38;
+      targetMouseY = (e.clientY / Math.max(1, height) - 0.5) * 28;
+    };
+
+    let rafId = 0;
+    let isRunning = false;
+    let lastTime = performance.now();
+
+    const renderFrame = (now: number) => {
+      const dt = Math.min(32, Math.max(8, now - lastTime)) / 16.667;
+      lastTime = now;
+
+      ctx.clearRect(0, 0, width, height);
+
+      currentMouseX += (targetMouseX - currentMouseX) * 0.05 * dt;
+      currentMouseY += (targetMouseY - currentMouseY) * 0.05 * dt;
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+
+        p.x += (p.vx + Math.sin(now * p.freq + p.phase) * 0.32 * p.depth) * dt;
+        p.y += (p.vy + Math.cos(now * p.freq + p.phase) * 0.16 * p.depth) * dt;
+        p.rot += p.vRot * dt;
+
+        if (p.y < -28) p.y = height + 28;
+        else if (p.y > height + 28) p.y = -28;
+        if (p.x < -28) p.x = width + 28;
+        else if (p.x > width + 28) p.x = -28;
+
+        const drawX = p.x + currentMouseX * p.depth;
+        const drawY = p.y + currentMouseY * p.depth;
+
+        const centerDistX = Math.abs(drawX / Math.max(1, width) - 0.5) * 2;
+        const centerMask = 0.65 + 0.35 * Math.min(1, centerDistX * 1.3);
+        const pulse = 0.82 + 0.18 * Math.sin(now * 0.0018 + p.phase);
+
+        ctx.globalAlpha = p.alpha * centerMask * pulse;
+        ctx.fillStyle = p.color;
+
+        if (p.shape === "circle") {
+          ctx.beginPath();
+          ctx.arc(drawX, drawY, p.size * 0.5, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.save();
+          ctx.translate(drawX, drawY);
+          ctx.rotate(p.rot);
+          drawRoundedSquare(ctx, p.size * 0.5, 2.4);
+          ctx.restore();
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      if (!document.hidden) {
+        rafId = window.requestAnimationFrame(renderFrame);
+      } else {
+        isRunning = false;
+      }
+    };
+
+    const startLoop = () => {
+      if (isRunning) return;
+      isRunning = true;
+      lastTime = performance.now();
+      rafId = window.requestAnimationFrame(renderFrame);
+    };
+
+    const stopLoop = () => {
+      if (rafId) window.cancelAnimationFrame(rafId);
+      isRunning = false;
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        stopLoop();
+      } else {
+        startLoop();
+      }
+    };
+
+    window.addEventListener("resize", resize, { passive: true });
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    startLoop();
+
+    return () => {
+      stopLoop();
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed inset-0 z-0 overflow-hidden select-none"
+    >
+      {/* Layer 1: Soft Ambient Emerald & Mint Mesh Pools */}
+      <div
+        className="absolute -top-28 -left-24 h-[28rem] w-[28rem] rounded-full opacity-55 blur-3xl"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(16,185,129,0.13) 0%, rgba(16,185,129,0) 70%)",
+        }}
+      />
+      <div
+        className="absolute top-[22%] -right-28 h-[32rem] w-[32rem] rounded-full opacity-50 blur-3xl"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(5,150,105,0.11) 0%, rgba(5,150,105,0) 70%)",
+        }}
+      />
+      <div
+        className="absolute bottom-[-8rem] left-[18%] h-[26rem] w-[36rem] rounded-full opacity-45 blur-3xl"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(20,184,166,0.1) 0%, rgba(20,184,166,0) 70%)",
+        }}
+      />
+
+      {/* Layer 2: Real-time 60fps HTML5 2D Canvas Floating Emerald Circles & Rounded Squares */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 h-full w-full"
+      />
+    </div>
   );
 }
 
@@ -2268,6 +2755,13 @@ interface LandingNavbarProps {
 
 function LandingNavbar({ user, role }: LandingNavbarProps) {
   const [scrolled, setScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState<string>("");
+  const [pillMetrics, setPillMetrics] = useState<{
+    left: number;
+    width: number;
+    visible: boolean;
+  }>({ left: 0, width: 0, visible: false });
+  const linkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const loc = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -2299,28 +2793,84 @@ function LandingNavbar({ user, role }: LandingNavbarProps) {
           { label: "Tìm phòng", to: "/discover" },
           { label: "Ghép bạn", to: "/roommates" },
           { label: "Phòng của tôi", to: "/rentals/me" },
-          { label: "Đổi phòng", to: "/swap" },
           { label: "Tin nhắn", to: "/chat" },
         ];
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
+    const sectionIds = ["featured-rooms", "how", "policies", "faq"];
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 12);
+
+      // Do not let intermediate scroll positions override activeSection while programmatic smooth-scroll is running
+      if (activeScrollRafId !== null) return;
+
+      if (y < 260) {
+        setActiveSection("");
+        return;
+      }
+
+      let current = "";
+      for (const id of sectionIds) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= 180) {
+          current = `#${id}`;
+        }
+      }
+      setActiveSection(current);
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Measure active link offsetLeft/offsetWidth relative to nav container (immune to scrollY / layoutId jitter)
+  useEffect(() => {
+    const updatePill = () => {
+      if (!activeSection) {
+        setPillMetrics((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+        return;
+      }
+      const targetEl = linkRefs.current[activeSection];
+      if (!targetEl) {
+        setPillMetrics((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+        return;
+      }
+      setPillMetrics({
+        left: targetEl.offsetLeft,
+        width: targetEl.offsetWidth,
+        visible: true,
+      });
+    };
+
+    updatePill();
+    window.addEventListener("resize", updatePill, { passive: true });
+    return () => window.removeEventListener("resize", updatePill);
+  }, [activeSection]);
+
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 transition-all duration-200 ${
+      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
         scrolled
-          ? "bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-[0_4px_20px_-12px_rgba(6,95,70,0.18)]"
-          : "bg-[#f8faf9]"
+          ? "bg-white/72 backdrop-blur-md border-b border-slate-200/75 shadow-[0_4px_20px_-12px_rgba(6,95,70,0.15)]"
+          : "bg-transparent border-b border-transparent"
       }`}
     >
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
         {/* Brand Logo */}
-        <Link to="/" className="flex items-center gap-2.5 group">
+        <Link
+          to="/"
+          onClick={(e) => {
+            if (loc.pathname === "/") {
+              e.preventDefault();
+              setActiveSection("");
+              smoothScrollToY(0);
+            }
+          }}
+          className="flex items-center gap-2.5 group"
+        >
           <span className="grid size-9 place-items-center rounded-xl bg-emerald-600 text-white shadow-[0_6px_16px_-6px_rgba(5,150,105,0.65)] transition-transform duration-150 group-hover:scale-105">
             <svg width="18" height="18" viewBox="0 0 32 32" fill="currentColor">
               <path d="M16 6l10 7.5V26h-6.5v-7.5h-7V26H6V13.5L16 6z" />
@@ -2332,22 +2882,45 @@ function LandingNavbar({ user, role }: LandingNavbarProps) {
         </Link>
 
         {/* Center Navigation */}
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="relative hidden items-center gap-1 md:flex">
+          {!user && (
+            <span
+              aria-hidden="true"
+              style={{
+                transform: `translate3d(${pillMetrics.left}px, 0, 0)`,
+                width: `${pillMetrics.width}px`,
+                opacity: pillMetrics.visible ? 1 : 0,
+              }}
+              className="pointer-events-none absolute inset-y-0 left-0 rounded-full bg-emerald-100/85 border border-emerald-600/20 transition-[transform,width,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[transform,width,opacity]"
+            />
+          )}
           {!user
-            ? guestSectionLinks.map((item) => (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const target = document.querySelector(item.href);
-                    if (target) target.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-emerald-50/80 hover:text-emerald-800"
-                >
-                  {item.label}
-                </a>
-              ))
+            ? guestSectionLinks.map((item) => {
+                const isActive = activeSection === item.href;
+                return (
+                  <a
+                    key={item.label}
+                    ref={(el) => {
+                      linkRefs.current[item.href] = el;
+                    }}
+                    href={item.href}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActiveSection(item.href);
+                      // #faq is inside a 2-column section, so use slightly larger top breathing room
+                      const offset = item.href === "#faq" ? 96 : 68;
+                      smoothScrollToElement(item.href, offset);
+                    }}
+                    className={`relative z-10 rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200 active:scale-95 ${
+                      isActive
+                        ? "text-emerald-800"
+                        : "text-slate-600 hover:bg-emerald-50/70 hover:text-emerald-800"
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                  </a>
+                );
+              })
             : authLinks.map((l) => (
                 <NavLink
                   key={l.label}
@@ -2366,7 +2939,7 @@ function LandingNavbar({ user, role }: LandingNavbarProps) {
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {user ? (
             <div className="flex items-center gap-2">
               <button

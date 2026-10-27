@@ -258,7 +258,7 @@ export default function Onboarding() {
       setOnboarded(true);
       await refreshProfile();
       toast.success("Khảo sát và hoàn tất hồ sơ thành công! Bắt đầu khám phá ngay.");
-      navigate("/discover");
+      navigate("/discover?tour=1");
     } catch (err: any) {
       console.error("Onboarding error:", err);
       toast.error(err.message || "Không thể lưu thông tin hồ sơ, vui lòng kiểm tra lại");

@@ -3,7 +3,7 @@ import { api } from "@/lib/api";
 import {
   Users, Home, Star, AlertCircle,
   Activity, RefreshCw, ShieldCheck,
-  DollarSign, Building2, UserCheck, CheckCircle2,
+  Building2, UserCheck, CheckCircle2,
   CreditCard, ChevronRight, Shield, BarChart3,
   Search, MessageSquare, SlidersHorizontal, Layers,
   Trash2, Sparkles, TrendingUp, Compass, HeartHandshake,
@@ -40,7 +40,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatVND, cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
 import { getTrafficStats } from "@/lib/analytics";
@@ -138,6 +137,8 @@ type DashboardStats = {
   } | null;
 };
 
+type AnalyticsTabKey = "growth" | "tenants" | "landlords";
+
 const CHART_COLORS = ["#059669", "#2563eb", "#7c3aed", "#d97706", "#e11d48", "#0891b2"];
 const TRUST_COLORS = ["#f43f5e", "#f59e0b", "#3b82f6", "#10b981"];
 
@@ -147,6 +148,7 @@ export default function AdminOverview() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [trafficList, setTrafficList] = useState(getTrafficStats());
   const [selectedReview, setSelectedReview] = useState<any | null>(null);
+  const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTabKey>("growth");
 
   const fetchStats = async (isManual = false) => {
     setLoading(true);
@@ -240,9 +242,13 @@ export default function AdminOverview() {
   // ───────────── REVIEW & SYSTEM FEEDBACK STATE & LOGIC ─────────────
   type SystemFeedbackCategory =
     | "app_experience"
+    | "room_management"
+    | "tenant_management"
     | "service_package"
     | "payment_system"
     | "matching_feature"
+    | "booking_swap"
+    | "landlord_quality"
     | "other";
 
   interface SystemFeedbackItem {
@@ -261,14 +267,14 @@ export default function AdminOverview() {
   const [reviewSearch, setReviewSearch] = useState("");
   const [fullReviewsModalOpen, setFullReviewsModalOpen] = useState(false);
   const [systemRoleFilter, setSystemRoleFilter] = useState<"ALL" | "LANDLORD" | "TENANT">("ALL");
-  const [systemCategoryFilter, setSystemCategoryFilter] = useState<string>("ALL");
+  const [systemCategoryFilter] = useState<string>("ALL");
   const [selectedSystemFeedback, setSelectedSystemFeedback] = useState<SystemFeedbackItem | null>(null);
   const [isDeletingFeedback, setIsDeletingFeedback] = useState(false);
 
   const handleDeleteSystemFeedback = async (id: string) => {
     if (
       !window.confirm(
-        "Bạn có chắc chắn muốn xóa vĩnh viễn góp ý hệ thống này không? Thao tác này sẽ gỡ bỏ hoàn toàn khỏi cơ sở dữ liệu."
+        "Bạn có chắc chắn muốn xóa góp ý này không? Thao tác này sẽ gỡ bỏ vĩnh viễn và không thể khôi phục."
       )
     ) {
       return;
@@ -276,11 +282,11 @@ export default function AdminOverview() {
     setIsDeletingFeedback(true);
     try {
       await reviewsApi.deleteSystemFeedback(id);
-      toast.success("Đã xóa góp ý hệ thống thành công!");
+      toast.success("Đã xóa góp ý thành công!");
       setSelectedSystemFeedback(null);
       await fetchStats(false);
     } catch {
-      toast.error("Không thể xóa góp ý này. Vui lòng kiểm tra lại quyền Admin!");
+      toast.error("Không thể xóa góp ý này. Vui lòng thử lại sau!");
     } finally {
       setIsDeletingFeedback(false);
     }
@@ -289,18 +295,21 @@ export default function AdminOverview() {
   const systemFeedbacks = useMemo<SystemFeedbackItem[]>(() => {
     if (stats?.systemFeedbacks && Array.isArray(stats.systemFeedbacks)) {
       const catMap: Record<string, string> = {
-        app_experience: "Trải nghiệm ứng dụng",
-        landlord_quality: "Chất lượng chủ trọ",
-        matching_feature: "Tính năng ghép bạn trọ",
-        payment_system: "Cổng thanh toán & Cọc",
-        service_package: "Gói dịch vụ & Đăng tin",
+        app_experience: "Trải nghiệm & Giao diện",
+        room_management: "Đăng tin & Quản lý phòng",
+        tenant_management: "Quản lý người thuê & Hợp đồng",
+        service_package: "Gói dịch vụ & Đẩy tin nổi bật",
+        payment_system: "Thanh toán PayOS",
+        matching_feature: "Tính năng ghép bạn ở ghép",
+        booking_swap: "Đặt lịch xem & Nhận phòng",
+        landlord_quality: "Chất lượng tin đăng & Chủ trọ",
         other: "Góp ý khác",
       };
       return stats.systemFeedbacks.map((item) => ({
         id: item.id,
         rating: item.rating,
         category: (item.category || "app_experience") as SystemFeedbackCategory,
-        categoryLabel: catMap[item.category] || "Góp ý hệ thống",
+        categoryLabel: catMap[item.category] || "Góp ý ứng dụng",
         comment: item.comment,
         senderName: item.userName || "Người dùng ẩn danh",
         senderRole: item.userRole === "LANDLORD" ? "LANDLORD" : "TENANT",
@@ -357,13 +366,12 @@ export default function AdminOverview() {
     });
   }, [systemFeedbacks, reviewStarFilter, systemRoleFilter, systemCategoryFilter, reviewSearch]);
 
-  // ───────────── REAL ANALYTICAL DATA TRANSFORMATIONS FOR RECHARTS ─────────────
+  // ───────────── ANALYTICAL DATA TRANSFORMATIONS ─────────────
   const totalTrafficSessions = useMemo(
     () => trafficList.reduce((acc, item) => acc + item.count, 0),
     [trafficList]
   );
 
-  // Personalization funnel: use backend's personalizationFunnel if available, else derive from real DB counts
   const funnelData = useMemo<CategoryStat[]>(() => {
     if (stats?.personalizationFunnel && stats.personalizationFunnel.length > 0) {
       return stats.personalizationFunnel;
@@ -377,12 +385,12 @@ export default function AdminOverview() {
         percentage: Math.min(100, Math.round((stats.totalTenants * 100) / base)),
       },
       {
-        name: "Đã xác thực CCCD",
+        name: "Đã xác minh CCCD",
         count: stats.verifiedUsersCount,
         percentage: Math.min(100, Math.round((stats.verifiedUsersCount * 100) / base)),
       },
       {
-        name: "Ghép đôi thành công",
+        name: "Ghép bạn thành công",
         count: stats.totalMatches,
         percentage: Math.min(100, Math.round((stats.totalMatches * 100) / Math.max(stats.totalTenants, 1))),
       },
@@ -394,7 +402,6 @@ export default function AdminOverview() {
     ];
   }, [stats]);
 
-  // Supply vs Demand by District: use backend's districtSupplyDemand if available, else real districtDistribution
   const districtChartData = useMemo<DistrictSupplyDemand[]>(() => {
     if (stats?.districtSupplyDemand && stats.districtSupplyDemand.length > 0) {
       return stats.districtSupplyDemand;
@@ -428,302 +435,204 @@ export default function AdminOverview() {
 
   return (
     <div className="space-y-4">
-      {/* ──────────────── ROW 1: COMPACT HEADER + 4 KPI CARDS ──────────────── */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b pb-3">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h1 className="text-xl font-bold tracking-tight text-foreground">Tổng quan Quản trị</h1>
+      {/* ──────────────── ROW 1: COMPACT HEADER ──────────────── */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+          <h1 className="font-display text-xl font-bold tracking-tight text-foreground">
+            Tổng quan vận hành
+          </h1>
           <span className="text-xs text-muted-foreground">
-            Theo dõi hoạt động vận hành, doanh thu, nguồn khách và chất lượng dịch vụ
+            Doanh thu, lưu lượng khách truy cập, đánh giá người dùng và số liệu toàn hệ thống
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 cursor-pointer text-xs px-3"
-            onClick={() => fetchStats(true)}
-            disabled={loading}
-          >
-            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
-            Làm mới dữ liệu
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 cursor-pointer text-xs font-medium px-3 rounded-xl shrink-0 active:scale-[0.98] transition-transform"
+          onClick={() => fetchStats(true)}
+          disabled={loading}
+        >
+          <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+          Làm mới số liệu
+        </Button>
       </div>
 
-      {/* 4 Compact KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* KPI 1: Người dùng */}
-        <div
+      {/* ──────────────── ROW 2: UNIFIED EXECUTIVE PULSE STRIP (CLEAN, UNCLUTTERED) ──────────────── */}
+      <div className="rounded-2xl bg-card ring-1 ring-border shadow-2xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border/70 overflow-hidden">
+        {/* Metric 1: Người dùng */}
+        <button
+          type="button"
           onClick={() => navigate("/admin/users")}
-          className="group rounded-xl bg-card p-3.5 border shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+          className="p-3.5 text-left hover:bg-mint/20 transition-colors cursor-pointer flex items-center justify-between gap-3 group"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+          <div className="min-w-0">
+            <span className="text-xs font-medium text-muted-foreground block">
               Người dùng hệ thống
             </span>
-            <div className="size-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
-              <Users className="size-3.5" />
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-2xl font-bold text-foreground tracking-tight tabular-nums">
+                {stats ? stats.totalUsers.toLocaleString() : "--"}
+              </span>
+              <span className="text-xs font-medium text-emerald-brand">
+                {stats?.verifiedUsersCount ?? 0} đã xác minh
+              </span>
             </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+              {stats?.totalTenants ?? 0} người thuê &bull; {stats?.totalLandlords ?? 0} chủ trọ
+            </p>
           </div>
-          <div className="my-1.5 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-foreground tracking-tight">
-              {stats ? stats.totalUsers.toLocaleString() : "--"}
-            </span>
-            <span className="text-[11px] text-emerald-600 font-medium">
-              {stats?.verifiedUsersCount ?? 0} đã KYC
-            </span>
+          <div className="size-9 rounded-xl bg-mint/70 text-emerald-deep flex items-center justify-center shrink-0 group-hover:bg-mint transition-colors">
+            <Users className="size-4" />
           </div>
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1.5 border-t">
-            <span>
-              <strong className="text-foreground">{stats?.totalTenants ?? 0}</strong> người thuê
-            </span>
-            <span>
-              <strong className="text-foreground">{stats?.totalLandlords ?? 0}</strong> chủ trọ
-            </span>
-          </div>
-        </div>
+        </button>
 
-        {/* KPI 2: Nguồn cung phòng */}
-        <div className="rounded-xl bg-card p-3.5 border shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+        {/* Metric 2: Nguồn cung phòng */}
+        <div className="p-3.5 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-xs font-medium text-muted-foreground block">
               Nguồn cung phòng trọ
             </span>
-            <div className="size-7 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center">
-              <Home className="size-3.5" />
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-2xl font-bold text-foreground tracking-tight tabular-nums">
+                {stats ? stats.totalRooms.toLocaleString() : "--"}
+              </span>
+              <span className="text-xs font-medium text-blue-600">
+                Lấp đầy {occupancyRate}%
+              </span>
             </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+              {stats?.activeRooms ?? 0} phòng đang mở &bull; {stats?.totalRentals ?? 0} hợp đồng
+            </p>
           </div>
-          <div className="my-1.5 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-foreground tracking-tight">
-              {stats ? stats.totalRooms.toLocaleString() : "--"}
-            </span>
-            <Badge
-              variant="secondary"
-              className="text-[10px] px-1.5 py-0 font-semibold bg-blue-50 text-blue-700 border-blue-200"
-            >
-              Lấp đầy {occupancyRate}%
-            </Badge>
-          </div>
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1.5 border-t">
-            <span className="text-emerald-600 font-medium">
-              <strong>{stats?.activeRooms ?? 0}</strong> phòng trống
-            </span>
-            <span>
-              <strong className="text-foreground">{stats?.totalRentals ?? 0}</strong> hợp đồng
-            </span>
+          <div className="size-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <Home className="size-4" />
           </div>
         </div>
 
-        {/* KPI 3: Ghép đôi & Cá nhân hóa */}
-        <div className="rounded-xl bg-card p-3.5 border shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Ghép đôi &amp; Cá nhân hóa
+        {/* Metric 3: Hoạt động Ghép bạn ở ghép */}
+        <div className="p-3.5 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-xs font-medium text-muted-foreground block">
+              Hoạt động Ghép bạn ở ghép
             </span>
-            <div className="size-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 flex items-center justify-center">
-              <Sparkles className="size-3.5" />
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-2xl font-bold text-foreground tracking-tight tabular-nums">
+                {stats ? stats.totalMatches.toLocaleString() : "--"}
+              </span>
+              <span className="text-xs font-medium text-purple-600">
+                cặp kết nối
+              </span>
             </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+              {stats?.totalSwipes ?? 0} lượt tương tác tìm bạn cùng phòng
+            </p>
           </div>
-          <div className="my-1.5 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-foreground tracking-tight">
-              {stats ? stats.totalMatches.toLocaleString() : "--"}
-            </span>
-            <span className="text-[11px] text-purple-600 font-medium">cặp kết nối</span>
-          </div>
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1.5 border-t">
-            <span>
-              <strong className="text-foreground">{stats?.totalSwipes ?? 0}</strong> lượt quẹt
-            </span>
-            <span>
-              <strong className="text-foreground">{stats?.totalSwapRequests ?? 0}</strong> pass phòng
-            </span>
+          <div className="size-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+            <Sparkles className="size-4" />
           </div>
         </div>
 
-        {/* KPI 4: Cần xử lý / Kiểm duyệt */}
-        <div
+        {/* Metric 4: Chờ kiểm duyệt */}
+        <button
+          type="button"
           onClick={() => navigate("/admin/cccd")}
-          className="group rounded-xl bg-card p-3.5 border shadow-2xs hover:border-amber-300 hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+          className="p-3.5 text-left hover:bg-amber-50/40 transition-colors cursor-pointer flex items-center justify-between gap-3 group"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Hàng đợi Kiểm duyệt
+          <div className="min-w-0">
+            <span className="text-xs font-medium text-muted-foreground block">
+              Hồ sơ &amp; Báo cáo chờ duyệt
             </span>
-            <div className="size-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center">
-              <ShieldCheck className="size-3.5" />
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-2xl font-bold text-foreground tracking-tight tabular-nums">
+                {stats ? pendingTotalActions : "--"}
+              </span>
+              <span className="text-xs font-medium text-amber-600">
+                cần xử lý
+              </span>
             </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+              {stats?.pendingKycCount ?? 0} hồ sơ CCCD &bull; {stats?.pendingReportsCount ?? 0} báo cáo vi phạm
+            </p>
           </div>
-          <div className="my-1.5 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-foreground tracking-tight">
-              {stats ? pendingTotalActions : "--"}
-            </span>
-            <span className="text-[11px] text-amber-600 font-medium">yêu cầu chờ duyệt</span>
+          <div className="size-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:bg-amber-100/80 transition-colors">
+            <ShieldCheck className="size-4" />
           </div>
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1.5 border-t">
-            <span className="text-amber-600 font-medium">
-              <strong>{stats?.pendingKycCount ?? 0}</strong> CCCD
-            </span>
-            <span>
-              <strong className="text-foreground">{stats?.pendingDisputesCount ?? 0}</strong> khiếu nại &bull;{" "}
-              <strong className="text-foreground">{stats?.pendingReportsCount ?? 0}</strong> báo cáo
-            </span>
-          </div>
-        </div>
+        </button>
       </div>
 
-      {/* ──────────────── ROW 2: ABOVE THE FOLD — 3 PRIORITY BENTO CARDS ──────────────── */}
+      {/* ──────────────── ROW 3: THE 3 CORE PILLARS (ALWAYS VISIBLE FIRST ABOVE THE FOLD) ──────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        {/* COLUMN 1 (3/12): TRAFFIC SOURCES */}
-        <div className="lg:col-span-3 rounded-2xl bg-card p-4 border shadow-xs flex flex-col justify-between space-y-3">
+        {/* PILLAR 1 (4/12): DOANH THU & GÓI DỊCH VỤ */}
+        <div className="lg:col-span-4 rounded-2xl bg-card p-4 ring-1 ring-border shadow-2xs flex flex-col justify-between space-y-3">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h3 className="text-sm font-bold text-foreground">Nguồn truy cập (Traffic)</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Phân bổ lượt truy cập theo kênh ({totalTrafficSessions} lượt)
-              </p>
-            </div>
-            <div className="size-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-              <Compass className="size-3.5" />
-            </div>
-          </div>
-
-          {/* Mini Donut Chart or Real Zero State */}
-          {totalTrafficSessions > 0 ? (
-            <div className="h-32 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={trafficList.filter((t) => t.count > 0)}
-                    dataKey="count"
-                    nameKey="shortName"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={32}
-                    outerRadius={52}
-                    paddingAngle={3}
-                  >
-                    {trafficList
-                      .filter((t) => t.count > 0)
-                      .map((entry) => (
-                        <Cell key={entry.key} fill={entry.hex} />
-                      ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: any, name: any) => [`${value} lượt`, name]}
-                    contentStyle={{
-                      fontSize: "11px",
-                      borderRadius: "8px",
-                      border: "1px solid #e5e7eb",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="py-4 px-3 rounded-xl bg-muted/20 border border-dashed text-center space-y-1">
-              <p className="text-xs font-medium text-foreground">Chưa phát sinh lượt truy cập mới</p>
-              <p className="text-[10.5px] text-muted-foreground">
-                Thống kê tự động theo kênh khi người dùng truy cập nền tảng
-              </p>
-            </div>
-          )}
-
-          {/* Compact Channel Bars */}
-          <div className="space-y-2">
-            {trafficList.map((src) => (
-              <div key={src.key} className="space-y-1">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-medium text-foreground truncate max-w-[140px]" title={src.name}>
-                    {src.shortName}
-                  </span>
-                  <span className="font-mono text-muted-foreground">
-                    {src.count} ({src.percentage}%)
-                  </span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                  <div
-                    className={cn("h-full rounded-full transition-all duration-300", src.color)}
-                    style={{ width: `${src.percentage}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* COLUMN 2 (4/12): GIAO DỊCH THANH TOÁN & DOANH THU + GÓI DỊCH VỤ */}
-        <div className="lg:col-span-4 rounded-2xl bg-card p-4 border shadow-xs flex flex-col justify-between space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-bold text-foreground">Giao dịch Thanh toán &amp; Doanh thu</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Tổng hợp cọc, tiền thuê &amp; các gói dịch vụ trả phí
+              <h2 className="text-sm font-bold text-foreground">Doanh thu &amp; Gói dịch vụ</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Tiền cọc, tiền thuê phòng &amp; các gói dịch vụ trả phí
               </p>
             </div>
             <Button
               variant="outline"
               size="sm"
               onClick={() => navigate("/admin/packages")}
-              className="h-7 px-2.5 text-[11px] cursor-pointer gap-1 shrink-0"
+              className="h-7 px-2.5 text-xs cursor-pointer gap-1 shrink-0 rounded-lg"
             >
               Gói dịch vụ <ChevronRight className="size-3" />
             </Button>
           </div>
 
-          {/* Revenue Hero Box + 3 Sub-metrics */}
-          <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-200/60 flex items-center justify-between">
+          {/* Primary Revenue Metric (Clean layout without heavy nested card borders) */}
+          <div className="py-2.5 px-3.5 rounded-xl bg-mint/40 flex items-center justify-between">
             <div>
-              <span className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium block">
-                Tổng doanh thu xác nhận
+              <span className="text-xs text-emerald-deep font-medium block">
+                Tổng doanh thu ghi nhận
               </span>
-              <span className="text-xl font-bold text-emerald-700 dark:text-emerald-400 tracking-tight">
+              <span className="text-2xl font-bold text-emerald-deep tracking-tight tabular-nums">
                 {stats ? formatVND(stats.totalRevenue) : "--"}
               </span>
             </div>
-            <div className="text-right text-[11px] space-y-0.5">
+            <div className="text-right text-xs space-y-0.5 tabular-nums">
               <div className="text-foreground font-semibold">
                 {stats?.totalTransactions ?? 0} <span className="font-normal text-muted-foreground">giao dịch</span>
               </div>
-              <div className="text-emerald-700 font-medium">
-                {stats?.activeRentals ?? 0} <span className="font-normal text-muted-foreground">HĐ hiệu lực</span>
+              <div className="text-emerald-brand font-medium">
+                {stats?.activeRentals ?? 0} <span className="font-normal text-muted-foreground">HĐ đang thuê</span>
               </div>
             </div>
           </div>
 
-          {/* Package Revenue Breakdown (Recharts Horizontal Bar or Compact List) */}
-          <div className="flex-1 flex flex-col justify-between space-y-2">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-semibold text-foreground flex items-center gap-1">
-                <CreditCard className="size-3 text-emerald-600" /> Doanh thu theo Gói dịch vụ
+          {/* Package Revenue List */}
+          <div className="flex-1 flex flex-col justify-between space-y-2 pt-1 border-t border-border/60">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-foreground flex items-center gap-1.5">
+                <CreditCard className="size-3.5 text-primary" /> Doanh thu theo gói
               </span>
-              <span className="text-muted-foreground">
-                {stats?.activeBoostedRooms ?? 0} phòng đang đẩy Top
+              <span className="text-muted-foreground tabular-nums">
+                {stats?.activeBoostedRooms ?? 0} phòng đang đẩy nổi bật
               </span>
             </div>
 
             {stats?.packageStats && stats.packageStats.length > 0 ? (
-              <div className="space-y-2">
-                {stats.packageStats.slice(0, 4).map((pkg, idx) => {
+              <div className="divide-y divide-border/50">
+                {stats.packageStats.slice(0, 3).map((pkg, idx) => {
                   const maxPkgRev = Math.max(...stats.packageStats.map((p) => p.revenue), 1);
                   const pct = pkg.revenue > 0 ? Math.max(Math.round((pkg.revenue / maxPkgRev) * 100), 6) : 0;
                   return (
-                    <div key={pkg.planId || idx} className="p-2 rounded-lg border bg-background/60 space-y-1">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-semibold text-foreground truncate max-w-[150px]" title={pkg.planName}>
+                    <div key={pkg.planId || idx} className="py-2 first:pt-1 last:pb-0 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-foreground truncate max-w-[160px]" title={pkg.planName}>
                           {pkg.planName}
                         </span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
-                            {pkg.count} lượt
-                          </Badge>
-                          <span className="font-mono font-bold text-emerald-600">
+                        <div className="flex items-center gap-2 shrink-0 tabular-nums">
+                          <span className="text-muted-foreground text-[11px]">{pkg.count} lượt</span>
+                          <span className="font-bold text-emerald-deep">
                             {formatVND(pkg.revenue)}
                           </span>
                         </div>
                       </div>
-                      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                          className="h-full rounded-full bg-primary transition-all duration-300"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -732,25 +641,73 @@ export default function AdminOverview() {
                 })}
               </div>
             ) : (
-              <div className="py-6 text-center text-xs text-muted-foreground border border-dashed rounded-xl bg-muted/10">
+              <div className="py-6 text-center text-xs text-muted-foreground bg-secondary/25 rounded-xl">
                 Chưa phát sinh giao dịch mua gói dịch vụ
               </div>
             )}
           </div>
         </div>
 
-        {/* COLUMN 3 (5/12): ĐÁNH GIÁ & MỨC ĐỘ HÀI LÒNG CỦA NGƯỜI DÙNG */}
-        <div className="lg:col-span-5 rounded-2xl bg-card p-4 border shadow-xs flex flex-col justify-between space-y-3">
+        {/* PILLAR 2 (3/12): LƯỢNG KHÁCH TRUY CẬP */}
+        <div className="lg:col-span-3 rounded-2xl bg-card p-4 ring-1 ring-border shadow-2xs flex flex-col justify-between space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-bold text-foreground">Lượng khách truy cập</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Phân bổ lượt truy cập theo kênh
+              </p>
+            </div>
+            <div className="size-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <Compass className="size-4" />
+            </div>
+          </div>
+
+          {/* Clean Total Visits Hero */}
+          <div className="py-2.5 px-3.5 rounded-xl bg-blue-50/60 flex items-baseline justify-between">
+            <span className="text-xs font-medium text-blue-900">Tổng lượt truy cập</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-blue-700 tracking-tight tabular-nums">
+                {totalTrafficSessions.toLocaleString()}
+              </span>
+              <span className="text-xs text-blue-700/80 font-medium">lượt</span>
+            </div>
+          </div>
+
+          {/* Clean Channel Breakdown Bars */}
+          <div className="space-y-2.5 pt-1 border-t border-border/60 flex-1 flex flex-col justify-center">
+            {trafficList.map((src) => (
+              <div key={src.key} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-foreground truncate max-w-[130px]" title={src.name}>
+                    {src.shortName}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums">
+                    <strong className="text-foreground font-semibold">{src.count}</strong> ({src.percentage}%)
+                  </span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                  <div
+                    className={cn("h-full rounded-full transition-all duration-300", src.color)}
+                    style={{ width: `${Math.max(src.percentage, src.count > 0 ? 4 : 0)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* PILLAR 3 (5/12): ĐÁNH GIÁ & GÓP Ý TỪ NGƯỜI DÙNG (WITH POPUP TRIGGERS) */}
+        <div className="lg:col-span-5 rounded-2xl bg-card p-4 ring-1 ring-border shadow-2xs flex flex-col justify-between space-y-3">
           {/* Header + Scope Switcher */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="text-sm font-bold text-foreground">Đánh giá &amp; Mức độ hài lòng</h3>
-              <p className="text-[11px] text-muted-foreground">
-                Chạm vào mốc sao để lọc nhanh phản hồi thực tế
+              <h2 className="text-sm font-bold text-foreground">Đánh giá &amp; Góp ý người dùng</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Chọn mức sao để lọc nhanh hoặc mở bảng tìm kiếm chi tiết
               </p>
             </div>
 
-            <div className="flex items-center p-0.5 rounded-lg bg-muted/70 border gap-0.5">
+            <div className="flex items-center p-0.5 rounded-xl bg-secondary/80 border border-border/60 gap-0.5">
               <button
                 type="button"
                 onClick={() => {
@@ -758,9 +715,9 @@ export default function AdminOverview() {
                   setReviewStarFilter("ALL");
                 }}
                 className={cn(
-                  "px-2.5 py-1 rounded-md text-[11px] font-semibold cursor-pointer transition-all flex items-center gap-1",
+                  "px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all flex items-center gap-1",
                   reviewScope === "LANDLORD"
-                    ? "bg-background text-emerald-700 shadow-2xs"
+                    ? "bg-card text-emerald-deep shadow-2xs"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -774,22 +731,22 @@ export default function AdminOverview() {
                   setReviewStarFilter("ALL");
                 }}
                 className={cn(
-                  "px-2.5 py-1 rounded-md text-[11px] font-semibold cursor-pointer transition-all flex items-center gap-1",
+                  "px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all flex items-center gap-1",
                   reviewScope === "SYSTEM"
-                    ? "bg-background text-blue-700 shadow-2xs"
+                    ? "bg-card text-blue-700 shadow-2xs"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Layers className="size-3" />
-                Hệ thống ({systemFeedbacks.length})
+                Ứng dụng ({systemFeedbacks.length})
               </button>
             </div>
           </div>
 
-          {/* Rating Summary + Interactive Star Bars */}
-          <div className="grid grid-cols-12 gap-3 items-center bg-muted/20 p-2.5 rounded-xl border">
-            <div className="col-span-4 text-center border-r pr-2">
-              <div className="text-2xl font-extrabold text-foreground leading-none">
+          {/* Rating Summary + Interactive Star Filter Bars */}
+          <div className="grid grid-cols-12 gap-3 items-center py-2 px-3 rounded-xl bg-secondary/25">
+            <div className="col-span-4 text-center border-r border-border/60 pr-2">
+              <div className="text-2xl font-extrabold text-foreground leading-none tabular-nums">
                 {reviewScope === "LANDLORD"
                   ? stats && stats.landlordAverageRating > 0
                     ? stats.landlordAverageRating.toFixed(1)
@@ -801,7 +758,7 @@ export default function AdminOverview() {
                   <Star key={i} className="size-2.5 fill-amber-500 text-amber-500" />
                 ))}
               </div>
-              <span className="text-[10px] text-muted-foreground block">
+              <span className="text-[11px] text-muted-foreground block tabular-nums">
                 {reviewScope === "LANDLORD"
                   ? `${stats?.totalReviews ?? 0} đánh giá`
                   : `${systemFeedbacks.length} góp ý`}
@@ -822,15 +779,15 @@ export default function AdminOverview() {
                     type="button"
                     onClick={() => setReviewStarFilter(isSelected ? "ALL" : r.star)}
                     className={cn(
-                      "w-full flex items-center gap-1.5 text-[10.5px] rounded px-1 py-0.5 transition cursor-pointer",
-                      isSelected ? "bg-amber-500/15 font-bold" : "hover:bg-muted/60"
+                      "w-full flex items-center gap-1.5 text-[11px] rounded-md px-1.5 py-0.5 transition cursor-pointer",
+                      isSelected ? "bg-amber-500/15 font-bold" : "hover:bg-secondary"
                     )}
                   >
-                    <span className="w-6 text-left font-medium text-foreground flex items-center gap-0.5">
+                    <span className="w-6 text-left font-medium text-foreground flex items-center gap-0.5 tabular-nums">
                       {r.star}
                       <Star className="size-2.5 fill-amber-400 text-amber-400" />
                     </span>
-                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
                       <div
                         className={cn(
                           "h-full rounded-full transition-all",
@@ -839,17 +796,17 @@ export default function AdminOverview() {
                         style={{ width: `${r.percentage}%` }}
                       />
                     </div>
-                    <span className="w-8 text-right font-mono text-muted-foreground">{r.count}</span>
+                    <span className="w-7 text-right tabular-nums text-muted-foreground">{r.count}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* 2 Compact Highlight Review Cards */}
+          {/* 2 Highlight Review Cards (Click to open Detail Popup) */}
           {reviewScope === "LANDLORD" ? (
             filteredLandlordReviews.length === 0 ? (
-              <div className="py-5 text-center text-xs text-muted-foreground border border-dashed rounded-xl bg-muted/10">
+              <div className="py-4 text-center text-xs text-muted-foreground bg-secondary/20 rounded-xl">
                 Chưa có đánh giá chủ trọ nào khớp bộ lọc
               </div>
             ) : (
@@ -858,32 +815,32 @@ export default function AdminOverview() {
                   <div
                     key={rev.id}
                     onClick={() => setSelectedReview(rev)}
-                    className="p-2.5 rounded-xl border bg-background text-xs space-y-1.5 hover:border-emerald-300 transition cursor-pointer group flex flex-col justify-between"
+                    className="p-2.5 rounded-xl bg-secondary/20 hover:bg-mint/25 ring-1 ring-border/70 hover:ring-primary/40 text-xs space-y-1 transition cursor-pointer group flex flex-col justify-between"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center justify-between gap-1">
-                        <span className="font-semibold text-foreground truncate text-[11px] group-hover:text-emerald-700">
+                        <span className="font-semibold text-foreground truncate text-xs group-hover:text-emerald-deep">
                           {rev.reviewerName}
                         </span>
-                        <span className="flex items-center gap-0.5 text-amber-500 shrink-0 text-[10px] font-bold">
+                        <span className="flex items-center gap-0.5 text-amber-500 shrink-0 text-[11px] font-bold tabular-nums">
                           {rev.rating} <Star className="size-2.5 fill-amber-500 text-amber-500" />
                         </span>
                       </div>
-                      <p className="text-[11px] text-muted-foreground italic line-clamp-2 leading-snug">
+                      <p className="text-[11px] text-muted-foreground line-clamp-2 leading-snug">
                         "{rev.comment || "Trải nghiệm thuê phòng tốt."}"
                       </p>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t">
+                    <div className="flex items-center justify-between text-[10.5px] text-muted-foreground pt-1">
                       <span className="truncate max-w-[115px]">{rev.roomTitle || "Phòng trọ"}</span>
-                      <span className="text-emerald-600 font-medium group-hover:underline">Chi tiết &rarr;</span>
+                      <span className="text-emerald-brand font-semibold group-hover:underline">Chi tiết &rarr;</span>
                     </div>
                   </div>
                 ))}
               </div>
             )
           ) : filteredSystemFeedbacks.length === 0 ? (
-            <div className="py-5 text-center text-xs text-muted-foreground border border-dashed rounded-xl bg-muted/10">
-              Chưa có góp ý hệ thống nào khớp bộ lọc
+            <div className="py-4 text-center text-xs text-muted-foreground bg-secondary/20 rounded-xl">
+              Chưa có góp ý ứng dụng nào khớp bộ lọc
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -891,106 +848,123 @@ export default function AdminOverview() {
                 <div
                   key={fb.id}
                   onClick={() => setSelectedSystemFeedback(fb)}
-                  className="p-2.5 rounded-xl border bg-background text-xs space-y-1.5 hover:border-blue-300 transition cursor-pointer group flex flex-col justify-between"
+                  className="p-2.5 rounded-xl bg-secondary/20 hover:bg-blue-50/50 ring-1 ring-border/70 hover:ring-blue-300 text-xs space-y-1 transition cursor-pointer group flex flex-col justify-between"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center justify-between gap-1">
-                      <span className="font-semibold text-foreground truncate text-[11px] group-hover:text-blue-700">
+                      <span className="font-semibold text-foreground truncate text-xs group-hover:text-blue-700">
                         {fb.senderName}
                       </span>
-                      <span className="flex items-center gap-0.5 text-amber-500 shrink-0 text-[10px] font-bold">
+                      <span className="flex items-center gap-0.5 text-amber-500 shrink-0 text-[11px] font-bold tabular-nums">
                         {fb.rating} <Star className="size-2.5 fill-amber-500 text-amber-500" />
                       </span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground italic line-clamp-2 leading-snug">
+                    <p className="text-[11px] text-muted-foreground line-clamp-2 leading-snug">
                       "{fb.comment}"
                     </p>
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t">
+                  <div className="flex items-center justify-between text-[10.5px] text-muted-foreground pt-1">
                     <span className="truncate max-w-[115px] text-blue-700 font-medium">{fb.categoryLabel}</span>
-                    <span className="text-blue-600 font-medium group-hover:underline">Chi tiết &rarr;</span>
+                    <span className="text-blue-600 font-semibold group-hover:underline">Chi tiết &rarr;</span>
                   </div>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Footer Action: Open Full Filter Modal */}
-          <div className="flex items-center justify-between gap-2 pt-1">
+          {/* Footer Action: Open Full Search & Filter Popup */}
+          <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
             {reviewStarFilter !== "ALL" ? (
               <button
                 type="button"
                 onClick={() => setReviewStarFilter("ALL")}
-                className="text-[11px] text-amber-700 hover:underline font-medium cursor-pointer"
+                className="text-xs text-amber-700 hover:underline font-medium cursor-pointer"
               >
                 Đang lọc {reviewStarFilter} sao (Bỏ lọc)
               </button>
             ) : (
-              <span className="text-[11px] text-muted-foreground">
-                Hiển thị 2 phản hồi mới nhất
+              <span className="text-xs text-muted-foreground">
+                Hiển thị 2 nhận xét mới nhất
               </span>
             )}
             <Button
               variant="default"
               size="sm"
               onClick={() => setFullReviewsModalOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] h-7 px-3 font-semibold cursor-pointer gap-1"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8 px-3 font-semibold cursor-pointer gap-1.5 rounded-xl active:scale-[0.98] transition-transform"
             >
-              <SlidersHorizontal className="size-3" />
-              Xem &amp; Lọc tất cả ({reviewScope === "LANDLORD" ? (stats?.totalReviews ?? 0) : systemFeedbacks.length})
+              <SlidersHorizontal className="size-3.5" />
+              Tìm &amp; Xem tất cả ({reviewScope === "LANDLORD" ? (stats?.totalReviews ?? 0) : systemFeedbacks.length})
             </Button>
           </div>
         </div>
       </div>
 
-      {/* ──────────────── ROW 3: DEEP-DIVE ANALYTICS TABS WITH RECHARTS ──────────────── */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <TabsList className="bg-muted/60 p-1 rounded-xl h-auto flex-wrap justify-start">
-            <TabsTrigger
-              value="overview"
-              className="rounded-lg px-3.5 py-1.5 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:text-emerald-700 data-[state=active]:shadow-2xs cursor-pointer gap-1.5"
-            >
-              <TrendingUp className="size-3.5" /> Tăng trưởng &amp; Chuyển đổi
-            </TabsTrigger>
-            <TabsTrigger
-              value="tenants"
-              className="rounded-lg px-3.5 py-1.5 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:text-emerald-700 data-[state=active]:shadow-2xs cursor-pointer gap-1.5"
-            >
-              <HeartHandshake className="size-3.5" /> Cá nhân hóa Người thuê &amp; Uy tín
-            </TabsTrigger>
-            <TabsTrigger
-              value="landlords"
-              className="rounded-lg px-3.5 py-1.5 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:text-emerald-700 data-[state=active]:shadow-2xs cursor-pointer gap-1.5"
-            >
-              <Building2 className="size-3.5" /> Cung - Cầu Khu vực &amp; Phòng trọ
-            </TabsTrigger>
-          </TabsList>
+      {/* ──────────────── ROW 4: DEEP-DIVE ANALYTICS TABS (CLEAN CHARTS BELOW) ──────────────── */}
+      <div className="space-y-3 pt-1">
+        <div className="flex flex-wrap items-center gap-1 border-b border-border">
+          {(
+            [
+              {
+                key: "growth" as const,
+                label: "Biểu đồ Tăng trưởng & Chuyển đổi",
+                icon: TrendingUp,
+              },
+              {
+                key: "tenants" as const,
+                label: "Xu hướng Người thuê & Điểm uy tín",
+                icon: HeartHandshake,
+              },
+              {
+                key: "landlords" as const,
+                label: "Khu vực & Cơ cấu Nguồn phòng",
+                icon: Building2,
+              },
+            ]
+          ).map((tab) => {
+            const Icon = tab.icon;
+            const active = analyticsTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setAnalyticsTab(tab.key)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer border-b-2 -mb-px",
+                  active
+                    ? "border-primary text-emerald-deep"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Icon className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* ───────────── TAB 1: TĂNG TRƯỞNG & PHỄU CHUYỂN ĐỔI ───────────── */}
-        <TabsContent value="overview" className="m-0">
+        {/* TAB 1: TĂNG TRƯỞNG & PHỄU CHUYỂN ĐỔI */}
+        {analyticsTab === "growth" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* Biểu đồ kết hợp 6 tháng: Người dùng mới, Hợp đồng mới & Doanh thu */}
-            <div className="lg:col-span-7 rounded-2xl bg-card p-5 border shadow-xs space-y-3">
+            <div className="lg:col-span-7 rounded-2xl bg-card p-4 ring-1 ring-border shadow-2xs space-y-2">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-foreground">
                     Biểu đồ Tăng trưởng Người dùng, Hợp đồng &amp; Doanh thu (6 tháng)
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">
-                    Đối sánh lượng người dùng đăng ký mới, hợp đồng ký kết và doanh thu thực tế theo tháng
+                  <p className="text-xs text-muted-foreground">
+                    Đối sánh lượng người dùng đăng ký mới, hợp đồng ký kết và doanh thu theo tháng
                   </p>
                 </div>
-                <div className="size-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <div className="size-8 rounded-xl bg-mint/70 text-emerald-deep flex items-center justify-center shrink-0">
                   <BarChart3 className="size-4" />
                 </div>
               </div>
 
-              <div className="h-64 w-full pt-2">
+              <div className="h-52 w-full pt-1">
                 {stats?.monthlyStats && stats.monthlyStats.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={stats.monthlyStats} margin={{ top: 10, right: 15, left: -10, bottom: 0 }}>
+                    <ComposedChart data={stats.monthlyStats} margin={{ top: 8, right: 12, left: -15, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                       <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                       <YAxis yAxisId="left" tick={{ fontSize: 11 }} allowDecimals={false} />
@@ -1014,7 +988,7 @@ export default function AdminOverview() {
                         name="Người dùng mới"
                         fill="#10b981"
                         radius={[4, 4, 0, 0]}
-                        barSize={20}
+                        barSize={18}
                       />
                       <Bar
                         yAxisId="left"
@@ -1022,7 +996,7 @@ export default function AdminOverview() {
                         name="Hợp đồng mới"
                         fill="#3b82f6"
                         radius={[4, 4, 0, 0]}
-                        barSize={20}
+                        barSize={18}
                       />
                       <Line
                         yAxisId="right"
@@ -1043,36 +1017,35 @@ export default function AdminOverview() {
               </div>
             </div>
 
-            {/* Phễu chuyển đổi cá nhân hóa */}
-            <div className="lg:col-span-5 rounded-2xl bg-card p-5 border shadow-xs space-y-3 flex flex-col justify-between">
+            <div className="lg:col-span-5 rounded-2xl bg-card p-4 ring-1 ring-border shadow-2xs space-y-2 flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-foreground">
-                    Phễu Chuyển đổi Thuê trọ &amp; Ghép bạn
+                    Hành trình Tìm phòng &amp; Ghép bạn
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">
-                    Hành trình từ lúc đăng ký tài khoản đến khi ghép đôi &amp; ký hợp đồng
+                  <p className="text-xs text-muted-foreground">
+                    Từ lúc đăng ký tài khoản đến khi ghép bạn và ký hợp đồng thuê
                   </p>
                 </div>
-                <div className="size-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                <div className="size-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
                   <Activity className="size-4" />
                 </div>
               </div>
 
-              <div className="h-52 w-full">
+              <div className="h-52 w-full pt-1">
                 {funnelData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={funnelData}
                       layout="vertical"
-                      margin={{ top: 5, right: 25, left: 10, bottom: 0 }}
+                      margin={{ top: 4, right: 20, left: 5, bottom: 0 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
                       <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
                       <YAxis
                         type="category"
                         dataKey="name"
-                        width={125}
+                        width={145}
                         tick={{ fontSize: 11, fontWeight: 500 }}
                       />
                       <Tooltip
@@ -1082,7 +1055,7 @@ export default function AdminOverview() {
                         ]}
                         contentStyle={{ fontSize: "12px", borderRadius: "10px" }}
                       />
-                      <Bar dataKey="count" name="Số lượng" radius={[0, 6, 6, 0]} barSize={18}>
+                      <Bar dataKey="count" name="Số lượng" radius={[0, 6, 6, 0]} barSize={16}>
                         {funnelData.map((_entry, index) => (
                           <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                         ))}
@@ -1091,121 +1064,90 @@ export default function AdminOverview() {
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-                    Chưa có dữ liệu phễu chuyển đổi
+                    Chưa có dữ liệu thống kê
                   </div>
                 )}
               </div>
-
-              <div className="grid grid-cols-3 gap-2 pt-2 border-t text-center text-[11px]">
-                <div className="p-2 rounded-lg bg-muted/30">
-                  <span className="text-muted-foreground block">Lượt quẹt tìm kiếm</span>
-                  <strong className="text-sm text-foreground">{stats?.totalSwipes ?? 0}</strong>
-                </div>
-                <div className="p-2 rounded-lg bg-muted/30">
-                  <span className="text-muted-foreground block">Cặp ghép đôi</span>
-                  <strong className="text-sm text-purple-600">{stats?.totalMatches ?? 0}</strong>
-                </div>
-                <div className="p-2 rounded-lg bg-muted/30">
-                  <span className="text-muted-foreground block">Nhượng phòng</span>
-                  <strong className="text-sm text-blue-600">{stats?.totalSwapRequests ?? 0}</strong>
-                </div>
-              </div>
             </div>
           </div>
-        </TabsContent>
+        )}
 
-        {/* ───────────── TAB 2: CÁ NHÂN HÓA NGƯỜI THUÊ & UY TÍN ───────────── */}
-        <TabsContent value="tenants" className="m-0">
+        {/* TAB 2: XU HƯỚNG NGƯỜI THUÊ & UY TÍN */}
+        {analyticsTab === "tenants" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* Radar Chart: Tiêu chí lối sống cá nhân hóa */}
-            <div className="lg:col-span-5 rounded-2xl bg-card p-5 border shadow-xs space-y-3 flex flex-col justify-between">
+            <div className="lg:col-span-5 rounded-2xl bg-card p-4 ring-1 ring-border shadow-2xs space-y-2.5 flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-foreground">
-                    Xu hướng Lối sống &amp; Nhu cầu Người thuê
+                    Tiêu chí Lối sống được Người thuê quan tâm
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">
-                    Tỷ lệ người thuê ưu tiên từng tiêu chí khi tìm phòng &amp; ghép bạn ở ghép
+                  <p className="text-xs text-muted-foreground">
+                    Tỷ lệ người thuê ưu tiên từng thói quen sinh hoạt khi ghép bạn ở ghép
                   </p>
                 </div>
-                <div className="size-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                <div className="size-8 rounded-xl bg-mint/70 text-emerald-deep flex items-center justify-center shrink-0">
                   <Sparkles className="size-4" />
                 </div>
               </div>
 
               {stats?.lifestyleStats && stats.lifestyleStats.length > 0 ? (
-                <>
-                  <div className="h-56 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart cx="50%" cy="50%" outerRadius="68%" data={stats.lifestyleStats}>
-                        <PolarGrid stroke="#e5e7eb" />
-                        <PolarAngleAxis dataKey="name" tick={{ fontSize: 10, fill: "#374151" }} />
-                        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9 }} />
-                        <Radar
-                          name="Tỷ lệ ưu tiên (%)"
-                          dataKey="percentage"
-                          stroke="#059669"
-                          fill="#10b981"
-                          fillOpacity={0.35}
-                        />
-                        <Tooltip
-                          formatter={(value: any, _name: any, props: any) => [
-                            `${value}% (${props?.payload?.count ?? 0} người thuê)`,
-                            "Mức độ ưu tiên",
-                          ]}
-                          contentStyle={{ fontSize: "12px", borderRadius: "10px" }}
-                        />
-                      </RadarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5 text-[11px] pt-2 border-t">
-                    {stats.lifestyleStats.map((ls, idx) => (
-                      <div key={idx} className="flex items-center justify-between px-2 py-1 rounded bg-muted/30">
-                        <span className="truncate text-muted-foreground" title={ls.name}>
-                          {ls.name}
-                        </span>
-                        <strong className="font-mono text-foreground shrink-0 ml-1">
-                          {ls.count} ({ls.percentage}%)
-                        </strong>
-                      </div>
-                    ))}
-                  </div>
-                </>
+                <div className="h-48 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="68%" data={stats.lifestyleStats}>
+                      <PolarGrid stroke="#e5e7eb" />
+                      <PolarAngleAxis dataKey="name" tick={{ fontSize: 10, fill: "#374151" }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9 }} />
+                      <Radar
+                        name="Tỷ lệ ưu tiên (%)"
+                        dataKey="percentage"
+                        stroke="#059669"
+                        fill="#10b981"
+                        fillOpacity={0.35}
+                      />
+                      <Tooltip
+                        formatter={(value: any, _name: any, props: any) => [
+                          `${value}% (${props?.payload?.count ?? 0} người thuê)`,
+                          "Mức độ ưu tiên",
+                        ]}
+                        contentStyle={{ fontSize: "12px", borderRadius: "10px" }}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
               ) : (
-                <div className="py-8 px-4 rounded-xl bg-muted/20 border border-dashed text-center space-y-2">
-                  <UserCheck className="size-6 text-emerald-600 mx-auto" />
+                <div className="py-8 px-4 rounded-xl bg-secondary/20 text-center space-y-1.5">
+                  <UserCheck className="size-6 text-emerald-brand mx-auto" />
                   <p className="text-xs font-semibold text-foreground">
-                    Thống kê Hồ sơ Ghép đôi &amp; Cá nhân hóa
+                    Thống kê Hồ sơ Ghép bạn &amp; Lối sống
                   </p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Hiện có <strong>{stats?.totalTenants ?? 0}</strong> người thuê,{" "}
-                    <strong>{stats?.verifiedUsersCount ?? 0}</strong> đã xác thực CCCD và{" "}
-                    <strong>{stats?.totalMatches ?? 0}</strong> cặp ghép đôi thành công.
+                    <strong>{stats?.verifiedUsersCount ?? 0}</strong> đã xác minh CCCD và{" "}
+                    <strong>{stats?.totalMatches ?? 0}</strong> cặp ghép bạn thành công.
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Bar Chart: Phân bố Điểm uy tín */}
-            <div className="lg:col-span-4 rounded-2xl bg-card p-5 border shadow-xs space-y-3 flex flex-col justify-between">
+            <div className="lg:col-span-4 rounded-2xl bg-card p-4 ring-1 ring-border shadow-2xs space-y-2.5 flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-foreground">Phân bố Điểm uy tín người dùng</h3>
-                  <p className="text-[11px] text-muted-foreground">
+                  <h3 className="text-sm font-bold text-foreground">Phân bổ Điểm uy tín</h3>
+                  <p className="text-xs text-muted-foreground">
                     Đánh giá mức độ tin cậy của cộng đồng trên nền tảng
                   </p>
                 </div>
-                <div className="size-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <div className="size-8 rounded-xl bg-mint/70 text-emerald-deep flex items-center justify-center shrink-0">
                   <ShieldCheck className="size-4" />
                 </div>
               </div>
 
-              <div className="h-52 w-full">
+              <div className="h-48 w-full">
                 {stats?.trustScoreDistribution && stats.trustScoreDistribution.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={stats.trustScoreDistribution}
-                      margin={{ top: 10, right: 10, left: -15, bottom: 0 }}
+                      margin={{ top: 8, right: 8, left: -18, bottom: 0 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                       <XAxis dataKey="range" tick={{ fontSize: 10 }} />
@@ -1217,7 +1159,7 @@ export default function AdminOverview() {
                         ]}
                         contentStyle={{ fontSize: "12px", borderRadius: "10px" }}
                       />
-                      <Bar dataKey="count" name="Số người dùng" radius={[6, 6, 0, 0]} barSize={28}>
+                      <Bar dataKey="count" name="Số người dùng" radius={[6, 6, 0, 0]} barSize={26}>
                         {stats.trustScoreDistribution.map((_entry, idx) => (
                           <Cell key={idx} fill={TRUST_COLORS[idx % TRUST_COLORS.length]} />
                         ))}
@@ -1230,33 +1172,21 @@ export default function AdminOverview() {
                   </div>
                 )}
               </div>
-
-              <div className="grid grid-cols-2 gap-2 text-[11px] pt-2 border-t">
-                {stats?.trustScoreDistribution?.map((ts, idx) => (
-                  <div key={idx} className="flex items-center justify-between px-2 py-1 rounded bg-muted/30">
-                    <span className="truncate text-muted-foreground">{ts.range.split(" ")[0]}</span>
-                    <strong className="font-mono text-foreground">
-                      {ts.count} ({ts.percentage}%)
-                    </strong>
-                  </div>
-                ))}
-              </div>
             </div>
 
-            {/* KYC Overview Card + Donut */}
-            <div className="lg:col-span-3 rounded-2xl bg-card p-5 border shadow-xs space-y-3 flex flex-col justify-between">
+            <div className="lg:col-span-3 rounded-2xl bg-card p-4 ring-1 ring-border shadow-2xs space-y-3 flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-foreground">Kiểm duyệt CCCD</h3>
-                  <p className="text-[11px] text-muted-foreground">
-                    Tỷ lệ duyệt tích xanh (+30đ)
+                  <h3 className="text-sm font-bold text-foreground">Xác minh CCCD</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Tỷ lệ duyệt hồ sơ (+30đ)
                   </p>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => navigate("/admin/cccd")}
-                  className="h-7 px-2 text-[11px] cursor-pointer"
+                  className="h-7 px-2.5 text-xs cursor-pointer rounded-lg"
                 >
                   Duyệt <ChevronRight className="size-3" />
                 </Button>
@@ -1264,64 +1194,63 @@ export default function AdminOverview() {
 
               {stats?.kycOverview ? (
                 <>
-                  <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200/60 text-center">
-                    <span className="text-[11px] text-emerald-700 font-medium block">
+                  <div className="p-3 rounded-xl bg-mint/45 text-center">
+                    <span className="text-xs text-emerald-deep font-medium block">
                       Tỷ lệ phê duyệt hồ sơ
                     </span>
-                    <span className="text-2xl font-extrabold text-emerald-700">
+                    <span className="text-2xl font-extrabold text-emerald-deep tabular-nums">
                       {stats.kycOverview.approvalRate}%
                     </span>
                   </div>
 
-                  <div className="space-y-2 text-xs">
-                    <div className="flex items-center justify-between p-2.5 rounded-lg border bg-emerald-50/30">
-                      <span className="text-emerald-800 font-medium">Đã phê duyệt</span>
-                      <strong className="font-mono text-emerald-700">{stats.kycOverview.approvedCount}</strong>
+                  <div className="divide-y divide-border/60 text-xs">
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-muted-foreground">Đã phê duyệt</span>
+                      <strong className="tabular-nums text-emerald-deep">{stats.kycOverview.approvedCount}</strong>
                     </div>
-                    <div className="flex items-center justify-between p-2.5 rounded-lg border bg-amber-50/40">
-                      <span className="text-amber-800 font-medium">Đang chờ duyệt</span>
-                      <strong className="font-mono text-amber-700">{stats.kycOverview.pendingCount}</strong>
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-muted-foreground">Đang chờ duyệt</span>
+                      <strong className="tabular-nums text-amber-700">{stats.kycOverview.pendingCount}</strong>
                     </div>
-                    <div className="flex items-center justify-between p-2.5 rounded-lg border bg-rose-50/30">
-                      <span className="text-rose-800 font-medium">Đã từ chối</span>
-                      <strong className="font-mono text-rose-700">{stats.kycOverview.rejectedCount}</strong>
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-muted-foreground">Đã từ chối</span>
+                      <strong className="tabular-nums text-rose-700">{stats.kycOverview.rejectedCount}</strong>
                     </div>
                   </div>
                 </>
               ) : (
-                <div className="py-12 text-center text-xs text-muted-foreground">
+                <div className="py-10 text-center text-xs text-muted-foreground">
                   Chưa có dữ liệu hồ sơ CCCD
                 </div>
               )}
             </div>
           </div>
-        </TabsContent>
+        )}
 
-        {/* ───────────── TAB 3: CUNG - CẦU KHU VỰC & PHÒNG TRỌ ───────────── */}
-        <TabsContent value="landlords" className="m-0">
+        {/* TAB 3: KHU VỰC & NGUỒN PHÒNG */}
+        {analyticsTab === "landlords" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* Grouped BarChart: Tương quan Cung - Cầu theo Quận/Huyện */}
-            <div className="lg:col-span-6 rounded-2xl bg-card p-5 border shadow-xs space-y-3 flex flex-col justify-between">
+            <div className="lg:col-span-6 rounded-2xl bg-card p-4 ring-1 ring-border shadow-2xs space-y-2.5 flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-foreground">
-                    Tương quan Nguồn cung Phòng &amp; Nhu cầu Tìm kiếm theo Khu vực
+                    Nguồn cung Phòng &amp; Nhu cầu Tìm kiếm theo Khu vực
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">
-                    So sánh số phòng đang mở cho thuê với nhu cầu khu vực từ hồ sơ người thuê &amp; pass phòng
+                  <p className="text-xs text-muted-foreground">
+                    So sánh số phòng đang mở cho thuê với nhu cầu tìm kiếm tại từng quận/huyện
                   </p>
                 </div>
-                <div className="size-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                <div className="size-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
                   <Home className="size-4" />
                 </div>
               </div>
 
-              <div className="h-60 w-full">
+              <div className="h-52 w-full">
                 {districtChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={districtChartData}
-                      margin={{ top: 10, right: 15, left: -15, bottom: 0 }}
+                      margin={{ top: 8, right: 12, left: -15, bottom: 0 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                       <XAxis dataKey="district" tick={{ fontSize: 10.5 }} />
@@ -1333,15 +1262,15 @@ export default function AdminOverview() {
                         name="Nguồn cung (Phòng trọ)"
                         fill="#2563eb"
                         radius={[4, 4, 0, 0]}
-                        barSize={20}
+                        barSize={18}
                       />
                       {hasDemandColumn && (
                         <Bar
                           dataKey="demand"
-                          name="Nhu cầu (Hồ sơ & Pass phòng)"
+                          name="Nhu cầu tìm thuê"
                           fill="#10b981"
                           radius={[4, 4, 0, 0]}
-                          barSize={20}
+                          barSize={18}
                         />
                       )}
                     </BarChart>
@@ -1354,19 +1283,18 @@ export default function AdminOverview() {
               </div>
             </div>
 
-            {/* Cơ cấu Loại hình & Trạng thái phòng (Donut Chart + List) */}
-            <div className="lg:col-span-3 rounded-2xl bg-card p-5 border shadow-xs space-y-3 flex flex-col justify-between">
+            <div className="lg:col-span-3 rounded-2xl bg-card p-4 ring-1 ring-border shadow-2xs space-y-2.5 flex flex-col justify-between">
               <div>
-                <h3 className="text-sm font-bold text-foreground">Loại hình &amp; Trạng thái phòng</h3>
-                <p className="text-[11px] text-muted-foreground">
-                  Tỷ lệ lấp đầy hiện tại: <strong>{occupancyRate}%</strong> ({stats?.activeRooms ?? 0}/
+                <h3 className="text-sm font-bold text-foreground">Cơ cấu loại hình phòng</h3>
+                <p className="text-xs text-muted-foreground">
+                  Tỷ lệ lấp đầy: <strong>{occupancyRate}%</strong> ({stats?.activeRooms ?? 0}/
                   {stats?.totalRooms ?? 0} phòng trống)
                 </p>
               </div>
 
               {stats?.roomTypeDistribution && stats.roomTypeDistribution.length > 0 ? (
                 <>
-                  <div className="h-36 w-full">
+                  <div className="h-32 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -1375,8 +1303,8 @@ export default function AdminOverview() {
                           nameKey="name"
                           cx="50%"
                           cy="50%"
-                          innerRadius={30}
-                          outerRadius={54}
+                          innerRadius={28}
+                          outerRadius={48}
                           paddingAngle={3}
                         >
                           {stats.roomTypeDistribution
@@ -1395,7 +1323,7 @@ export default function AdminOverview() {
 
                   <div className="space-y-1.5">
                     {stats.roomTypeDistribution.map((rt, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-[11px]">
+                      <div key={idx} className="flex items-center justify-between text-xs">
                         <span className="flex items-center gap-1.5 text-foreground font-medium">
                           <span
                             className="size-2 rounded-full shrink-0"
@@ -1403,7 +1331,7 @@ export default function AdminOverview() {
                           />
                           {rt.name}
                         </span>
-                        <span className="font-mono text-muted-foreground">
+                        <span className="tabular-nums text-muted-foreground">
                           {rt.count} ({rt.percentage}%)
                         </span>
                       </div>
@@ -1411,48 +1339,47 @@ export default function AdminOverview() {
                   </div>
                 </>
               ) : (
-                <div className="py-12 text-center text-xs text-muted-foreground">
+                <div className="py-10 text-center text-xs text-muted-foreground">
                   Chưa có dữ liệu phân loại phòng
                 </div>
               )}
             </div>
 
-            {/* Kiểm soát chất lượng & Lối tắt vận hành */}
-            <div className="lg:col-span-3 rounded-2xl bg-card p-5 border shadow-xs space-y-3 flex flex-col justify-between">
+            <div className="lg:col-span-3 rounded-2xl bg-card p-4 ring-1 ring-border shadow-2xs space-y-2.5 flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-foreground">Vận hành &amp; Kiểm duyệt</h3>
-                  <p className="text-[11px] text-muted-foreground">
-                    Trạng thái phòng &amp; xử lý vi phạm
+                  <h3 className="text-sm font-bold text-foreground">Trạng thái &amp; Kiểm duyệt</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Tình trạng phòng &amp; xử lý báo cáo
                   </p>
                 </div>
-                <div className="size-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                <div className="size-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
                   <Shield className="size-4" />
                 </div>
               </div>
 
-              <div className="space-y-2 text-xs">
+              <div className="divide-y divide-border/60 text-xs">
                 {stats?.roomStatusDistribution?.map((st, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border">
-                    <span className="text-foreground font-medium">{st.name}</span>
-                    <span className="font-mono font-semibold text-foreground">
+                  <div key={idx} className="flex items-center justify-between py-2">
+                    <span className="text-muted-foreground">{st.name}</span>
+                    <span className="tabular-nums font-semibold text-foreground">
                       {st.count} ({st.percentage}%)
                     </span>
                   </div>
                 ))}
 
-                <div className="flex items-center justify-between p-2 rounded-lg bg-amber-50/50 border border-amber-200/60">
+                <div className="flex items-center justify-between py-2">
                   <span className="text-amber-800 font-medium flex items-center gap-1.5">
-                    <AlertCircle className="size-3.5 text-amber-600" /> Báo cáo vi phạm chờ xử lý
+                    <AlertCircle className="size-3.5 text-amber-600" /> Báo cáo chờ xử lý
                   </span>
-                  <strong className="font-mono text-amber-700">{stats?.pendingReportsCount ?? 0}</strong>
+                  <strong className="tabular-nums text-amber-700">{stats?.pendingReportsCount ?? 0}</strong>
                 </div>
 
-                <div className="flex items-center justify-between p-2 rounded-lg bg-rose-50/40 border border-rose-200/60">
+                <div className="flex items-center justify-between py-2">
                   <span className="text-rose-800 font-medium flex items-center gap-1.5">
                     <AlertCircle className="size-3.5 text-rose-600" /> Khiếu nại đánh giá
                   </span>
-                  <strong className="font-mono text-rose-700">{stats?.pendingDisputesCount ?? 0}</strong>
+                  <strong className="tabular-nums text-rose-700">{stats?.pendingDisputesCount ?? 0}</strong>
                 </div>
               </div>
 
@@ -1461,7 +1388,7 @@ export default function AdminOverview() {
                   variant="outline"
                   size="sm"
                   onClick={() => navigate("/admin/reports")}
-                  className="text-[11px] h-8 cursor-pointer justify-between"
+                  className="text-xs h-8 cursor-pointer justify-between rounded-xl"
                 >
                   Báo cáo <ChevronRight className="size-3" />
                 </Button>
@@ -1469,15 +1396,15 @@ export default function AdminOverview() {
                   variant="outline"
                   size="sm"
                   onClick={() => navigate("/admin/users")}
-                  className="text-[11px] h-8 cursor-pointer justify-between"
+                  className="text-xs h-8 cursor-pointer justify-between rounded-xl"
                 >
                   Người dùng <ChevronRight className="size-3" />
                 </Button>
               </div>
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
 
       {/* Modal Chi tiết Đánh giá từ Người thuê */}
       <Dialog open={!!selectedReview} onOpenChange={(open) => !open && setSelectedReview(null)}>
@@ -1487,7 +1414,7 @@ export default function AdminOverview() {
               <Star className="size-5 text-amber-500 fill-amber-500" /> Chi tiết Đánh giá &amp; Nhận xét
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Phản hồi trực tiếp từ người thuê có hợp đồng và đã check-in thực tế
+              Phản hồi trực tiếp từ người thuê có hợp đồng và đã nhận phòng ở thực tế
             </DialogDescription>
           </DialogHeader>
 
@@ -1526,7 +1453,7 @@ export default function AdminOverview() {
                 <div className="bg-muted/20 p-2.5 rounded-lg border">
                   <span className="text-muted-foreground text-[11px] block">Chủ trọ nhận đánh giá:</span>
                   <span className="font-semibold text-foreground line-clamp-1">
-                    {selectedReview.landlordName || "Chủ trọ hệ thống"}
+                    {selectedReview.landlordName || "Chủ nhà trọ"}
                   </span>
                 </div>
               </div>
@@ -1577,15 +1504,15 @@ export default function AdminOverview() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Chi tiết Góp ý Hệ thống */}
+      {/* Modal Chi tiết Góp ý Ứng dụng */}
       <Dialog open={!!selectedSystemFeedback} onOpenChange={(open) => !open && setSelectedSystemFeedback(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground text-base">
-              <Layers className="size-5 text-blue-600" /> Chi tiết Góp ý Nền tảng
+              <Layers className="size-5 text-blue-600" /> Chi tiết Góp ý Ứng dụng
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Ý kiến đóng góp xây dựng hệ thống từ người dùng thực tế
+              Ý kiến đóng góp xây dựng nền tảng từ người dùng thực tế
             </DialogDescription>
           </DialogHeader>
 
@@ -1606,7 +1533,7 @@ export default function AdminOverview() {
                           : "bg-blue-50 text-blue-700 border-blue-300"
                       )}
                     >
-                      {selectedSystemFeedback.senderRole === "LANDLORD" ? "Chủ trọ hệ thống" : "Người thuê phòng"}
+                      {selectedSystemFeedback.senderRole === "LANDLORD" ? "Chủ nhà trọ" : "Người thuê phòng"}
                     </Badge>
                   </div>
                   <span className="text-[11px] text-muted-foreground">
@@ -1669,10 +1596,10 @@ export default function AdminOverview() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-                  <SlidersHorizontal className="size-5 text-emerald-600" /> Trung tâm Quản lý Đánh giá &amp; Phản hồi
+                  <SlidersHorizontal className="size-5 text-emerald-600" /> Trung tâm Tìm kiếm &amp; Lọc Đánh giá
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  Bộ lọc độc lập, xem xét toàn diện phản hồi từ Người thuê và Chủ trọ
+                  Tra cứu toàn bộ nhận xét về chủ trọ và góp ý cải thiện ứng dụng
                 </DialogDescription>
               </div>
 
@@ -1707,7 +1634,7 @@ export default function AdminOverview() {
                   )}
                 >
                   <Layers className="size-3.5" />
-                  <span>Hệ thống ({systemFeedbacks.length})</span>
+                  <span>Ứng dụng ({systemFeedbacks.length})</span>
                 </button>
               </div>
             </div>
@@ -1867,12 +1794,12 @@ export default function AdminOverview() {
                 <Layers className="size-8 text-muted-foreground/30 mx-auto" />
                 <p className="font-semibold text-sm">
                   {systemFeedbacks.length === 0
-                    ? "Chưa có đánh giá nào về hệ thống"
-                    : "Không tìm thấy góp ý hệ thống phù hợp"}
+                    ? "Chưa có góp ý nào về ứng dụng"
+                    : "Không tìm thấy góp ý phù hợp"}
                 </p>
                 <p className="text-xs">
                   {systemFeedbacks.length === 0
-                    ? "Khi người dùng hoặc chủ trọ gửi góp ý nền tảng, phản hồi thực tế sẽ xuất hiện tại đây."
+                    ? "Khi người dùng hoặc chủ trọ gửi góp ý, nội dung sẽ xuất hiện tại đây."
                     : "Vui lòng điều chỉnh tiêu chí lọc vai trò, số sao hoặc từ khóa"}
                 </p>
               </div>

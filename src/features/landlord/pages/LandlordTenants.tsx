@@ -374,7 +374,7 @@ export default function LandlordTenants() {
       </div>
 
       {/* 4 Summary Metrics */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div data-tour="landlord-tenants-kpis" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl bg-card p-4 ring-1 ring-border">
           <p className="text-xs text-muted-foreground">Yêu cầu chờ bạn duyệt</p>
           <p className="text-2xl font-bold text-amber-600 mt-1">{pendingApprovalCount}</p>
@@ -402,7 +402,7 @@ export default function LandlordTenants() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex flex-wrap border-b border-border gap-1">
+      <div data-tour="landlord-tenants-tabs" className="flex flex-wrap border-b border-border gap-1">
         {[
           { id: "all", label: `Tất cả (${tenants.length})` },
           { id: "pending_approval", label: `Chờ duyệt yêu cầu (${pendingApprovalCount})` },
@@ -439,7 +439,7 @@ export default function LandlordTenants() {
           </span>
         </div>
       ) : filteredTenants.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-card ring-1 ring-border border-dashed border-border">
+        <div data-tour="landlord-tenants-table" className="p-12 text-center rounded-2xl bg-card ring-1 ring-border border-dashed border-border">
           <Users className="size-12 mx-auto text-muted-foreground/50 mb-3" />
           <h3 className="font-semibold text-foreground">Chưa có dữ liệu trong mục này</h3>
           <p className="text-sm text-muted-foreground mt-1">
@@ -447,7 +447,7 @@ export default function LandlordTenants() {
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-border shadow-2xs">
+        <div data-tour="landlord-tenants-table" className="overflow-hidden rounded-2xl bg-card ring-1 ring-border shadow-2xs">
           <Table>
             <TableHeader>
               <TableRow className="bg-secondary/50">

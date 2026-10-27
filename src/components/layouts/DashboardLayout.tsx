@@ -3,7 +3,7 @@ import { Outlet, NavLink, Link, useNavigate, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard, Home, PlusCircle, ArrowLeftRight,
-  ShieldCheck, Users, Flag, Bell, ChevronLeft, Star, MessageCircle, Zap, Crown,
+  ShieldCheck, Users, Flag, Bell, ChevronLeft, Star, MessageCircle, Zap, Crown, CircleHelp, Menu, X,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,8 @@ import { useNotifications } from "@/features/notifications/hooks/useNotification
 import { useAuth } from "@/app/context/AuthContext";
 import { AnimatePresence } from "motion/react";
 import { PageTransition } from "./PageTransition";
+import { TourGuide } from "@/components/shared/TourGuide";
+import { AppFeedbackModal } from "@/components/shared/AppFeedbackModal";
 
 type Item = { to: string; label: string; icon: LucideIcon; end?: boolean; tab?: string };
 
@@ -30,7 +32,6 @@ const landlordNav: Item[] = [
   { to: "/landlord?tab=post", label: "Đăng phòng", icon: PlusCircle, tab: "post" },
   { to: "/landlord?tab=tenants", label: "Người thuê", icon: Users, tab: "tenants" },
   { to: "/landlord?tab=chat", label: "Tin nhắn", icon: MessageCircle, tab: "chat" },
-  { to: "/landlord?tab=swaps", label: "Chuyển nhượng", icon: ArrowLeftRight, tab: "swaps" },
   { to: "/landlord?tab=reviews", label: "Đánh giá", icon: Star, tab: "reviews" },
   { to: "/landlord?tab=packages", label: "Gói dịch vụ", icon: Zap, tab: "packages" },
 ];
@@ -51,6 +52,45 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
   const { notifications, unreadCount: unread, markAsRead, markAllAsRead } = useNotifications();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isTourOpen, setIsTourOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [hasSeenTour, setHasSeenTour] = useState(() => {
+    try {
+      return Boolean(localStorage.getItem("ptx_tour_seen_v1_landlord"));
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    setIsMobileNavOpen(false);
+    const params = new URLSearchParams(location.search);
+    if (params.get("tour") === "1" && variant === "landlord") {
+      setIsTourOpen(true);
+    }
+  }, [location.pathname, location.search, variant]);
+
+  const handleOpenTour = () => {
+    setIsMobileNavOpen(false);
+    setIsTourOpen(true);
+    try {
+      localStorage.setItem("ptx_tour_seen_v1_landlord", "1");
+      setHasSeenTour(true);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleCloseTour = () => {
+    setIsTourOpen(false);
+    try {
+      localStorage.setItem("ptx_tour_seen_v1_landlord", "1");
+      setHasSeenTour(true);
+    } catch {
+      // ignore
+    }
+  };
 
   const currentTab = new URLSearchParams(location.search).get("tab") || "overview";
   const isPackagesActive =
@@ -67,8 +107,6 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
     if (variant === "landlord") {
       if (d.rentalId || n.title?.toLowerCase().includes("thuê") || n.title?.toLowerCase().includes("hợp đồng")) {
         navigate("/landlord?tab=tenants");
-      } else if (d.swapId || n.title?.toLowerCase().includes("chuyển nhượng") || n.title?.toLowerCase().includes("hoán đổi")) {
-        navigate("/landlord?tab=swaps");
       } else if (d.conversationId || n.title?.toLowerCase().includes("tin nhắn")) {
         navigate(`/landlord?tab=chat${d.conversationId ? `&cid=${d.conversationId}` : ""}`);
       } else {
@@ -92,16 +130,28 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
 
   return (
     <div className="flex min-h-screen bg-secondary/30">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-border bg-card lg:flex">
-        <div className="flex h-14 items-center px-5">
-          <Link to={variant === "landlord" ? "/landlord" : "/admin"} className="brand text-lg text-primary">
-            Phòng Trọ Xanh
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-card lg:flex">
+        <div className="flex h-16 items-center px-5 border-b border-border/60">
+          <Link
+            to={variant === "landlord" ? "/landlord" : "/admin"}
+            className="flex items-center gap-2.5 transition-opacity duration-200 hover:opacity-85"
+          >
+            <span className="grid size-9 place-items-center rounded-xl bg-primary text-mint shadow-[0_8px_20px_-8px_rgba(5,150,105,0.7)] shrink-0">
+              <svg width="18" height="18" viewBox="0 0 32 32" fill="currentColor">
+                <path d="M16 6l8 6v12h-5v-7h-6v7H8V12l8-6z" />
+              </svg>
+            </span>
+            <span className="font-display text-xl font-semibold text-emerald-deep">
+              Phòng Trọ Xanh
+            </span>
           </Link>
         </div>
-        <p className="px-5 pb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          {variant === "landlord" ? "Chủ trọ" : "Quản trị viên"}
-        </p>
-        <nav className="flex-1 space-y-1 px-3">
+        <div className="px-5 pt-4 pb-2 flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {variant === "landlord" ? "Không gian Chủ trọ" : "Bảng Quản trị"}
+          </p>
+        </div>
+        <nav data-tour="landlord-sidebar-nav" className="flex-1 space-y-1.5 px-3.5 pt-1">
           {nav.map((item) => {
             const isItemActive =
               variant === "landlord"
@@ -114,36 +164,82 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
                 key={item.to}
                 to={item.to}
                 end={item.end}
+                data-tour={item.tab ? `landlord-tab-${item.tab}` : undefined}
                 className={() =>
                   cn(
-                    "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-150 active:scale-[0.98]",
+                    "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[15px] transition-all duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98]",
                     isItemActive
-                      ? "bg-mint text-primary font-semibold ring-1 ring-primary/20 shadow-2xs"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                      ? "bg-mint text-emerald-deep font-semibold ring-1 ring-primary/25 shadow-2xs"
+                      : "font-medium text-charcoal/75 hover:bg-mint/50 hover:text-emerald-brand",
                   )
                 }
               >
                 <item.icon
-                  className={cn("size-[18px] shrink-0 transition-transform duration-150", isItemActive && "scale-105")}
-                  strokeWidth={isItemActive ? 2.25 : 1.85}
+                  className={cn(
+                    "size-5 shrink-0 transition-transform duration-150",
+                    isItemActive ? "text-primary scale-105" : "text-muted-foreground"
+                  )}
+                  strokeWidth={isItemActive ? 2.25 : 1.9}
                 />
-                {item.label}
+                <span>{item.label}</span>
               </NavLink>
             );
           })}
         </nav>
-        <div className="border-t border-border p-3">
-          <Button variant="ghost" className="w-full justify-start gap-2 text-destructive hover:text-destructive" onClick={handleLogout}>
-            <ChevronLeft className="size-4" /> Đăng xuất
+        <div className="border-t border-border p-3.5 space-y-1">
+          {variant === "landlord" && (
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2.5 text-sm text-emerald-700 hover:bg-mint/60 hover:text-emerald-800 font-medium cursor-pointer"
+              onClick={handleOpenTour}
+            >
+              <CircleHelp className="size-4.5 text-primary" /> Hướng dẫn sử dụng
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-2.5 text-sm text-destructive hover:text-destructive hover:bg-rose-50/70 font-medium cursor-pointer"
+            onClick={handleLogout}
+          >
+            <ChevronLeft className="size-4.5" /> Đăng xuất
           </Button>
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-card/85 px-5 backdrop-blur">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-card/90 px-4 sm:px-6 backdrop-blur">
+          <button
+            type="button"
+            onClick={() => setIsMobileNavOpen((prev) => !prev)}
+            aria-label="Mở menu quản lý"
+            aria-expanded={isMobileNavOpen}
+            className="lg:hidden inline-flex size-9 items-center justify-center rounded-xl text-foreground hover:bg-secondary transition-colors cursor-pointer"
+          >
+            {isMobileNavOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
           <Link to={variant === "landlord" ? "/landlord" : "/admin"} className="brand text-lg text-primary lg:hidden">
-            PTX
+            Phòng Trọ Xanh
           </Link>
-          <div className="ml-auto flex items-center gap-1.5">
+          <div data-tour="landlord-header-actions" className="ml-auto flex items-center gap-1.5">
+            {variant === "landlord" && (
+              <button
+                type="button"
+                onClick={handleOpenTour}
+                title="Hướng dẫn sử dụng dành cho Chủ trọ"
+                aria-label="Hướng dẫn sử dụng"
+                className={cn(
+                  "relative inline-flex h-9 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-all duration-150 active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  isTourOpen
+                    ? "bg-primary text-primary-foreground shadow-2xs"
+                    : "bg-mint/70 text-emerald-deep hover:bg-mint ring-1 ring-primary/20"
+                )}
+              >
+                <CircleHelp className="size-4 shrink-0 text-primary" />
+                <span className="hidden sm:inline">Hướng dẫn</span>
+                {!hasSeenTour && !isTourOpen && (
+                  <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
+                )}
+              </button>
+            )}
             {variant === "landlord" && (
               <button
                 type="button"
@@ -274,6 +370,16 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
                 <DropdownMenuItem onClick={() => navigate("/profile")} className="cursor-pointer hover:bg-mint/40">Hồ sơ của tôi</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/trustscore")} className="cursor-pointer hover:bg-mint/40">Điểm uy tín</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/settings")} className="cursor-pointer hover:bg-mint/40">Cài đặt</DropdownMenuItem>
+                {variant === "landlord" && (
+                  <>
+                    <DropdownMenuItem onClick={handleOpenTour} className="cursor-pointer hover:bg-mint/40 text-emerald-700 font-medium">
+                      <CircleHelp className="size-4 mr-1.5 text-emerald-600 inline" /> Hướng dẫn sử dụng
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsFeedbackOpen(true)} className="cursor-pointer hover:bg-amber-50 text-amber-600 font-medium">
+                      <Star className="size-4 mr-1.5 fill-amber-400 text-amber-400 inline" /> Đánh giá ứng dụng
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive font-medium cursor-pointer hover:bg-destructive/5">
                   Đăng xuất
@@ -282,7 +388,61 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
             </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 p-4 lg:p-5 flex flex-col min-h-[70vh]">
+
+        {/* Mobile & Tablet Navigation Drawer (< 1024px) */}
+        {isMobileNavOpen && (
+          <div className="lg:hidden border-b border-border bg-card px-4 py-3 shadow-md space-y-2 animate-fade-in">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {nav.map((item) => {
+                const isItemActive =
+                  variant === "landlord"
+                    ? item.tab === currentTab
+                    : item.end
+                    ? location.pathname === item.to
+                    : location.pathname.startsWith(item.to);
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    onClick={() => setIsMobileNavOpen(false)}
+                    className={() =>
+                      cn(
+                        "flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-colors",
+                        isItemActive
+                          ? "bg-mint text-primary ring-1 ring-primary/20"
+                          : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+                      )
+                    }
+                  >
+                    <item.icon className="size-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+            {variant === "landlord" && (
+              <div className="pt-1.5 border-t border-border/60 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleOpenTour}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline cursor-pointer"
+                >
+                  <CircleHelp className="size-4" /> Mở cẩm nang hướng dẫn Chủ trọ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="text-xs font-medium text-destructive hover:underline cursor-pointer"
+                >
+                  Đăng xuất
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <main className="flex-1 px-4 py-3.5 lg:px-6 lg:py-4 flex flex-col min-h-[calc(100dvh-3.5rem)]">
           <AnimatePresence mode="wait">
             <PageTransition key={location.pathname + location.search}>
               <Outlet />
@@ -290,6 +450,11 @@ export function DashboardLayout({ variant = "landlord" }: { variant?: "landlord"
           </AnimatePresence>
         </main>
       </div>
+
+      {variant === "landlord" && (
+        <TourGuide active={Boolean(user) && isTourOpen} onClose={handleCloseTour} role="landlord" />
+      )}
+      <AppFeedbackModal open={isFeedbackOpen} onOpenChange={setIsFeedbackOpen} />
     </div>
   );
 }

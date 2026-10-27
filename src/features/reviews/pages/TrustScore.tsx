@@ -171,7 +171,7 @@ export default function TrustScore() {
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b">
+      <div data-tour="trustscore-header-actions" className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b">
         <div>
           <h1 className="brand text-3xl font-bold text-foreground">Điểm uy tín</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -252,7 +252,7 @@ export default function TrustScore() {
         {/* Left Column (4 cols): Donut Score & Badges */}
         <div className="space-y-6 lg:col-span-4">
           {/* Donut Card */}
-          <div className="rounded-2xl bg-card p-6 ring-1 ring-border shadow-xs text-center">
+          <div data-tour="trustscore-donut-card" className="rounded-2xl bg-card p-6 ring-1 ring-border shadow-xs text-center">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Điểm hiện tại</p>
 
             <div className="relative mx-auto grid size-44 place-items-center">
@@ -320,7 +320,7 @@ export default function TrustScore() {
         {/* Right Column (8 cols): 4 Breakdown Items & History Logs */}
         <div className="space-y-6 lg:col-span-8">
           {/* Card 1: 4 Pillars of Trust Score */}
-          <div className="rounded-2xl bg-card p-6 ring-1 ring-border shadow-xs">
+          <div data-tour="trustscore-breakdown-card" className="rounded-2xl bg-card p-6 ring-1 ring-border shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-base font-bold text-charcoal">Chi tiết điểm uy tín</h2>
