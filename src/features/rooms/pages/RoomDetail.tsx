@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Dialog,
   DialogContent,
@@ -300,6 +301,11 @@ export default function RoomDetail() {
     e.preventDefault();
     if (!id) return;
 
+    if (!viewingDate || !rentStartDate) {
+      toast.error("Vui lòng chọn ngày hẹn gặp xem phòng và ngày dự kiến dọn vào ở.");
+      return;
+    }
+
     const todayStr = new Date().toISOString().split("T")[0];
     if (viewingDate < todayStr) {
       toast.error("Ngày hẹn gặp xem phòng không được nhỏ hơn ngày hôm nay.");
@@ -318,6 +324,20 @@ export default function RoomDetail() {
         startDate: rentStartDate,
         message: rentMessage.trim() || "Em muốn hẹn gặp xem phòng và đăng ký thuê phòng này ạ.",
       });
+      try {
+        sessionStorage.setItem(
+          "ptx_just_booked_room",
+          JSON.stringify({
+            roomId: id,
+            roomTitle: title,
+            landlordName: landlord.name,
+            viewingDate,
+            rentStartDate,
+          })
+        );
+      } catch {
+        // ignore storage error
+      }
       toast.success("Đã gửi yêu cầu xem & thuê phòng cho chủ trọ! Khi chủ trọ duyệt, hệ thống sẽ báo ngay cho bạn.");
       setIsRentModalOpen(false);
       navigate("/rentals/me");
@@ -440,6 +460,7 @@ export default function RoomDetail() {
               </span>
               <button
                 type="button"
+                data-tour="room-detail-map-link"
                 onClick={() => navigate(`/map?roomId=${id}`)}
                 className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline underline-offset-4 cursor-pointer"
               >
@@ -495,6 +516,7 @@ export default function RoomDetail() {
                 </p>
               </div>
               <Button
+                data-tour="room-detail-review-btn"
                 variant="default"
                 size="sm"
                 className="gap-1.5 text-xs bg-emerald-brand hover:bg-emerald-deep text-white cursor-pointer"
@@ -606,6 +628,7 @@ export default function RoomDetail() {
             </p>
 
             <Button
+              data-tour="room-detail-btn-rent"
               className="mt-4 w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shadow-sm hover-lift"
               onClick={handleOpenRentModal}
             >
@@ -613,6 +636,7 @@ export default function RoomDetail() {
             </Button>
 
             <Button
+              data-tour="room-detail-btn-chat"
               variant="outline"
               className="mt-2 w-full gap-2 cursor-pointer font-medium"
               onClick={() => {
@@ -628,27 +652,31 @@ export default function RoomDetail() {
               <MessageCircle className="size-4 text-emerald-600" /> Liên hệ chủ trọ
             </Button>
 
-            <Button
-              variant="outline"
-              className={`mt-2 w-full gap-2 cursor-pointer ${isSaved ? "text-destructive border-destructive" : ""}`}
-              onClick={handleToggleSave}
-            >
-              <Heart className={`size-4 ${isSaved ? "fill-destructive text-destructive" : ""}`} />
-              {isSaved ? "Đã lưu phòng" : "Lưu phòng"}
-            </Button>
+            <div data-tour="room-detail-btn-save-compare" className="space-y-2 mt-2">
+              <Button
+                variant="outline"
+                className={`w-full gap-2 cursor-pointer ${isSaved ? "text-destructive border-destructive" : ""}`}
+                onClick={handleToggleSave}
+              >
+                <Heart className={`size-4 ${isSaved ? "fill-destructive text-destructive" : ""}`} />
+                {isSaved ? "Đã lưu phòng" : "Lưu phòng"}
+              </Button>
 
-            <Button
-              variant="outline"
-              className="mt-2 w-full gap-2 cursor-pointer border-border hover:border-primary/50 text-foreground hover:bg-slate-50 text-sm font-medium"
-              onClick={() => navigate(`/compare?ids=${id}`)}
-            >
-              <ArrowLeftRight className="size-4 text-primary" /> So sánh với phòng khác
-            </Button>
+              <Button
+                data-tour="room-detail-btn-compare"
+                variant="outline"
+                className="w-full gap-2 cursor-pointer border-border hover:border-primary/50 text-foreground hover:bg-slate-50 text-sm font-medium"
+                onClick={() => navigate(`/compare?ids=${id}`)}
+              >
+                <ArrowLeftRight className="size-4 text-primary" /> So sánh với phòng khác
+              </Button>
+            </div>
 
             <Separator className="my-3" />
 
             {/* Direct Report Button to Admin */}
             <Button
+              data-tour="room-detail-btn-report"
               variant="ghost"
               className="w-full gap-1.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
               onClick={() => setIsReportOpen(true)}
@@ -658,7 +686,7 @@ export default function RoomDetail() {
           </div>
 
           {/* Landlord Card */}
-          <div className="rounded-2xl bg-card p-5 ring-1 ring-border shadow-xs">
+          <div data-tour="room-detail-landlord-card" className="rounded-2xl bg-card p-5 ring-1 ring-border shadow-xs">
             <p className="mb-3 text-xs text-muted-foreground font-medium uppercase tracking-wider">Thông tin chủ trọ</p>
             <div className="flex items-center gap-3">
               <Avatar className="size-12">
@@ -863,34 +891,35 @@ export default function RoomDetail() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-slate-700">Ngày hẹn gặp xem phòng</label>
-                <input
-                  type="date"
-                  required
-                  min={new Date().toISOString().split("T")[0]}
-                  className="mt-1 w-full rounded-lg border border-border bg-background p-2 text-sm text-foreground cursor-pointer"
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Ngày hẹn gặp xem phòng</label>
+                <DatePicker
                   value={viewingDate}
-                  onChange={(e) => {
-                    const nextView = e.target.value;
+                  minDate={new Date()}
+                  fromYear={new Date().getFullYear()}
+                  toYear={new Date().getFullYear() + 2}
+                  placeholder="dd/mm/yyyy"
+                  className="h-10 text-sm bg-white"
+                  onChange={(nextView) => {
                     setViewingDate(nextView);
-                    if (rentStartDate < nextView) {
+                    if (nextView && (!rentStartDate || rentStartDate < nextView)) {
                       setRentStartDate(nextView);
                     }
                   }}
                 />
-                <span className="mt-0.5 block text-[11px] text-muted-foreground">Hẹn gặp chủ trọ xem thực tế</span>
+                <span className="mt-1 block text-[11px] text-muted-foreground">Hẹn gặp chủ trọ xem thực tế</span>
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-700">Ngày dự kiến dọn vào ở</label>
-                <input
-                  type="date"
-                  required
-                  min={viewingDate || new Date().toISOString().split("T")[0]}
-                  className="mt-1 w-full rounded-lg border border-border bg-background p-2 text-sm text-foreground cursor-pointer"
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Ngày dự kiến dọn vào ở</label>
+                <DatePicker
                   value={rentStartDate}
-                  onChange={(e) => setRentStartDate(e.target.value)}
+                  minDate={viewingDate ? new Date(`${viewingDate}T00:00:00`) : new Date()}
+                  fromYear={new Date().getFullYear()}
+                  toYear={new Date().getFullYear() + 2}
+                  placeholder="dd/mm/yyyy"
+                  className="h-10 text-sm bg-white"
+                  onChange={(nextStart) => setRentStartDate(nextStart)}
                 />
-                <span className="mt-0.5 block text-[11px] text-muted-foreground">Để chủ trọ nắm lịch trống</span>
+                <span className="mt-1 block text-[11px] text-muted-foreground">Để chủ trọ nắm lịch trống</span>
               </div>
             </div>
 
@@ -924,7 +953,7 @@ export default function RoomDetail() {
       {/* Interactive Image Lightbox Zoom Modal */}
       {lightboxIndex !== null && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-150"
+          className="ptx-overlay-animate fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4"
           onClick={() => setLightboxIndex(null)}
         >
           <button
@@ -968,7 +997,7 @@ export default function RoomDetail() {
 
           {/* Central Image Container */}
           <div 
-            className="flex flex-col items-center justify-center max-w-5xl max-h-[90vh] w-full"
+            className="ptx-modal-animate flex flex-col items-center justify-center max-w-5xl max-h-[90vh] w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <img

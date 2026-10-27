@@ -127,7 +127,7 @@ export function ImageZoomOverlay({ src, alt = "Phóng to", onClose, usePortal = 
       ref={overlayRef}
       tabIndex={0}            // ← makes div focusable
       style={{ zIndex: 9999 }} // ← inline to beat any CSS variable stacking
-      className="fixed inset-0 bg-black/95 flex items-center justify-center select-none outline-none"
+      className="ptx-overlay-animate fixed inset-0 bg-black/95 flex items-center justify-center select-none outline-none"
       onClick={onClose}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
