@@ -84,7 +84,7 @@ export function Footer() {
         items: [
           ["Người thuê trọ", "/landlord?tab=tenants"],
           ["Đánh giá người thuê", "/landlord?tab=reviews"],
-          ["Duyệt đổi phòng", "/landlord?tab=swaps"],
+          ["Tin nhắn khách thuê", "/landlord?tab=chat"],
         ] as [string, string][],
       },
       {
@@ -138,7 +138,7 @@ export function Footer() {
         title: "Tiện ích của tôi",
         items: [
           ["Phòng của tôi", "/rentals/me"],
-          ["Yêu cầu Đổi phòng", "/swap"],
+          ["Phòng đã lưu", "/saved"],
           ["Điểm uy tín", "/trustscore"],
           ["Lượt ghép", "/matches"],
         ] as [string, string][],

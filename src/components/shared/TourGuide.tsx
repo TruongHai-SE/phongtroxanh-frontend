@@ -1,31 +1,28 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router";
 import {
   X,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   CheckCircle2,
   Compass,
   ChevronDown,
-  MousePointerClick,
+  Heart,
+  ArrowRight,
+  Eye,
 } from "lucide-react";
 import {
   resolveTourForLocation,
   type TourSpot,
   type LabelSide,
 } from "@/lib/tourSpots";
+import { roomsApi } from "@/features/rooms/api/roomsApi";
 import { cn } from "@/lib/utils";
 
 interface MeasuredSpot extends TourSpot {
   index: number;
   el: Element;
-  /** Raw element bounding box */
-  rawTop: number;
-  rawLeft: number;
-  rawWidth: number;
-  rawHeight: number;
-  /** Clamped spotlight cutout box in viewport coordinates */
   spotTop: number;
   spotLeft: number;
   spotWidth: number;
@@ -39,6 +36,12 @@ interface PopoverPlacement {
   side: LabelSide | "floating";
   arrowLeft?: number;
   arrowTop?: number;
+}
+
+interface FlowHintState {
+  type: "ROOM_LIKED";
+  roomId: string;
+  roomTitle: string;
 }
 
 /**
@@ -67,7 +70,7 @@ function findVisibleElement(selector: string): Element | null {
 }
 
 /**
- * Measure only the valid spots that currently exist and are visible in the DOM
+ * Measure all valid spots that currently exist and are visible in the DOM
  */
 function measureAvailableSpots(spots: TourSpot[]): MeasuredSpot[] {
   if (typeof window === "undefined") return [];
@@ -82,28 +85,26 @@ function measureAvailableSpots(spots: TourSpot[]): MeasuredSpot[] {
     if (r.width <= 4 || r.height <= 4) return;
 
     const pad = spot.pad ?? 8;
-    const maxH = spot.maxSpotHeight ?? Math.round(vh * 0.52);
+    const maxH = spot.maxSpotHeight ?? Math.round(vh * 0.58);
+    const isHeaderOrSidebar = Boolean(el.closest("header, aside"));
+    const minTop = isHeaderOrSidebar ? 6 : 68;
 
-    // Clamp spotlight cutout so huge tables/sidebars never cut out 90% of the screen
-    const clampedTop = Math.max(8, Math.min(r.top, vh - 48));
-    const availableH = Math.max(36, vh - clampedTop - 16);
-    const clampedHeight = Math.min(r.height, maxH, availableH);
+    const clampedTop = Math.max(minTop, Math.min(r.top, vh - 48));
+    const visibleHeight = r.top < minTop ? Math.max(32, r.bottom - minTop) : r.height;
+    const availableH = Math.max(32, vh - clampedTop - 12);
+    const clampedHeight = Math.min(visibleHeight, maxH, availableH);
 
-    const clampedLeft = Math.max(8, Math.min(r.left, vw - 48));
-    const clampedWidth = Math.min(r.width, vw - clampedLeft - 8);
+    const clampedLeft = Math.max(6, Math.min(r.left, vw - 48));
+    const clampedWidth = Math.min(r.width, vw - clampedLeft - 6);
 
     results.push({
       ...spot,
       index: results.length,
       el,
-      rawTop: r.top,
-      rawLeft: r.left,
-      rawWidth: r.width,
-      rawHeight: r.height,
-      spotTop: clampedTop - pad,
-      spotLeft: clampedLeft - pad,
-      spotWidth: clampedWidth + pad * 2,
-      spotHeight: clampedHeight + pad * 2,
+      spotTop: Math.max(isHeaderOrSidebar ? 4 : 66, clampedTop - pad),
+      spotLeft: Math.max(4, clampedLeft - pad),
+      spotWidth: Math.min(vw - 8, clampedWidth + pad * 2),
+      spotHeight: Math.min(vh - 8, clampedHeight + pad * 2),
     });
   });
 
@@ -119,8 +120,8 @@ function computePopoverPlacement(
   vh: number,
   cardH: number
 ): PopoverPlacement {
-  const cardW = Math.min(390, vw - 24);
-  const GAP = 18;
+  const cardW = Math.min(392, vw - 24);
+  const GAP = 16;
   const MARGIN = 14;
 
   if (!spot) {
@@ -161,7 +162,7 @@ function computePopoverPlacement(
         left,
         width: cardW,
         side: "bottom",
-        arrowLeft: Math.max(24, Math.min(Math.round(sCenterX - left), cardW - 24)),
+        arrowLeft: Math.max(28, Math.min(Math.round(sCenterX - left), cardW - 28)),
       };
     }
 
@@ -175,7 +176,7 @@ function computePopoverPlacement(
         left,
         width: cardW,
         side: "top",
-        arrowLeft: Math.max(24, Math.min(Math.round(sCenterX - left), cardW - 24)),
+        arrowLeft: Math.max(28, Math.min(Math.round(sCenterX - left), cardW - 28)),
       };
     }
 
@@ -189,7 +190,7 @@ function computePopoverPlacement(
         left: Math.round(sRight + GAP),
         width: cardW,
         side: "right",
-        arrowTop: Math.max(24, Math.min(Math.round(sCenterY - top), cardH - 24)),
+        arrowTop: Math.max(28, Math.min(Math.round(sCenterY - top), cardH - 28)),
       };
     }
 
@@ -203,37 +204,42 @@ function computePopoverPlacement(
         left: Math.round(sLeft - GAP - cardW),
         width: cardW,
         side: "left",
-        arrowTop: Math.max(24, Math.min(Math.round(sCenterY - top), cardH - 24)),
+        arrowTop: Math.max(28, Math.min(Math.round(sCenterY - top), cardH - 28)),
       };
     }
   }
 
-  // Fallback when spotlight element is large: pick the side with the most room
+  // Fallback when spotlight element is wide/tall: pick the side with the most room
   if (vw >= 1024 && Math.max(spaceRight, spaceLeft) >= 280) {
     if (spaceRight >= spaceLeft) {
       const w = Math.min(cardW, Math.max(280, spaceRight - 12));
-      const top = Math.max(MARGIN, Math.min(Math.round(sCenterY - cardH / 2), vh - cardH - MARGIN));
+      const top = Math.max(
+        MARGIN,
+        Math.min(Math.round(sCenterY - cardH / 2), vh - cardH - MARGIN)
+      );
       return {
         top,
         left: Math.round(vw - w - MARGIN),
         width: w,
         side: "right",
-        arrowTop: Math.max(24, Math.min(Math.round(sCenterY - top), cardH - 24)),
+        arrowTop: Math.max(28, Math.min(Math.round(sCenterY - top), cardH - 28)),
       };
     } else {
       const w = Math.min(cardW, Math.max(280, spaceLeft - 12));
-      const top = Math.max(MARGIN, Math.min(Math.round(sCenterY - cardH / 2), vh - cardH - MARGIN));
+      const top = Math.max(
+        MARGIN,
+        Math.min(Math.round(sCenterY - cardH / 2), vh - cardH - MARGIN)
+      );
       return {
         top,
         left: MARGIN,
         width: w,
         side: "left",
-        arrowTop: Math.max(24, Math.min(Math.round(sCenterY - top), cardH - 24)),
+        arrowTop: Math.max(28, Math.min(Math.round(sCenterY - top), cardH - 28)),
       };
     }
   }
 
-  // Vertical fallback: place at bottom or top edge away from spotlight center
   const putBottom = spaceBottom >= spaceTop;
   const left = Math.max(
     MARGIN,
@@ -244,8 +250,65 @@ function computePopoverPlacement(
     left,
     width: cardW,
     side: putBottom ? "bottom" : "top",
-    arrowLeft: Math.max(24, Math.min(Math.round(sCenterX - left), cardW - 24)),
+    arrowLeft: Math.max(28, Math.min(Math.round(sCenterX - left), cardW - 28)),
   };
+}
+
+/**
+ * Resolve a valid sample room ID for the "/rooms/__sample__" tour step
+ */
+async function resolveSampleRoomId(pathname: string): Promise<string | null> {
+  if (pathname.startsWith("/rooms/")) {
+    const currentId = pathname.split("/rooms/")[1]?.split("/")[0]?.split("?")[0];
+    if (currentId && currentId !== "__sample__") return currentId;
+  }
+
+  try {
+    const sample = localStorage.getItem("ptx_sample_room_id");
+    if (sample && sample !== "undefined" && sample !== "null") return sample;
+
+    const savedRaw = localStorage.getItem("ptx_saved_room_ids");
+    if (savedRaw) {
+      const parsed = JSON.parse(savedRaw);
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]) {
+        return String(parsed[0]);
+      }
+    }
+  } catch {
+    // ignore storage errors
+  }
+
+  const linkEl = document.querySelector<HTMLAnchorElement>("a[href^='/rooms/']");
+  if (linkEl) {
+    const href = linkEl.getAttribute("href") || "";
+    const idFromDom = href.replace("/rooms/", "").split("?")[0].split("/")[0];
+    if (idFromDom && idFromDom !== "__sample__") {
+      try {
+        localStorage.setItem("ptx_sample_room_id", idFromDom);
+      } catch {
+        // ignore
+      }
+      return idFromDom;
+    }
+  }
+
+  try {
+    const page: any = await roomsApi.getRooms({ page: 0, size: 1 });
+    const first = page?.items?.[0] || page?.content?.[0];
+    if (first?.id) {
+      const idStr = String(first.id);
+      try {
+        localStorage.setItem("ptx_sample_room_id", idStr);
+      } catch {
+        // ignore
+      }
+      return idStr;
+    }
+  } catch {
+    // ignore API error
+  }
+
+  return null;
 }
 
 export interface TourGuideProps {
@@ -257,7 +320,6 @@ export interface TourGuideProps {
 export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [maskId] = useState(() => `ptx-tour-mask-${Math.random().toString(36).slice(2, 8)}`);
 
   const [stepIdx, setStepIdx] = useState<number>(0);
   const [measuredSpots, setMeasuredSpots] = useState<MeasuredSpot[]>([]);
@@ -265,8 +327,12 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
     vw: typeof window !== "undefined" ? window.innerWidth : 1280,
     vh: typeof window !== "undefined" ? window.innerHeight : 800,
   });
-  const [cardHeight, setCardHeight] = useState<number>(280);
+  const [cardHeight, setCardHeight] = useState<number>(240);
   const [isChapterMenuOpen, setIsChapterMenuOpen] = useState(false);
+
+  // Reactive Flow Coachmark state (when user likes a room on /discover)
+  const [flowHint, setFlowHint] = useState<FlowHintState | null>(null);
+  const [savedIconRect, setSavedIconRect] = useState<DOMRect | null>(null);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
 
@@ -274,6 +340,34 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
     () => resolveTourForLocation(location.pathname, location.search, role),
     [location.pathname, location.search, role]
   );
+
+  // Listen for reactive flow events (e.g. ROOM_LIKED on /discover)
+  useEffect(() => {
+    const handleFlowHint = (e: Event) => {
+      const custom = e as CustomEvent<FlowHintState>;
+      if (!custom.detail || custom.detail.type !== "ROOM_LIKED") return;
+      if (active) return;
+
+      const iconEl = findVisibleElement("[data-tour='nav-icon-saved']");
+      if (iconEl) {
+        setSavedIconRect(iconEl.getBoundingClientRect());
+      }
+      setFlowHint(custom.detail);
+    };
+
+    window.addEventListener("ptx:flow-hint", handleFlowHint);
+    return () => window.removeEventListener("ptx:flow-hint", handleFlowHint);
+  }, [active]);
+
+  useEffect(() => {
+    setFlowHint(null);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!flowHint) return;
+    const timer = window.setTimeout(() => setFlowHint(null), 12000);
+    return () => window.clearTimeout(timer);
+  }, [flowHint]);
 
   const remeasure = useCallback(() => {
     if (!active || typeof window === "undefined") return;
@@ -292,7 +386,7 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
     if (!active || !cardRef.current) return;
     const updateHeight = () => {
       if (cardRef.current) {
-        setCardHeight(cardRef.current.offsetHeight || 280);
+        setCardHeight(cardRef.current.offsetHeight || 240);
       }
     };
     updateHeight();
@@ -308,10 +402,10 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
       return;
     }
 
+    remeasure();
     const t1 = window.setTimeout(remeasure, 80);
-    const t2 = window.setTimeout(remeasure, 320);
-    const t3 = window.setTimeout(remeasure, 750);
-    const t4 = window.setTimeout(remeasure, 1400);
+    const t2 = window.setTimeout(remeasure, 280);
+    const t3 = window.setTimeout(remeasure, 650);
 
     let rafId: number | null = null;
     const mo = new MutationObserver(() => {
@@ -324,16 +418,15 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
     mo.observe(document.body, { childList: true, subtree: true });
 
     window.addEventListener("resize", remeasure);
-    window.addEventListener("scroll", remeasure, { passive: true });
+    window.addEventListener("scroll", remeasure, { passive: true, capture: true });
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
       window.clearTimeout(t3);
-      window.clearTimeout(t4);
       if (rafId !== null) window.cancelAnimationFrame(rafId);
       mo.disconnect();
       window.removeEventListener("resize", remeasure);
-      window.removeEventListener("scroll", remeasure);
+      window.removeEventListener("scroll", remeasure, true);
     };
   }, [active, remeasure, location.pathname, location.search]);
 
@@ -341,45 +434,57 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
     measuredSpots.length > 0 ? Math.min(stepIdx, measuredSpots.length - 1) : 0;
   const activeSpot = measuredSpots[safeStepIdx];
 
-  // Scroll the active element into a comfortable viewport position AND apply zoom highlight
+  // Scroll the active element into view if needed AND apply subtle zoom on compact buttons
   useEffect(() => {
     if (!active) return;
 
-    // Clean up any previous focused attribute first
     document
       .querySelectorAll("[data-tour-focused='true']")
       .forEach((node) => node.removeAttribute("data-tour-focused"));
 
-    const rawSpot = tourConfig.spots[safeStepIdx];
-    if (!rawSpot) return;
-    const el = findVisibleElement(rawSpot.selector);
-    if (!el) return;
+    if (!activeSpot?.el) return;
+    const el = activeSpot.el;
 
-    // Apply physical zoom-highlight effect on compact interactive elements (buttons, tabs, icons, headers)
     const rect = el.getBoundingClientRect();
-    if (rect.width < 520 && rect.height < 220) {
+    if (rect.width < 480 && rect.height < 180) {
       el.setAttribute("data-tour-focused", "true");
     }
 
     const vh = window.innerHeight;
-    const isOffScreen = rect.top < 72 || rect.bottom > vh - 60;
-    if (isOffScreen) {
-      el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
-      const tScroll = window.setTimeout(remeasure, 360);
-      return () => {
-        window.clearTimeout(tScroll);
-        el.removeAttribute("data-tour-focused");
-      };
+    const isHeaderOrSidebar = Boolean(el.closest("header, aside"));
+    const absTop = rect.top + window.scrollY;
+
+    if (!isHeaderOrSidebar) {
+      if (absTop < 440 && window.scrollY > 12) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        const tTop = window.setTimeout(remeasure, 340);
+        return () => {
+          window.clearTimeout(tTop);
+          el.removeAttribute("data-tour-focused");
+        };
+      }
+
+      const isOffScreen = rect.top < 84 || rect.bottom > vh - 48;
+      if (isOffScreen && absTop >= 440) {
+        window.scrollTo({
+          top: Math.max(0, absTop - 96),
+          behavior: "smooth",
+        });
+        const tScroll = window.setTimeout(remeasure, 340);
+        return () => {
+          window.clearTimeout(tScroll);
+          el.removeAttribute("data-tour-focused");
+        };
+      }
     }
 
-    const tMeasure = window.setTimeout(remeasure, 60);
+    const tMeasure = window.setTimeout(remeasure, 50);
     return () => {
       window.clearTimeout(tMeasure);
       el.removeAttribute("data-tour-focused");
     };
-  }, [active, safeStepIdx, tourConfig.spots, remeasure]);
+  }, [active, safeStepIdx, activeSpot?.el, remeasure]);
 
-  // Clean up focused attribute when TourGuide unmounts or closes
   useEffect(() => {
     if (!active) {
       document
@@ -394,20 +499,29 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
     : null;
 
   const handleSwitchFlow = useCallback(
-    (targetRoute: string) => {
+    async (targetRoute: string) => {
       setIsChapterMenuOpen(false);
+      if (targetRoute === "/rooms/__sample__") {
+        const roomId = await resolveSampleRoomId(location.pathname);
+        if (roomId) {
+          navigate(`/rooms/${roomId}?tour=1`);
+        } else {
+          navigate("/saved?tour=1");
+        }
+        return;
+      }
       const hasQuery = targetRoute.includes("?");
       const nextUrl = `${targetRoute}${hasQuery ? "&" : "?"}tour=1`;
       navigate(nextUrl);
     },
-    [navigate]
+    [navigate, location.pathname]
   );
 
   const handleNextStep = useCallback(() => {
     if (safeStepIdx < measuredSpots.length - 1) {
       setStepIdx(safeStepIdx + 1);
     } else if (nextFlow) {
-      handleSwitchFlow(nextFlow.route);
+      void handleSwitchFlow(nextFlow.route);
     } else {
       onClose();
     }
@@ -418,11 +532,11 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
       setStepIdx(safeStepIdx - 1);
     } else if (tourConfig.activeFlowIndex > 0) {
       const prevFlow = tourConfig.flows[tourConfig.activeFlowIndex - 1];
-      handleSwitchFlow(prevFlow.route);
+      void handleSwitchFlow(prevFlow.route);
     }
   }, [safeStepIdx, tourConfig.activeFlowIndex, tourConfig.flows, handleSwitchFlow]);
 
-  // Keyboard navigation: ArrowRight / Enter -> Next, ArrowLeft -> Prev, Esc -> Close
+  // Keyboard navigation
   useEffect(() => {
     if (!active) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -441,6 +555,106 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [active, onClose, handleNextStep, handlePrevStep]);
 
+  if (typeof document === "undefined") return null;
+
+  // Contextual Coachmark when user likes a room on /discover
+  if (!active && flowHint) {
+    const iconTop = savedIconRect ? savedIconRect.top : 14;
+    const iconLeft = savedIconRect ? savedIconRect.left : window.innerWidth - 180;
+    const iconW = savedIconRect ? savedIconRect.width : 36;
+    const iconH = savedIconRect ? savedIconRect.height : 36;
+
+    return createPortal(
+      <div className="pointer-events-none fixed inset-0 z-[9990] select-none">
+        <style>{`
+          @keyframes ptx-coach-pulse {
+            0%, 100% { transform: scale(1); opacity: 0.95; }
+            50% { transform: scale(1.22); opacity: 0.35; }
+          }
+        `}</style>
+
+        {savedIconRect && (
+          <div
+            className="pointer-events-none fixed rounded-full border-2 border-rose-500 shadow-[0_0_24px_6px_rgba(244,63,94,0.55)]"
+            style={{
+              top: iconTop - 5,
+              left: iconLeft - 5,
+              width: iconW + 10,
+              height: iconH + 10,
+              animation: "ptx-coach-pulse 1.6s infinite ease-in-out",
+            }}
+          />
+        )}
+
+        <div
+          className="pointer-events-auto fixed z-[9995] w-[340px] max-w-[calc(100vw-24px)] rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-[0_20px_50px_-12px_rgba(2,6,23,0.35)] animate-fade-in"
+          style={{
+            top: Math.max(68, iconTop + iconH + 12),
+            right: Math.max(16, window.innerWidth - (iconLeft + iconW) - 12),
+          }}
+        >
+          <div className="pointer-events-none absolute -top-2 right-5 size-3.5 rotate-45 border-l border-t border-slate-200 bg-white" />
+
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-rose-50 text-rose-500">
+                <Heart className="size-4 fill-rose-500" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold text-emerald-700">Đã lưu vào Phòng đã thích</p>
+                <h4 className="text-xs font-bold text-slate-900 truncate">
+                  {flowHint.roomTitle}
+                </h4>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFlowHint(null)}
+              className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
+              aria-label="Đóng"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+
+          <p className="mt-2 text-xs leading-relaxed text-slate-600">
+            Bạn có thể xem chi tiết phòng này để đặt lịch hẹn hoặc mở danh sách Phòng đã thích ở biểu tượng trái tim phía trên:
+          </p>
+
+          <div className="mt-3 flex flex-col gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                const rid = flowHint.roomId;
+                setFlowHint(null);
+                navigate(`/rooms/${rid}`);
+              }}
+              className="flex w-full items-center justify-between rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700 cursor-pointer"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Eye className="size-3.5" />
+                Xem chi tiết & Đặt lịch hẹn
+              </span>
+              <ArrowRight className="size-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setFlowHint(null);
+                navigate("/saved");
+              }}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 cursor-pointer"
+            >
+              <Heart className="size-3.5 text-rose-500" /> Mở danh sách Phòng đã thích
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
   if (!active) return null;
 
   const { vw, vh } = viewport;
@@ -450,192 +664,122 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
       ? Math.round(((safeStepIdx + 1) / measuredSpots.length) * 100)
       : 100;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[500] select-none"
+      className="fixed inset-0 z-[9999] select-none overflow-hidden"
       role="dialog"
       aria-modal="true"
-      aria-label="Hướng dẫn sử dụng tương tác từng bước"
+      aria-label="Hướng dẫn sử dụng"
     >
-      {/* Inject hardware-accelerated spotlight & target zoom styles */}
       <style>{`
         [data-tour-focused="true"] {
-          transition: transform 280ms cubic-bezier(0.23, 1, 0.32, 1), filter 280ms cubic-bezier(0.23, 1, 0.32, 1) !important;
-          transform: scale(1.05) !important;
+          transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+          transform: scale(1.04) !important;
         }
-        @keyframes ptx-spotlight-pulse {
-          0%, 100% { opacity: 0.85; transform: scale(1); }
-          50% { opacity: 0.35; transform: scale(1.025); }
+        @keyframes ptx-radar-ring {
+          0% { transform: scale(0.99); opacity: 0.85; }
+          75% { transform: scale(1.035); opacity: 0.15; }
+          100% { transform: scale(1.05); opacity: 0; }
         }
         @media (prefers-reduced-motion: reduce) {
-          [data-tour-focused="true"] {
-            transform: none !important;
-          }
+          [data-tour-focused="true"] { transform: none !important; }
         }
       `}</style>
 
-      {/* 1. Dark Backdrop + Single Animated Spotlight Cutout */}
-      <svg
-        className="absolute inset-0 h-full w-full cursor-pointer"
-        width={vw}
-        height={vh}
+      {/* Clickable full-screen backdrop layer (dismisses open chapter dropdown) */}
+      <div
+        className="fixed inset-0 z-[9999]"
         onClick={() => setIsChapterMenuOpen(false)}
-      >
-        <defs>
-          <mask id={maskId}>
-            <rect width="100%" height="100%" fill="white" />
-            {activeSpot && (
-              <rect
-                x={activeSpot.spotLeft}
-                y={activeSpot.spotTop}
-                width={activeSpot.spotWidth}
-                height={activeSpot.spotHeight}
-                rx={16}
-                fill="black"
-                style={{
-                  transition: "all 340ms cubic-bezier(0.23, 1, 0.32, 1)",
-                }}
-              />
-            )}
-          </mask>
-        </defs>
+      />
 
-        {/* Deep Dark Scrim so the spotlighted element pops like a video tutorial */}
-        <rect
-          width="100%"
-          height="100%"
-          fill="rgba(2, 6, 23, 0.78)"
-          mask={`url(#${maskId})`}
-        />
-
-        {/* Animated Emerald Spotlight Frame + Outer Radar Glow */}
-        {activeSpot && (
-          <g className="pointer-events-none">
-            <rect
-              x={activeSpot.spotLeft - 5}
-              y={activeSpot.spotTop - 5}
-              width={activeSpot.spotWidth + 10}
-              height={activeSpot.spotHeight + 10}
-              rx={20}
-              fill="none"
-              stroke="rgba(16, 185, 129, 0.45)"
-              strokeWidth={3}
-              style={{
-                transition: "all 340ms cubic-bezier(0.23, 1, 0.32, 1)",
-                animation: "ptx-spotlight-pulse 2s infinite ease-in-out",
-                transformOrigin: `${activeSpot.spotLeft + activeSpot.spotWidth / 2}px ${
-                  activeSpot.spotTop + activeSpot.spotHeight / 2
-                }px`,
-              }}
-            />
-            <rect
-              x={activeSpot.spotLeft}
-              y={activeSpot.spotTop}
-              width={activeSpot.spotWidth}
-              height={activeSpot.spotHeight}
-              rx={16}
-              fill="none"
-              stroke="#10b981"
-              strokeWidth={2.5}
-              style={{
-                transition: "all 340ms cubic-bezier(0.23, 1, 0.32, 1)",
-              }}
-            />
-          </g>
-        )}
-      </svg>
-
-      {/* 2. Step Number Badge + Animated Pointer pinned on Spotlight Corner */}
-      {activeSpot && (
+      {/* 1. Clean Spotlight Cutout Box (Zero obstruction over the highlighted UI) */}
+      {activeSpot ? (
         <div
-          className="pointer-events-none fixed z-[502] flex items-center gap-1.5 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-extrabold text-white shadow-[0_6px_18px_rgba(5,150,105,0.55)] ring-2 ring-white"
+          className="pointer-events-none fixed z-[10000] rounded-2xl"
           style={{
-            top: Math.max(8, activeSpot.spotTop - 14),
-            left: Math.max(8, Math.min(activeSpot.spotLeft - 6, vw - 110)),
-            transition: "all 340ms cubic-bezier(0.23, 1, 0.32, 1)",
+            top: activeSpot.spotTop,
+            left: activeSpot.spotLeft,
+            width: activeSpot.spotWidth,
+            height: activeSpot.spotHeight,
+            boxShadow:
+              "0 0 0 9999px rgba(2, 6, 23, 0.72), 0 0 0 2.5px #10b981, 0 0 28px 4px rgba(16, 185, 129, 0.38)",
+            transition:
+              "top 320ms cubic-bezier(0.22, 1, 0.36, 1), left 320ms cubic-bezier(0.22, 1, 0.36, 1), width 320ms cubic-bezier(0.22, 1, 0.36, 1), height 320ms cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         >
-          <MousePointerClick className="size-3.5 shrink-0" />
-          <span>
-            Bước {safeStepIdx + 1}/{measuredSpots.length}
-          </span>
+          <div
+            className="pointer-events-none absolute -inset-1.5 rounded-[18px] border border-emerald-400/80"
+            style={{ animation: "ptx-radar-ring 1.8s infinite ease-out" }}
+          />
         </div>
+      ) : (
+        <div className="pointer-events-none fixed inset-0 z-[10000] bg-slate-950/72" />
       )}
 
-      {/* 3. Single Anchored Tutorial Popover Card (Zero Overlap) */}
+      {/* 2. Single Anchored Popover Card (Clean, Crisp Corners, Concise Content) */}
       <div
         ref={cardRef}
         onClick={(e) => e.stopPropagation()}
-        className="fixed z-[505] rounded-2xl border border-emerald-500/35 bg-white text-slate-900 shadow-[0_24px_60px_-15px_rgba(2,6,23,0.65)] ring-1 ring-black/5"
+        className="fixed z-[10005] rounded-2xl border border-slate-200/90 bg-white text-slate-900 shadow-[0_24px_60px_-15px_rgba(2,6,23,0.6)]"
         style={{
           top: placement.top,
           left: placement.left,
           width: placement.width,
           transition:
-            "top 320ms cubic-bezier(0.23, 1, 0.32, 1), left 320ms cubic-bezier(0.23, 1, 0.32, 1)",
+            "top 300ms cubic-bezier(0.22, 1, 0.36, 1), left 300ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
         {/* Directional Arrow pointing directly at the Spotlighted Element */}
         {placement.side === "bottom" && placement.arrowLeft != null && (
           <div
-            className="pointer-events-none absolute -top-2 size-4 rotate-45 border-l border-t border-emerald-500/35 bg-white"
-            style={{ left: placement.arrowLeft - 8 }}
+            className="pointer-events-none absolute -top-2 size-3.5 rotate-45 border-l border-t border-slate-200 bg-white"
+            style={{ left: placement.arrowLeft - 7 }}
           />
         )}
         {placement.side === "top" && placement.arrowLeft != null && (
           <div
-            className="pointer-events-none absolute -bottom-2 size-4 rotate-45 border-b border-r border-emerald-500/35 bg-white"
-            style={{ left: placement.arrowLeft - 8 }}
+            className="pointer-events-none absolute -bottom-2 size-3.5 rotate-45 border-b border-r border-slate-200 bg-white"
+            style={{ left: placement.arrowLeft - 7 }}
           />
         )}
         {placement.side === "right" && placement.arrowTop != null && (
           <div
-            className="pointer-events-none absolute -left-2 size-4 rotate-45 border-b border-l border-emerald-500/35 bg-white"
-            style={{ top: placement.arrowTop - 8 }}
+            className="pointer-events-none absolute -left-2 size-3.5 rotate-45 border-b border-l border-slate-200 bg-white"
+            style={{ top: placement.arrowTop - 7 }}
           />
         )}
         {placement.side === "left" && placement.arrowTop != null && (
           <div
-            className="pointer-events-none absolute -right-2 size-4 rotate-45 border-r border-t border-emerald-500/35 bg-white"
-            style={{ top: placement.arrowTop - 8 }}
+            className="pointer-events-none absolute -right-2 size-3.5 rotate-45 border-r border-t border-slate-200 bg-white"
+            style={{ top: placement.arrowTop - 7 }}
           />
         )}
 
-        {/* Top Progress Bar */}
-        <div className="h-1.5 w-full overflow-hidden rounded-t-2xl bg-slate-100">
-          <div
-            className="h-full bg-emerald-500 transition-all duration-300"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-
-        {/* Card Top Bar: Screen/Chapter Selector Dropdown + Close Button */}
-        <div className="relative flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-2.5">
+        {/* Card Top Bar: Screen Selector Dropdown + Step Counter + Close Button */}
+        <div className="relative flex items-center justify-between gap-2 px-4 py-2.5">
           <div className="relative min-w-0">
             <button
               type="button"
               onClick={() => setIsChapterMenuOpen((prev) => !prev)}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-800 transition-colors hover:bg-emerald-100 cursor-pointer"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer"
               title="Chuyển nhanh sang màn hình khác"
             >
               <Compass className="size-3.5 shrink-0 text-emerald-600" />
               <span className="truncate">
-                Màn {tourConfig.activeFlowIndex + 1}/{tourConfig.flows.length}:{" "}
-                {tourConfig.flows[tourConfig.activeFlowIndex]?.shortTitle.replace(/^\d+\.\s*/, "")}
+                {tourConfig.flows[tourConfig.activeFlowIndex]?.shortTitle}
               </span>
               <ChevronDown
                 className={cn(
-                  "size-3.5 shrink-0 text-emerald-700 transition-transform duration-150",
+                  "size-3.5 shrink-0 text-slate-500 transition-transform duration-150",
                   isChapterMenuOpen && "rotate-180"
                 )}
               />
             </button>
 
-            {/* Dropdown Menu to jump to any of the 8 Screens/Tabs */}
             {isChapterMenuOpen && (
-              <div className="absolute left-0 top-full z-30 mt-1.5 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+              <div className="absolute left-0 top-full z-30 mt-1.5 w-60 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
                 <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Chọn màn hình hướng dẫn ({tourConfig.role === "landlord" ? "Chủ trọ" : "Người thuê"})
+                  Chọn màn hình hướng dẫn
                 </p>
                 <div className="max-h-60 overflow-y-auto space-y-0.5">
                   {tourConfig.flows.map((flow, idx) => {
@@ -644,12 +788,12 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
                       <button
                         key={flow.id}
                         type="button"
-                        onClick={() => handleSwitchFlow(flow.route)}
+                        onClick={() => void handleSwitchFlow(flow.route)}
                         className={cn(
-                          "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold transition-colors cursor-pointer",
+                          "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition-colors cursor-pointer",
                           isCurrent
-                            ? "bg-emerald-600 text-white"
-                            : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-800"
+                            ? "bg-emerald-600 text-white font-semibold"
+                            : "text-slate-700 hover:bg-slate-100"
                         )}
                       >
                         <span className="truncate">{flow.shortTitle}</span>
@@ -662,71 +806,80 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Đóng hướng dẫn"
-            title="Đóng hướng dẫn (Esc)"
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 cursor-pointer shrink-0"
-          >
-            <span>Thoát</span>
-            <X className="size-3.5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {measuredSpots.length > 0 && (
+              <span className="text-xs font-semibold text-slate-400 tabular-nums">
+                {safeStepIdx + 1} / {measuredSpots.length}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Đóng hướng dẫn"
+              title="Đóng hướng dẫn (Esc)"
+              className="inline-flex size-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800 cursor-pointer"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
         </div>
 
-        {/* Card Main Body: Title, Full Explanation & Pro Tip */}
-        <div className="p-4 sm:p-5">
+        {/* Progress Bar placed cleanly inside the card below the header (zero corner bleed) */}
+        <div className="h-[3px] w-full bg-slate-100">
+          <div
+            className="h-full bg-emerald-500 transition-all duration-300"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+
+        {/* Card Main Body: Concise, Easy-to-Read Content */}
+        <div className="p-4">
           {activeSpot ? (
             <>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center rounded-md bg-emerald-600 px-2 py-0.5 text-[11px] font-extrabold text-white tabular-nums">
-                  Mục {safeStepIdx + 1} / {measuredSpots.length}
-                </span>
-                <span className="text-xs font-medium text-slate-400">
-                  • Sử dụng phím ← → để chuyển
-                </span>
-              </div>
-
-              <h3 className="mt-2.5 text-base font-extrabold text-slate-900 leading-snug">
+              <h3 className="text-[15px] font-bold text-slate-900 leading-snug text-pretty">
                 {activeSpot.label}
               </h3>
 
-              <p className="mt-2 text-[13.5px] leading-relaxed text-slate-600">
+              <p className="mt-1.5 text-[13px] leading-relaxed text-slate-600 text-pretty">
                 {activeSpot.description}
               </p>
 
-              {activeSpot.tip && (
-                <div className="mt-3.5 flex items-start gap-2 rounded-xl border border-emerald-200/80 bg-emerald-50/70 p-3">
-                  <Sparkles className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-                  <p className="text-xs leading-relaxed text-emerald-950">
-                    <strong className="font-bold text-emerald-800">Mẹo: </strong>
-                    {activeSpot.tip}
-                  </p>
-                </div>
+              {activeSpot.bullets && activeSpot.bullets.length > 0 && (
+                <ul className="mt-2.5 space-y-1.5 border-l-2 border-emerald-500/40 pl-3">
+                  {activeSpot.bullets.map((item, i) => (
+                    <li
+                      key={i}
+                      className="text-xs leading-relaxed text-slate-600 text-pretty"
+                    >
+                      {item}
+                    </li>
+                  ))}
+                </ul>
               )}
             </>
           ) : (
-            <div className="py-2">
-              <h3 className="text-base font-bold text-slate-900">{tourConfig.currentTitle}</h3>
-              <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+            <div className="py-1">
+              <h3 className="text-[15px] font-bold text-slate-900">
+                {tourConfig.currentTitle}
+              </h3>
+              <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
                 {tourConfig.currentSummary}
               </p>
             </div>
           )}
 
-          {/* Card Footer: Step Dots + Prev / Next Buttons */}
-          <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3.5">
+          {/* Card Footer: Prev / Dots / Next */}
+          <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
             <button
               type="button"
               onClick={handlePrevStep}
               disabled={safeStepIdx === 0 && tourConfig.activeFlowIndex === 0}
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-35 disabled:pointer-events-none cursor-pointer"
+              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-35 disabled:pointer-events-none cursor-pointer"
             >
               <ChevronLeft className="size-3.5" />
-              <span>{safeStepIdx === 0 && tourConfig.activeFlowIndex > 0 ? "Màn trước" : "Quay lại"}</span>
+              <span>Quay lại</span>
             </button>
 
-            {/* Interactive Step Dots */}
             {measuredSpots.length > 1 && (
               <div className="flex items-center gap-1.5">
                 {measuredSpots.map((s, idx) => (
@@ -734,24 +887,23 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
                     key={s.selector + idx}
                     type="button"
                     onClick={() => setStepIdx(idx)}
-                    aria-label={`Chuyển tới mục ${idx + 1}`}
+                    aria-label={`Mục ${idx + 1}`}
                     className={cn(
-                      "h-2 rounded-full transition-all duration-200 cursor-pointer",
+                      "h-1.5 rounded-full transition-all duration-200 cursor-pointer",
                       idx === safeStepIdx
-                        ? "w-5 bg-emerald-600"
-                        : "w-2 bg-slate-200 hover:bg-slate-300"
+                        ? "w-4 bg-emerald-600"
+                        : "w-1.5 bg-slate-200 hover:bg-slate-300"
                     )}
                   />
                 ))}
               </div>
             )}
 
-            {/* Next Step or Next Screen CTA */}
             {safeStepIdx < measuredSpots.length - 1 ? (
               <button
                 type="button"
                 onClick={handleNextStep}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95 cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white transition-all hover:bg-emerald-700 active:scale-95 cursor-pointer"
               >
                 <span>Tiếp theo</span>
                 <ChevronRight className="size-3.5" />
@@ -759,17 +911,17 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
             ) : nextFlow ? (
               <button
                 type="button"
-                onClick={() => handleSwitchFlow(nextFlow.route)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95 cursor-pointer"
+                onClick={() => void handleSwitchFlow(nextFlow.route)}
+                className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white transition-all hover:bg-emerald-700 active:scale-95 cursor-pointer"
               >
-                <span>Qua: {nextFlow.shortTitle}</span>
+                <span>Mở: {nextFlow.shortTitle.replace(/^\d+\.\s*/, "")}</span>
                 <ChevronRight className="size-3.5" />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95 cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white transition-all hover:bg-emerald-700 active:scale-95 cursor-pointer"
               >
                 <CheckCircle2 className="size-3.5" />
                 <span>Hoàn tất</span>
@@ -778,6 +930,7 @@ export function TourGuide({ active, onClose, role = "tenant" }: TourGuideProps) 
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

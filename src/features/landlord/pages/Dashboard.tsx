@@ -133,7 +133,6 @@ export default function LandlordDashboard() {
   if (tab === "rooms") return <LandlordRooms />;
   if (tab === "post") return <PostRoom />;
   if (tab === "tenants") return <LandlordTenants />;
-  if (tab === "swaps") return <Swaps />;
   if (tab === "reviews") return <LandlordReviews />;
   if (tab === "chat") return <LandlordChat />;
   if (tab === "packages") return <LandlordPackages />;
