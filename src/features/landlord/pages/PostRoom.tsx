@@ -457,8 +457,11 @@ export default function PostRoom() {
                   />
                 </Field>
 
-                <Field label="Tiện nghi có sẵn trong phòng (Wi-Fi & Bãi xe sẽ tự động mở ô nhập phí ở bước sau)">
+                <Field label="Tiện nghi chuẩn của phòng (Đồng bộ với Bộ lọc tìm phòng của người thuê)">
                   <AmenityPicker value={amenities} onChange={setAmenities} />
+                  <p className="text-[11px] text-muted-foreground pt-1">
+                    Chọn từ 10 tiện nghi cốt lõi (chọn <strong>Wi-Fi</strong> hoặc <strong>Bãi xe</strong> sẽ mở ô nhập phí ở bước sau). Các nội thất riêng lẻ khác (tủ lạnh, máy giặt, bàn học...) vui lòng ghi trong phần <strong>Mô tả chi tiết</strong> ở trên.
+                  </p>
                 </Field>
               </div>
             )}

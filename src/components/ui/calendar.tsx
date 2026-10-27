@@ -19,43 +19,45 @@ function Calendar({
       className={cn("p-3", className)}
       classNames={{
         months: "flex flex-col sm:flex-row gap-2",
-        month: "flex flex-col gap-4",
+        month: "flex flex-col gap-3",
         caption: "flex justify-center pt-1 relative items-center w-full",
-        caption_label: "text-sm font-medium",
+        caption_label: "text-sm font-semibold text-slate-800",
         nav: "flex items-center gap-1",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
-          "size-7 bg-transparent p-0 opacity-50 hover:opacity-100",
+          "size-7 bg-transparent p-0 opacity-70 hover:opacity-100 active:scale-[0.95] transition-all duration-150",
         ),
         nav_button_previous: "absolute left-1",
         nav_button_next: "absolute right-1",
-        table: "w-full border-collapse space-x-1",
-        head_row: "flex",
+        table: "w-full border-collapse",
+        head_row: "flex mb-1",
         head_cell:
-          "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
-        row: "flex w-full mt-2",
+          "text-slate-400 rounded-md w-9 font-semibold text-[11px] uppercase tracking-wider text-center select-none",
+        row: "flex w-full mt-1 gap-0.5",
         cell: cn(
-          "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent [&:has([aria-selected].day-range-end)]:rounded-r-md",
+          "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-emerald-50/70 [&:has([aria-selected].day-range-end)]:rounded-r-lg",
           props.mode === "range"
-            ? "[&:has(>.day-range-end)]:rounded-r-md [&:has(>.day-range-start)]:rounded-l-md first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md"
-            : "[&:has([aria-selected])]:rounded-md",
+            ? "[&:has(>.day-range-end)]:rounded-r-lg [&:has(>.day-range-start)]:rounded-l-lg first:[&:has([aria-selected])]:rounded-l-lg last:[&:has([aria-selected])]:rounded-r-lg"
+            : "[&:has([aria-selected])]:rounded-lg",
         ),
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "size-8 p-0 font-normal aria-selected:opacity-100",
+          "size-9 p-0 font-medium text-slate-700 rounded-lg aria-selected:opacity-100 cursor-pointer select-none",
+          "hover:bg-emerald-50 hover:text-emerald-700 active:scale-[0.93] transition-all duration-150 ease-[cubic-bezier(0.23,1,0.32,1)]",
         ),
         day_range_start:
-          "day-range-start aria-selected:bg-primary aria-selected:text-primary-foreground",
+          "day-range-start aria-selected:bg-emerald-600 aria-selected:text-white",
         day_range_end:
-          "day-range-end aria-selected:bg-primary aria-selected:text-primary-foreground",
+          "day-range-end aria-selected:bg-emerald-600 aria-selected:text-white",
         day_selected:
-          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-        day_today: "bg-accent text-accent-foreground",
+          "bg-emerald-600 text-white font-semibold shadow-xs shadow-emerald-600/25 hover:bg-emerald-700 hover:text-white focus:bg-emerald-600 focus:text-white",
+        day_today:
+          "bg-emerald-50/80 text-emerald-700 font-semibold ring-1 ring-inset ring-emerald-500/35",
         day_outside:
-          "day-outside text-muted-foreground aria-selected:text-muted-foreground",
-        day_disabled: "text-muted-foreground opacity-50",
+          "day-outside text-slate-300 aria-selected:text-white/80",
+        day_disabled: "text-slate-300 opacity-40 cursor-not-allowed hover:bg-transparent hover:text-slate-300 active:scale-100",
         day_range_middle:
-          "aria-selected:bg-accent aria-selected:text-accent-foreground",
+          "aria-selected:bg-emerald-50 aria-selected:text-emerald-800",
         day_hidden: "invisible",
         ...classNames,
       }}

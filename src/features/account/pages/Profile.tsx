@@ -453,7 +453,7 @@ export default function Profile() {
                 : "Điểm tính toán dựa trên xác thực CCCD, lịch sử nhận phòng thực tế và đánh giá 2 chiều."}
             </p>
 
-            <Button variant="outline" className="mt-4 w-full text-xs font-semibold" onClick={() => navigate("/trustscore")}>
+            <Button data-tour="profile-btn-trustscore" variant="outline" className="mt-4 w-full text-xs font-semibold" onClick={() => navigate("/trustscore")}>
               Xem chi tiết 4 trụ cột điểm số
             </Button>
           </div>

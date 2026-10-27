@@ -90,6 +90,11 @@ export const authApi = {
     return api.post<void>("/auth/reset-password", body);
   },
 
+  // 6b. POST /api/v1/auth/change-password
+  changePassword: (body: { currentPassword: string; newPassword: string }): Promise<void> => {
+    return api.post<void>("/auth/change-password", body);
+  },
+
   // 7. POST /api/v1/auth/refresh-token
   refreshToken: (body?: { refreshToken?: string }): Promise<TokenResponse> => {
     return api.post<TokenResponse>("/auth/refresh-token", body || {});

@@ -849,7 +849,7 @@ export const revenueInsightsMock: Record<string, RevenueInsight[]> = {
   ],
 };
 
-// Canonical Vietnamese amenity options for Landlord Room Creation / Editing & Tenant Filtering
+// Canonical 10 Vietnamese amenity options for Landlord Room Creation / Editing & Tenant Filtering
 export const LANDLORD_AMENITY_OPTIONS: string[] = [
   "Máy lạnh",
   "Wi-Fi",
@@ -860,71 +860,65 @@ export const LANDLORD_AMENITY_OPTIONS: string[] = [
   "Ban công",
   "Thang máy",
   "Gác lửng",
-  "Máy nước nóng",
-  "Tủ lạnh",
-  "Máy giặt",
-  "Khóa vân tay",
-  "Camera an ninh",
-  "Bảo vệ 24/7",
-  "Cửa sổ thoáng",
-  "Giường nệm",
-  "Tủ quần áo",
-  "Lò vi sóng",
-  "Tivi",
-  "Dọn vệ sinh",
-  "Tủ khóa cá nhân",
-  "Bếp chung",
+  "An ninh 24/7",
 ];
+
+const CANONICAL_AMENITY_SET = new Set<string>(LANDLORD_AMENITY_OPTIONS);
 
 const AMENITY_CODE_TO_VI: Record<string, string> = {
   WIFI: "Wi-Fi",
   "WI-FI": "Wi-Fi",
   AIR_CONDITIONER: "Máy lạnh",
   "MAY LANH": "Máy lạnh",
+  "MÁY LẠNH": "Máy lạnh",
   PRIVATE_BATHROOM: "WC riêng",
   "WC RIENG": "WC riêng",
+  "WC RIÊNG": "WC riêng",
   FREE_HOURS: "Giờ tự do",
+  FREE_TIME: "Giờ tự do",
   "GIO TU DO": "Giờ tự do",
+  "GIỜ TỰ DO": "Giờ tự do",
   PARKING: "Bãi xe",
   "BAI XE": "Bãi xe",
+  "BÃI XE": "Bãi xe",
   KITCHEN: "Bếp riêng",
   "BEP RIENG": "Bếp riêng",
+  "BẾP RIÊNG": "Bếp riêng",
+  SHARED_KITCHEN: "Bếp riêng",
+  "BẾP CHUNG": "Bếp riêng",
   BALCONY: "Ban công",
   "BAN CONG": "Ban công",
+  "BAN CÔNG": "Ban công",
   ELEVATOR: "Thang máy",
   "THANG MAY": "Thang máy",
+  "THANG MÁY": "Thang máy",
   MEZZANINE: "Gác lửng",
   "GAC LUNG": "Gác lửng",
-  WATER_HEATER: "Máy nước nóng",
-  "MAY NUOC NONG": "Máy nước nóng",
-  REFRIGERATOR: "Tủ lạnh",
-  "TU LANH": "Tủ lạnh",
-  WASHING_MACHINE: "Máy giặt",
-  "MAY GIAT": "Máy giặt",
-  FINGERPRINT_LOCK: "Khóa vân tay",
-  "KHOA VAN TAY": "Khóa vân tay",
-  CAMERA: "Camera an ninh",
-  SECURITY_24_7: "Bảo vệ 24/7",
-  WINDOW: "Cửa sổ thoáng",
-  "CUA SO": "Cửa sổ thoáng",
-  BED: "Giường nệm",
-  WARDROBE: "Tủ quần áo",
-  MICROWAVE: "Lò vi sóng",
-  TELEVISION: "Tivi",
-  CLEANING_SERVICE: "Dọn vệ sinh",
-  LOCKER: "Tủ khóa cá nhân",
-  SHARED_KITCHEN: "Bếp chung",
+  "GÁC LỬNG": "Gác lửng",
+  SECURITY: "An ninh 24/7",
+  SECURITY_24_7: "An ninh 24/7",
+  "AN NINH 24/7": "An ninh 24/7",
+  "BẢO VỆ 24/7": "An ninh 24/7",
+  "BAO VE 24/7": "An ninh 24/7",
+  CAMERA: "An ninh 24/7",
+  "CAMERA AN NINH": "An ninh 24/7",
+  FINGERPRINT_LOCK: "An ninh 24/7",
+  "KHÓA VÂN TAY": "An ninh 24/7",
+  "KHOA VAN TAY": "An ninh 24/7",
 };
 
 export function normalizeAmenityLabel(raw?: string): string {
   if (!raw || typeof raw !== "string") return "";
   const trimmed = raw.trim();
   if (!trimmed) return "";
+  if (CANONICAL_AMENITY_SET.has(trimmed)) {
+    return trimmed;
+  }
   const upper = trimmed.toUpperCase();
   if (AMENITY_CODE_TO_VI[upper]) {
     return AMENITY_CODE_TO_VI[upper];
   }
-  return trimmed;
+  return "";
 }
 
 export function normalizeAmenitiesList(rawList?: unknown): string[] {
@@ -934,7 +928,7 @@ export function normalizeAmenitiesList(rawList?: unknown): string[] {
   for (const item of rawList) {
     if (typeof item !== "string") continue;
     const label = normalizeAmenityLabel(item);
-    if (label && !seen.has(label)) {
+    if (label && CANONICAL_AMENITY_SET.has(label) && !seen.has(label)) {
       seen.add(label);
       result.push(label);
     }

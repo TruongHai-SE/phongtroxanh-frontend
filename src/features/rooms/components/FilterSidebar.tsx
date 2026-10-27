@@ -1,4 +1,4 @@
-import { SlidersHorizontal, Search, RotateCcw, CigaretteOff, Moon, Sparkles, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { SlidersHorizontal, Search, RotateCcw, CigaretteOff, Moon, Sparkles, Users } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -77,7 +77,6 @@ export function FilterSidebar({
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
     initialFilters?.amenities || []
   );
-  const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [keyword, setKeyword] = useState<string>(initialFilters?.keyword || "");
   const [age, setAge] = useState<number[]>([18, 28]);
 
@@ -171,7 +170,7 @@ export function FilterSidebar({
   return (
     <div
       data-tour="discover-filter-sidebar"
-      className="flex flex-col lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] rounded-2xl bg-card p-4 ring-1 ring-border shadow-xs"
+      className="flex flex-col lg:sticky lg:top-20 lg:max-h-[calc(100dvh-7.5rem)] rounded-2xl bg-card p-3.5 ring-1 ring-border shadow-xs"
     >
       <div className="flex items-center justify-between gap-1 shrink-0 pb-2.5 border-b border-border/40">
         <div className="flex items-center gap-1.5 font-medium text-foreground text-sm whitespace-nowrap">
@@ -283,7 +282,7 @@ export function FilterSidebar({
             </Select>
           </div>
 
-          {/* 5. Amenities selector (synchronized with all 23 Vietnamese landlord options) */}
+          {/* 5. Amenities selector (10 canonical options) */}
           <div className="space-y-1.5 pt-1 border-t border-border/50">
             <div className="flex items-center justify-between text-xs">
               <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
@@ -296,7 +295,7 @@ export function FilterSidebar({
               )}
             </div>
             <div className="flex flex-wrap gap-1">
-              {(showAllAmenities ? AMENITY_OPTIONS : AMENITY_OPTIONS.slice(0, 10)).map((a) => {
+              {AMENITY_OPTIONS.map((a) => {
                 const isSelected = selectedAmenities.includes(a);
                 return (
                   <button
@@ -315,23 +314,6 @@ export function FilterSidebar({
                 );
               })}
             </div>
-            {AMENITY_OPTIONS.length > 10 && (
-              <button
-                type="button"
-                onClick={() => setShowAllAmenities((prev) => !prev)}
-                className="inline-flex items-center gap-1 pt-0.5 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
-              >
-                {showAllAmenities ? (
-                  <>
-                    <ChevronUp className="size-3" /> Thu gọn tiện nghi
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="size-3" /> Xem thêm (+{AMENITY_OPTIONS.length - 10} tiện nghi)
-                  </>
-                )}
-              </button>
-            )}
           </div>
         </>
       ) : (
