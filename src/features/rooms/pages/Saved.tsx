@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   Heart,
@@ -71,6 +71,16 @@ export default function Saved() {
     return list;
   }, [savedRooms, selectedDistrict, sortBy]);
 
+  useEffect(() => {
+    if (displayedRooms.length > 0 && displayedRooms[0]?.id) {
+      try {
+        localStorage.setItem("ptx_sample_room_id", String(displayedRooms[0].id));
+      } catch {
+        // ignore
+      }
+    }
+  }, [displayedRooms]);
+
   return (
     <div className="mx-auto w-full max-w-[1440px] px-6 pt-2 md:pt-3 pb-12">
       {/* Top Header Bar aligned with /discover and /roommates */}
@@ -94,7 +104,7 @@ export default function Saved() {
 
       {/* Filter & Sort Toolbar when rooms exist */}
       {!isLoading && !isError && !isEmpty && (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-card p-3.5 ring-1 ring-border shadow-2xs">
+        <div data-tour="saved-filter-bar" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-card p-3.5 ring-1 ring-border shadow-2xs">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-muted-foreground">
               <Building2 className="size-3.5 text-primary" /> Khu vực:

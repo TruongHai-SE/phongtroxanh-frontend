@@ -48,7 +48,8 @@ export function MonetizationProvider({ children }: { children: React.ReactNode }
     const tenantPlans = plans.filter((p) => p.targetRole === "TENANT");
     const active = tenantPlans.filter((p) => subs.some((s) => s.planId === p.id));
     setTier(active.length ? "pro" : "free");
-    setMaxSwipes(Math.max(DEFAULT_DAILY_SWIPES, ...active.map((p) => parseFeatures(p).swipes_per_day)));
+    const planMax = Math.max(DEFAULT_DAILY_SWIPES, ...active.map((p) => parseFeatures(p).swipes_per_day));
+    setMaxSwipes(Math.max(planMax, balance?.swipesLeft ?? 0));
   }, [user]);
 
   useEffect(() => {
