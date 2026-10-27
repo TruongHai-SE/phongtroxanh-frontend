@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   GraduationCap,
   Users,
@@ -20,6 +21,8 @@ import {
   ShieldCheck,
   Eye,
   ArrowUpRight,
+  BellRing,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/shared/ImageWithFallback";
@@ -34,6 +37,38 @@ import { matchingApi } from "../api/matchingApi";
 import { accountApi } from "@/features/account/api/accountApi";
 import { inferDistrictFromSchoolOrPlace } from "@/lib/constants";
 import { toast } from "sonner";
+
+function formatRoommateFilterBadges(filters?: {
+  keyword?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  district?: string;
+  minAge?: number;
+  maxAge?: number;
+  nonSmoking?: boolean;
+  earlySleeper?: boolean;
+  isNeat?: boolean;
+  allowGuests?: boolean;
+} | null): string[] {
+  if (!filters) return [];
+  const badges: string[] = [];
+  if (filters.district) badges.push(`Khu vực: ${filters.district}`);
+  if (filters.minAge || filters.maxAge) {
+    if (filters.minAge && filters.maxAge) {
+      badges.push(`Độ tuổi: ${filters.minAge} – ${filters.maxAge} tuổi`);
+    } else if (filters.minAge) {
+      badges.push(`Độ tuổi: Từ ${filters.minAge} tuổi`);
+    } else if (filters.maxAge) {
+      badges.push(`Độ tuổi: ≤ ${filters.maxAge} tuổi`);
+    }
+  }
+  if (filters.keyword) badges.push(`Từ khóa: "${filters.keyword}"`);
+  if (filters.nonSmoking) badges.push("Không hút thuốc");
+  if (filters.earlySleeper) badges.push("Ngủ trước 23h");
+  if (filters.isNeat) badges.push("Gọn gàng");
+  if (filters.allowGuests) badges.push("Cho phép khách");
+  return badges;
+}
 
 function BigPersonCard({
   person,
@@ -262,7 +297,7 @@ function BigPersonCard({
       </div>
 
       {/* Bottom 48%: Clean 3-tier hierarchy (Identity + Budget/Area -> Bio -> Lifestyle Pills) */}
-      <div className="flex flex-1 flex-col justify-between p-4 sm:px-6 sm:py-4 min-w-0 min-h-0">
+      <div className="flex flex-1 flex-col justify-between p-3.5 sm:px-5 sm:py-3 min-w-0 min-h-0">
         {/* Tier 1: Name, Age & School on Left | Budget & Preferred Area on Right */}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1 space-y-1">
@@ -510,15 +545,129 @@ export default function Roommates() {
     fetchRecentMatches();
   }, []);
 
+  const shouldReduceMotion = useReducedMotion();
+  const [showRoommateAlertModal, setShowRoommateAlertModal] = useState(false);
+  const [isSubscribingRoommateAlert, setIsSubscribingRoommateAlert] = useState(false);
+  const [isRoommateAlertSubscribed, setIsRoommateAlertSubscribed] = useState(false);
+  const lastRoommateAlertSigRef = useRef<string>("");
+
   const handleApplyFilters = (newFilters: any) => {
     setActiveFilters(newFilters);
+    setIsRoommateAlertSubscribed(false);
+    lastRoommateAlertSigRef.current = "";
   };
 
-  const handleResetFilters = () => {
+  const handleResetFilters = async () => {
     setActiveFilters({});
     setInitialFilters(undefined);
+    setShowRoommateAlertModal(false);
     setSidebarResetKey((prev) => prev + 1);
-    toast.info("Đã đặt lại bộ lọc");
+    try {
+      const data = await matchingApi.getDeck();
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped: Roommate[] = data.map((dto: any) => {
+          const age = dto.birthDate
+            ? Math.max(18, new Date().getFullYear() - new Date(dto.birthDate).getFullYear())
+            : 20;
+          return {
+            id: String(dto.userId || dto.id),
+            name: dto.fullName || "Người dùng",
+            age,
+            school: dto.schoolOrCompany || "Đang tìm bạn ở ghép",
+            bio: dto.bio || "",
+            avatar: dto.avatarUrl || "",
+            galleryImages: Array.isArray(dto.galleryImages) ? dto.galleryImages.filter(Boolean) : [],
+            budget: dto.budgetMax
+              ? dto.budgetMin
+                ? `${(Number(dto.budgetMin) / 1e6).toFixed(1)} - ${(Number(dto.budgetMax) / 1e6).toFixed(1)} tr/tháng`
+                : `≤ ${(Number(dto.budgetMax) / 1e6).toFixed(1)} tr/tháng`
+              : "Thỏa thuận",
+            match: dto.compatibilityScore ?? 80,
+            areas: dto.preferredDistricts && dto.preferredDistricts.length > 0 ? dto.preferredDistricts : [],
+            interests: dto.interests && dto.interests.length > 0 ? dto.interests : [],
+            lifestyle: [
+              { label: "Ngủ sớm", value: dto.earlySleeper ? "Có" : "Không" },
+              { label: "Gọn gàng", value: dto.isNeat ? "Có" : "Bình thường" },
+              { label: "Hút thuốc", value: dto.nonSmoking ? "Không" : "Có" },
+              { label: "Tiếp khách", value: dto.allowGuests ? "Được phép" : "Hạn chế" },
+            ],
+            compatibility: (dto.matchHighlights || []).map((h: string) => ({ label: h, value: 90 })),
+            gender: dto.gender,
+            preferredRoomType: dto.preferredRoomType,
+            trustScore: dto.trustScore,
+            isVerified: Boolean(dto.isVerified),
+            matchHighlights: Array.isArray(dto.matchHighlights) ? dto.matchHighlights : [],
+            nonSmoking: dto.nonSmoking ?? true,
+            earlySleeper: dto.earlySleeper ?? false,
+            isNeat: dto.isNeat ?? true,
+            allowGuests: dto.allowGuests ?? false,
+            isBoosted: Boolean(dto.isBoosted),
+          };
+        });
+        setAllCandidates(mapped);
+      }
+    } catch {
+      // ignore
+    }
+    toast.info("Đã đặt lại bộ lọc & làm mới danh sách ghép bạn");
+  };
+
+  const handleSubscribeRoommateAlert = async (browseAllAfter = false) => {
+    if (!user) {
+      toast.error("Vui lòng đăng nhập để bật thông báo tìm bạn ở ghép!", {
+        action: {
+          label: "Đăng nhập ngay",
+          onClick: () => navigate("/login"),
+        },
+      });
+      return;
+    }
+
+    setIsSubscribingRoommateAlert(true);
+    try {
+      try {
+        const rawPrefs = localStorage.getItem("ptx_notification_prefs_tenant");
+        const parsedPrefs = rawPrefs ? JSON.parse(rawPrefs) : {};
+        parsedPrefs.match_new = true;
+        parsedPrefs.room_recommend = true;
+        localStorage.setItem("ptx_notification_prefs_tenant", JSON.stringify(parsedPrefs));
+      } catch {
+        // ignore
+      }
+
+      await accountApi
+        .updatePreferences({
+          preferredDistricts: activeFilters.district ? [activeFilters.district] : undefined,
+          nonSmoking: activeFilters.nonSmoking !== undefined ? activeFilters.nonSmoking : undefined,
+          earlySleeper: activeFilters.earlySleeper !== undefined ? activeFilters.earlySleeper : undefined,
+          isNeat: activeFilters.isNeat !== undefined ? activeFilters.isNeat : undefined,
+          allowGuests: activeFilters.allowGuests !== undefined ? activeFilters.allowGuests : undefined,
+        })
+        .catch(() => {});
+
+      if (
+        typeof window !== "undefined" &&
+        "Notification" in window &&
+        window.Notification.permission === "default"
+      ) {
+        window.Notification.requestPermission().catch(() => {});
+      }
+
+      setIsRoommateAlertSubscribed(true);
+      toast.success("Đã bật thông báo khi có bạn ở ghép phù hợp!", {
+        description:
+          "Hệ thống sẽ thông báo khi có thành viên mới phù hợp với tiêu chí khu vực và lối sống của bạn.",
+      });
+
+      if (browseAllAfter) {
+        setShowRoommateAlertModal(false);
+        setActiveFilters({});
+        setInitialFilters(undefined);
+        setSidebarResetKey((prev) => prev + 1);
+      }
+    } finally {
+      setIsSubscribingRoommateAlert(false);
+    }
   };
 
   const filteredFeed = useMemo(() => {
@@ -554,6 +703,21 @@ export default function Roommates() {
       return true;
     });
   }, [allCandidates, activeFilters]);
+
+  const activeRoommateBadges = useMemo(
+    () => formatRoommateFilterBadges(activeFilters),
+    [activeFilters]
+  );
+
+  useEffect(() => {
+    if (!isLoading && filteredFeed.length === 0 && activeRoommateBadges.length > 0) {
+      const sig = activeRoommateBadges.join("|");
+      if (sig && lastRoommateAlertSigRef.current !== sig) {
+        lastRoommateAlertSigRef.current = sig;
+        setShowRoommateAlertModal(true);
+      }
+    }
+  }, [isLoading, filteredFeed.length, activeRoommateBadges]);
 
   const handleLike = async (p: Roommate) => {
     if (!user) {
@@ -609,16 +773,17 @@ export default function Roommates() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] px-6 pt-2 md:pt-3 pb-6">
-      <div className="mb-2 md:mb-3 flex items-end justify-between flex-wrap gap-2 animate-fade-in">
+    <div className="mx-auto w-full max-w-[1440px] px-6 pt-1.5 md:pt-2 pb-2">
+      <div className="mb-1.5 md:mb-2 flex items-end justify-between flex-wrap gap-2 animate-fade-in">
         <div>
-          <h1 className="brand text-3xl text-foreground">Vuốt để ghép bạn</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="brand text-2xl md:text-[26px] text-foreground leading-tight">Vuốt để ghép bạn</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Tìm người ở ghép hợp gu, hợp lối sống
           </p>
         </div>
         <div data-tour="roommates-header-controls" className="flex items-center gap-2">
           <Button
+            data-tour="roommates-btn-matches"
             variant="outline"
             size="sm"
             onClick={() => navigate("/matches")}
@@ -724,28 +889,72 @@ export default function Roommates() {
               onSkip={handleSkip}
               onInfo={(p) => navigate(`/roommates/${p.id}`)}
               emptyState={
-                <div className="text-center p-6">
-                  <div className="mx-auto grid size-16 place-items-center rounded-full bg-mint text-primary">
-                    <Users className="size-8" />
+                <div className="flex flex-col items-center justify-center rounded-3xl bg-card border border-border p-6 sm:p-8 text-center shadow-xs max-w-lg mx-auto">
+                  <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 mb-3">
+                    {activeRoommateBadges.length > 0 ? (
+                      <BellRing className="size-7" />
+                    ) : (
+                      <Users className="size-7" />
+                    )}
                   </div>
-                  <h3 className="mt-4 text-lg font-bold">
-                    {Object.keys(activeFilters).length > 0 ? "Không tìm thấy người phù hợp" : "Đã xem hết danh sách!"}
+                  <h3 className="text-lg sm:text-xl font-bold text-foreground">
+                    {activeRoommateBadges.length > 0
+                      ? "Chưa có bạn ở ghép khớp với bộ lọc hiện tại"
+                      : "Đã xem hết danh sách!"}
                   </h3>
-                  <p className="mt-1 text-sm text-muted-foreground max-w-sm">
-                    {Object.keys(activeFilters).length > 0
-                      ? "Hãy thử điều chỉnh bộ lọc độ tuổi, đổi quận hoặc đặt lại bộ lọc để xem thêm gợi ý."
-                      : "Quay lại sau hoặc mở rộng bộ lọc để xem thêm bạn ở ghép mới."}
+                  <p className="mt-1.5 text-xs sm:text-sm text-muted-foreground max-w-md leading-relaxed">
+                    {activeRoommateBadges.length > 0
+                      ? "Hiện chưa có hồ sơ bạn ở ghép nào khớp hoàn toàn với tiêu chí này. Bạn có muốn nhận thông báo ngay khi có thành viên phù hợp không?"
+                      : "Quay lại sau hoặc làm mới bộ lọc để xem thêm bạn ở ghép mới."}
                   </p>
-                  <div className="mt-4 flex items-center justify-center gap-2">
+
+                  {activeRoommateBadges.length > 0 && (
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5 max-w-md">
+                      {activeRoommateBadges.map((badge) => (
+                        <span
+                          key={badge}
+                          className="inline-flex items-center rounded-full bg-mint px-2.5 py-0.5 text-xs font-semibold text-emerald-900 border border-primary/20"
+                        >
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+                    {activeRoommateBadges.length > 0 && (
+                      isRoommateAlertSubscribed ? (
+                        <div className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-2 text-xs font-semibold text-emerald-800">
+                          <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                          <span>Đã bật thông báo tiêu chí này</span>
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          disabled={isSubscribingRoommateAlert}
+                          onClick={() => handleSubscribeRoommateAlert(false)}
+                          className="gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                        >
+                          <BellRing className="size-4" />
+                          <span>
+                            {isSubscribingRoommateAlert
+                              ? "Đang lưu..."
+                              : "Nhận thông báo khi có bạn phù hợp"}
+                          </span>
+                        </Button>
+                      )
+                    )}
                     <Button
                       variant="outline"
-                      className="cursor-pointer"
+                      className="gap-1.5 rounded-xl cursor-pointer"
                       onClick={handleResetFilters}
                     >
-                      Đặt lại bộ lọc
+                      <RefreshCw className="size-3.5" />
+                      <span>Xem tất cả hồ sơ</span>
                     </Button>
                     <Button
-                      className="hover-lift press-active cursor-pointer"
+                      variant="outline"
+                      className="rounded-xl cursor-pointer"
                       onClick={() => navigate("/matches")}
                     >
                       Xem lượt ghép
@@ -833,50 +1042,181 @@ export default function Roommates() {
       </div>
 
       {/* Match overlay */}
-      {match && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-6 backdrop-blur-sm">
-          <div className="relative w-full max-w-md rounded-3xl bg-card p-8 text-center shadow-2xl">
-            <button
-              onClick={() => setMatch(null)}
-              className="absolute right-4 top-4 text-muted-foreground transition-all hover:scale-110 press-active"
+      <AnimatePresence>
+        {match && (
+          <motion.div
+            key="match-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-6 backdrop-blur-[3px]"
+            onClick={() => setMatch(null)}
+          >
+            <motion.div
+              key="match-dialog"
+              initial={{ opacity: 0, scale: 0.9, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md rounded-3xl bg-card p-8 text-center shadow-2xl border border-border"
             >
-              <X className="size-5" />
-            </button>
-            <h2 className="brand text-3xl text-primary">Ghép thành công!</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Bạn và {match.name} đã thích nhau
-            </p>
-            <div className="my-6 flex items-center justify-center gap-4">
-              <ImageWithFallback
-                src={match.avatar}
-                alt={match.name}
-                className="size-24 rounded-full object-cover ring-4 ring-mint"
-              />
-              <div className="grid size-12 place-items-center rounded-full bg-primary text-primary-foreground font-bold">
-                {match.match}%
+              <button
+                onClick={() => setMatch(null)}
+                className="absolute right-4 top-4 text-muted-foreground transition-all hover:scale-110 press-active cursor-pointer"
+              >
+                <X className="size-5" />
+              </button>
+              <h2 className="brand text-3xl text-primary">Ghép thành công!</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Bạn và {match.name} đã thích nhau
+              </p>
+              <div className="my-6 flex items-center justify-center gap-4">
+                <ImageWithFallback
+                  src={match.avatar}
+                  alt={match.name}
+                  className="size-24 rounded-full object-cover ring-4 ring-mint"
+                />
+                <div className="grid size-12 place-items-center rounded-full bg-primary text-primary-foreground font-bold">
+                  {match.match}%
+                </div>
+                <ImageWithFallback
+                  src={user?.avatarUrl || ""}
+                  alt="me"
+                  className="size-24 rounded-full object-cover ring-4 ring-mint"
+                />
               </div>
-              <ImageWithFallback
-                src={user?.avatarUrl || ""}
-                alt="me"
-                className="size-24 rounded-full object-cover ring-4 ring-mint"
-              />
-            </div>
-            <Button
-              className="w-full gap-2 hover-lift press-active hover-glow"
-              onClick={() => navigate("/chat")}
+              <Button
+                className="w-full gap-2 hover-lift press-active hover-glow"
+                onClick={() => navigate("/chat")}
+              >
+                <MessageCircle className="size-4" /> Nhắn tin ngay
+              </Button>
+              <Button
+                variant="ghost"
+                className="mt-2 w-full press-active"
+                onClick={() => setMatch(null)}
+              >
+                Tiếp tục vuốt
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Animated Empty Roommate Filter Alert Modal */}
+      <AnimatePresence>
+        {showRoommateAlertModal && activeRoommateBadges.length > 0 && (
+          <motion.div
+            key="roommate-alert-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 backdrop-blur-[3px] p-4"
+            onClick={() => setShowRoommateAlertModal(false)}
+          >
+            <motion.div
+              key="roommate-alert-dialog"
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-[460px] rounded-2xl bg-card border border-border p-6 shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="roommate-alert-title"
             >
-              <MessageCircle className="size-4" /> Nhắn tin ngay
-            </Button>
-            <Button
-              variant="ghost"
-              className="mt-2 w-full press-active"
-              onClick={() => setMatch(null)}
-            >
-              Tiếp tục vuốt
-            </Button>
-          </div>
-        </div>
-      )}
+              <button
+                type="button"
+                onClick={() => setShowRoommateAlertModal(false)}
+                aria-label="Đóng thông báo"
+                className="absolute right-4 top-4 grid size-8 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+
+              <div className="flex items-start gap-3.5 pr-6">
+                <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                  <BellRing className="size-5" />
+                </div>
+                <div>
+                  <h2
+                    id="roommate-alert-title"
+                    className="text-base sm:text-lg font-bold text-foreground leading-snug"
+                  >
+                    Chưa có bạn ở ghép khớp với bộ lọc hiện tại
+                  </h2>
+                  <p className="mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Hiện chưa có hồ sơ nào khớp hoàn toàn với yêu cầu này. Bạn có muốn hệ thống{" "}
+                    <strong className="font-semibold text-foreground">
+                      lưu tiêu chí & thông báo khi có bạn ở ghép phù hợp
+                    </strong>{" "}
+                    không?
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-border bg-muted/35 p-3.5">
+                <p className="text-[11px] font-semibold text-muted-foreground mb-2">
+                  Tiêu chí tìm bạn của bạn:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {activeRoommateBadges.map((badge) => (
+                    <span
+                      key={badge}
+                      className="inline-flex items-center rounded-full bg-mint px-2.5 py-0.5 text-xs font-semibold text-emerald-900 border border-primary/20"
+                    >
+                      {badge}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-col gap-2">
+                <Button
+                  type="button"
+                  disabled={isSubscribingRoommateAlert}
+                  onClick={() => handleSubscribeRoommateAlert(true)}
+                  className="w-full rounded-xl h-10 text-xs sm:text-sm font-semibold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                >
+                  <BellRing className="size-4" />
+                  <span>
+                    {isSubscribingRoommateAlert
+                      ? "Đang lưu tiêu chí..."
+                      : "Bật thông báo & Xem tạm hồ sơ khác"}
+                  </span>
+                </Button>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSubscribingRoommateAlert}
+                    onClick={() => {
+                      handleSubscribeRoommateAlert(false);
+                      setShowRoommateAlertModal(false);
+                    }}
+                    className="w-full rounded-xl h-9 text-xs font-semibold cursor-pointer"
+                  >
+                    Chỉ bật thông báo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleResetFilters}
+                    className="w-full rounded-xl h-9 text-xs font-semibold cursor-pointer"
+                  >
+                    Xem tất cả hồ sơ
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
