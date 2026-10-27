@@ -48,12 +48,28 @@ const severityDot: Record<Severity, string> = { critical: "bg-red-500", medium: 
 const actionConfig: Record<NonNullable<ReportAction>, { title: string; desc: string; confirmLabel: string; destructive?: boolean; needsNote?: boolean }> = {
   resolve: { title: "Đánh dấu đã xử lý", desc: "Báo cáo sẽ được đóng lại là đã giải quyết xong.", confirmLabel: "Hoàn tất xử lý" },
   warn: { title: "Ghi nhận nhắc nhở vi phạm", desc: "Hệ thống sẽ gửi thông báo nhắc nhở, trừ điểm uy tín và cộng +1 mức vi phạm (tự động khóa nếu chạm mốc 3/3).", confirmLabel: "Gửi nhắc nhở", destructive: true, needsNote: true },
-  remove_content: { title: "Gỡ nội dung vi phạm", desc: "Nội dung vi phạm (tin đăng phòng trọ hoặc lời giới thiệu hồ sơ / tin sang nhượng của người thuê) bị gỡ ngay lập tức, đối tượng nhận +1 mức vi phạm và bị trừ điểm uy tín.", confirmLabel: "Xác nhận gỡ nội dung", destructive: true, needsNote: true },
+  remove_content: { title: "Gỡ nội dung vi phạm", desc: "Nội dung vi phạm (tin đăng phòng trọ hoặc lời giới thiệu hồ sơ của người thuê) bị gỡ ngay lập tức, đối tượng nhận +1 mức vi phạm và bị trừ điểm uy tín.", confirmLabel: "Xác nhận gỡ nội dung", destructive: true, needsNote: true },
   ban: { title: "Khóa tài khoản đối tượng", desc: "Tài khoản đối tượng bị khóa ngay lập tức (mức vi phạm 3/3), ẩn mọi tin đăng và đưa điểm uy tín về 0.", confirmLabel: "Xác nhận khóa tài khoản", destructive: true, needsNote: true },
   dismiss: { title: "Bỏ qua báo cáo", desc: "Báo cáo không có căn cứ hợp lệ. Người báo cáo sẽ được thông báo.", confirmLabel: "Xác nhận bỏ qua" },
 };
 
 const PAGE_SIZE = 5;
+
+const REPORT_TYPE_LABELS: Record<string, string> = {
+  TIN_GIA: "Tin đăng sai thực tế / Địa chỉ ảo",
+  LUA_COC: "Yêu cầu đặt cọc bất thường",
+  KHAC_ANH: "Phòng thực tế khác xa hình ảnh",
+  QUAY_ROI: "Ứng xử thiếu tôn trọng / Quấy rối",
+  VI_PHAM_KHAC: "Vi phạm quy định cộng đồng",
+  SPAM: "Tin rác / Quảng cáo sai mục đích",
+  SCAM: "Dấu hiệu lừa đảo",
+};
+
+function formatReportType(raw?: string): string {
+  if (!raw) return "Báo cáo vi phạm";
+  const key = raw.trim().toUpperCase();
+  return REPORT_TYPE_LABELS[key] || raw;
+}
 
 function PaginationBar({
   page, totalPages, total, onPage,
@@ -73,25 +89,27 @@ function PaginationBar({
     pages.push(totalPages);
   }
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t text-sm">
-      <span className="text-muted-foreground">{from}–{to} / {total} báo cáo</span>
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-t bg-muted/20 text-sm">
+      <span className="text-muted-foreground text-xs font-medium">
+        Hiển thị <strong className="text-foreground">{from}–{to}</strong> trong tổng số <strong className="text-foreground">{total}</strong> báo cáo
+      </span>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="size-8" disabled={page === 1} onClick={() => onPage(1)}><ChevronsLeft className="size-4" /></Button>
-        <Button variant="ghost" size="icon" className="size-8" disabled={page === 1} onClick={() => onPage(page - 1)}><ChevronLeft className="size-4" /></Button>
+        <Button variant="ghost" size="icon" className="size-8 cursor-pointer active:scale-95" disabled={page === 1} onClick={() => onPage(1)}><ChevronsLeft className="size-4" /></Button>
+        <Button variant="ghost" size="icon" className="size-8 cursor-pointer active:scale-95" disabled={page === 1} onClick={() => onPage(page - 1)}><ChevronLeft className="size-4" /></Button>
         {pages.map((p, i) => p === "…"
-          ? <span key={`d${i}`} className="px-1 text-muted-foreground">…</span>
-          : <Button key={p} variant={page === p ? "default" : "ghost"} size="icon" className="size-8 text-xs" onClick={() => onPage(p as number)}>{p}</Button>
+          ? <span key={`d${i}`} className="px-1 text-muted-foreground text-xs">…</span>
+          : <Button key={p} variant={page === p ? "default" : "ghost"} size="icon" className={cn("size-8 text-xs font-semibold cursor-pointer active:scale-95", page === p && "bg-primary text-primary-foreground shadow-2xs")} onClick={() => onPage(p as number)}>{p}</Button>
         )}
-        <Button variant="ghost" size="icon" className="size-8" disabled={page === totalPages} onClick={() => onPage(page + 1)}><ChevronRight className="size-4" /></Button>
-        <Button variant="ghost" size="icon" className="size-8" disabled={page === totalPages} onClick={() => onPage(totalPages)}><ChevronsRight className="size-4" /></Button>
+        <Button variant="ghost" size="icon" className="size-8 cursor-pointer active:scale-95" disabled={page === totalPages} onClick={() => onPage(page + 1)}><ChevronRight className="size-4" /></Button>
+        <Button variant="ghost" size="icon" className="size-8 cursor-pointer active:scale-95" disabled={page === totalPages} onClick={() => onPage(totalPages)}><ChevronsRight className="size-4" /></Button>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-muted-foreground">Đến trang</span>
-        <Input className="w-14 h-8 text-center text-xs" value={gotoVal}
+        <span className="text-muted-foreground text-xs">Đến trang</span>
+        <Input className="w-12 h-7 text-center text-xs bg-background" value={gotoVal}
           onChange={(e) => setGotoVal(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { const p = parseInt(gotoVal); if (!isNaN(p) && p >= 1 && p <= totalPages) { onPage(p); setGotoVal(""); } } }}
           placeholder={String(page)} />
-        <span className="text-muted-foreground">/ {totalPages}</span>
+        <span className="text-muted-foreground text-xs">/ {totalPages}</span>
       </div>
     </div>
   );
@@ -119,13 +137,13 @@ export default function Reports() {
       if (Array.isArray(items) && items.length > 0) {
         setReports(items.map((r: any, i: number) => ({
           id: String(r.id || `rp-${i}`),
-          target: r.targetType === "ROOM" ? `Phòng trọ #${String(r.targetId || "").slice(0, 8)}` : `Người dùng #${String(r.targetId || "").slice(0, 8)}`,
+          target: r.targetName || r.roomTitle || (r.targetType === "ROOM" ? `Tin đăng phòng trọ (#${String(r.targetId || "").slice(0, 6)})` : `Tài khoản người dùng (#${String(r.targetId || "").slice(0, 6)})`),
           targetType: (r.targetType?.toLowerCase() === "user" ? "user" : "room") as "room" | "user",
-          type: r.reportType || "Báo cáo vi phạm",
-          reporter: `Người dùng #${String(r.reporterId || "").slice(0, 8)}`,
+          type: formatReportType(r.reportType),
+          reporter: r.reporterName || `Người gửi (#${String(r.reporterId || "").slice(0, 6)})`,
           time: r.createdAt ? new Date(r.createdAt).toLocaleDateString("vi-VN") : "Hôm nay",
           status: (r.status?.toLowerCase() === "resolved" ? "resolved" : r.status?.toLowerCase() === "dismissed" ? "dismissed" : r.status?.toLowerCase() === "processing" ? "processing" : "new") as ReportStatus,
-          severity: (r.severity?.toLowerCase() === "critical" ? "critical" : r.severity?.toLowerCase() === "low" ? "low" : "medium") as Severity,
+          severity: (r.severity?.toLowerCase() === "critical" || r.severity?.toLowerCase() === "high" ? "critical" : r.severity?.toLowerCase() === "low" ? "low" : "medium") as Severity,
           detail: r.detail || "Không có nội dung mô tả bổ sung",
           targetStrikeCount: r.targetStrikeCount ?? 0,
           evidence: r.evidenceImages?.length ? r.evidenceImages : [roomImages[i % roomImages.length]],
@@ -144,7 +162,7 @@ export default function Reports() {
   }, []);
 
   const filtered = reports.filter((r) => {
-    const matchSearch = !searchQ || r.target.toLowerCase().includes(searchQ.toLowerCase()) || r.reporter.toLowerCase().includes(searchQ.toLowerCase());
+    const matchSearch = !searchQ || r.target.toLowerCase().includes(searchQ.toLowerCase()) || r.reporter.toLowerCase().includes(searchQ.toLowerCase()) || r.detail.toLowerCase().includes(searchQ.toLowerCase());
     const matchStatus = statusFilter === "all" || r.status === statusFilter;
     const matchSeverity = severityFilter === "all" || r.severity === severityFilter;
     const matchType = typeFilter === "all" || r.type === typeFilter;
@@ -174,7 +192,7 @@ export default function Reports() {
 
     const newStatus: ReportStatus = (activeAction === "resolve" || activeAction === "warn" || activeAction === "remove_content" || activeAction === "ban") ? "resolved" : "dismissed";
     const nextStrike = activeAction === "ban" ? 3 : (activeAction === "warn" || activeAction === "remove_content") ? Math.min(3, (actionTarget.targetStrikeCount ?? 0) + 1) : (actionTarget.targetStrikeCount ?? 0);
-    const historyEntry = { action: actionConfig[activeAction].confirmLabel, by: "Admin", time: "Vừa xong" };
+    const historyEntry = { action: actionConfig[activeAction].confirmLabel, by: "Quản trị viên", time: "Vừa xong" };
     setReports((prev) => prev.map((r) => r.id === actionTarget.id ? { ...r, status: newStatus, targetStrikeCount: nextStrike, history: [...(r.history ?? []), historyEntry] } : r));
     if (modalReport?.id === actionTarget.id) setModalReport((p) => p ? { ...p, status: newStatus, targetStrikeCount: nextStrike, history: [...(p.history ?? []), historyEntry] } : p);
     toast(`${actionConfig[activeAction].confirmLabel} — ${actionTarget.target}`);
@@ -182,30 +200,36 @@ export default function Reports() {
   };
 
   const isActionable = (r: Report) => r.status !== "resolved" && r.status !== "dismissed";
+  const newCount = reports.filter((r) => r.status === "new").length;
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Quản lý báo cáo vi phạm</h1>
-        <p className="text-sm text-muted-foreground">{reports.filter((r) => r.status === "new").length} báo cáo mới cần xem xét</p>
-      </div>
-
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={searchQ} onChange={(e) => { setSearchQ(e.target.value); resetPage(); }} placeholder="Tìm đối tượng, người báo cáo..." className="pl-9 w-60 h-9" />
+    <div className="space-y-3">
+      {/* ── COMPACT HEADER & FILTER CONTROLS ── */}
+      <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Quản lý báo cáo vi phạm</h1>
+            <Badge className="bg-amber-50 text-amber-800 border-amber-200 font-semibold text-xs px-2.5 py-0.5">
+              {newCount} cần xem xét
+            </Badge>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+            Kiểm tra phản ánh từ cộng đồng để gỡ tin sai sự thật, nhắc nhở hoặc khóa tài khoản vi phạm
+          </p>
         </div>
-        <Tabs value={statusFilter} onValueChange={(v) => { setStatusFilter(v); resetPage(); }}>
-          <TabsList className="h-9">
-            <TabsTrigger value="all">Tất cả</TabsTrigger>
-            <TabsTrigger value="new">Mới</TabsTrigger>
-            <TabsTrigger value="processing">Đang xử lý</TabsTrigger>
-            <TabsTrigger value="resolved">Đã xử lý</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <div className="flex gap-2 ml-auto">
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 sm:w-60 sm:flex-initial">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQ}
+              onChange={(e) => { setSearchQ(e.target.value); resetPage(); }}
+              placeholder="Tìm tin đăng, người báo cáo..."
+              className="pl-9 h-9 text-xs sm:text-sm rounded-xl bg-card"
+            />
+          </div>
           <Select value={severityFilter} onValueChange={(v) => { setSeverityFilter(v); resetPage(); }}>
-            <SelectTrigger className="w-40 h-9 text-xs cursor-pointer"><SelectValue placeholder="Mức độ" /></SelectTrigger>
+            <SelectTrigger className="w-38 h-9 text-xs sm:text-sm rounded-xl bg-card cursor-pointer"><SelectValue placeholder="Mức độ" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="cursor-pointer">Tất cả mức độ</SelectItem>
               <SelectItem value="critical" className="cursor-pointer">Nghiêm trọng</SelectItem>
@@ -214,44 +238,81 @@ export default function Reports() {
             </SelectContent>
           </Select>
           <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); resetPage(); }}>
-            <SelectTrigger className="w-48 h-9 text-xs cursor-pointer"><SelectValue placeholder="Loại vi phạm" /></SelectTrigger>
+            <SelectTrigger className="w-48 h-9 text-xs sm:text-sm rounded-xl bg-card cursor-pointer"><SelectValue placeholder="Loại vi phạm" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all" className="cursor-pointer">Tất cả loại</SelectItem>
+              <SelectItem value="all" className="cursor-pointer">Tất cả nguyên nhân</SelectItem>
               {uniqueTypes.map((t) => <SelectItem key={t} value={t} className="cursor-pointer">{t}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
       </div>
 
+      {/* ── STATUS TABS (Đồng bộ kích thước với Chủ trọ) ── */}
+      <div className="flex flex-wrap border-b border-border gap-1">
+        {[
+          { id: "all", label: `Tất cả (${reports.length})` },
+          { id: "new", label: `Mới tiếp nhận (${newCount})` },
+          { id: "processing", label: `Đang xử lý (${reports.filter((r) => r.status === "processing").length})` },
+          { id: "resolved", label: `Đã giải quyết (${reports.filter((r) => r.status === "resolved").length})` },
+        ].map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => {
+              setStatusFilter(item.id);
+              resetPage();
+            }}
+            className={cn(
+              "pb-2.5 px-3.5 text-sm font-semibold transition-all cursor-pointer border-b-2",
+              statusFilter === item.id
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       {/* Report list */}
-      <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-border divide-y divide-border">
+      <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-border divide-y divide-border/70 shadow-2xs">
         {paginated.length === 0 && (
-          <div className="py-16 text-center text-sm text-muted-foreground">Không có báo cáo nào phù hợp.</div>
+          <div className="py-14 text-center text-sm text-muted-foreground">Không có báo cáo nào phù hợp với bộ lọc hiện tại.</div>
         )}
         {paginated.map((r) => (
           <button
             key={r.id}
+            type="button"
             onClick={() => setModalReport(r)}
-            className="group w-full text-left px-5 py-4 flex gap-4 items-start transition-colors hover:bg-secondary/50 active:bg-secondary/70 cursor-pointer"
+            className="group w-full text-left px-4 py-3 flex gap-3.5 items-center transition-colors hover:bg-mint/35 active:bg-mint/50 cursor-pointer"
           >
-            <div className={cn("mt-2 shrink-0 size-2 rounded-full", severityDot[r.severity])} />
+            <div className={cn("shrink-0 size-2.5 rounded-full", severityDot[r.severity])} />
             <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">{r.target}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{r.type} · {r.reporter} · {r.time}</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{r.target}</p>
+                  <Badge variant="outline" className="text-[11px] px-2 py-0 bg-muted/50 shrink-0">
+                    {r.type}
+                  </Badge>
                 </div>
                 <div className="flex gap-1.5 shrink-0 items-center">
-                  <Badge variant="outline" className="text-[10px] px-1.5">
-                    Vi phạm: {r.targetStrikeCount ?? 0}/3
+                  <Badge variant="outline" className="text-[11px] px-2 py-0">
+                    Mức vi phạm: {r.targetStrikeCount ?? 0}/3
                   </Badge>
-                  <Badge className={cn("text-[10px] px-1.5", severityCls[r.severity])}>{severityLabel[r.severity]}</Badge>
-                  <Badge className={cn("text-[10px] px-1.5", statusCls[r.status])}>{statusLabel[r.status]}</Badge>
+                  <Badge className={cn("text-[11px] px-2 py-0", severityCls[r.severity])}>{severityLabel[r.severity]}</Badge>
+                  <Badge className={cn("text-[11px] px-2 py-0", statusCls[r.status])}>{statusLabel[r.status]}</Badge>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1">{r.detail}</p>
+              <div className="flex items-center justify-between gap-3 mt-1">
+                <p className="text-xs text-muted-foreground line-clamp-1">{r.detail}</p>
+                <span className="text-[11px] text-muted-foreground shrink-0">
+                  {r.reporter} · {r.time}
+                </span>
+              </div>
             </div>
-            <span className="shrink-0 text-xs text-primary opacity-0 group-hover:opacity-100 transition mt-1 whitespace-nowrap">Xem chi tiết →</span>
+            <span className="shrink-0 text-xs font-semibold text-primary opacity-80 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all whitespace-nowrap">
+              Xem &amp; Xử lý →
+            </span>
           </button>
         ))}
         <PaginationBar page={page} totalPages={totalPages} total={filtered.length} onPage={setPage} />
