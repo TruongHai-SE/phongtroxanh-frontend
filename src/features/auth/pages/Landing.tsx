@@ -2460,8 +2460,8 @@ export default function Landing() {
                       <p className="text-[11px] font-medium text-slate-500">Dung lượng</p>
                     </div>
                     <div className="px-2">
-                      <p className="text-xs sm:text-sm font-extrabold text-emerald-700 tabular-nums">1K+</p>
-                      <p className="text-[11px] font-medium text-slate-500">Lượt tải</p>
+                      <p className="text-xs sm:text-sm font-extrabold text-emerald-700 tabular-nums">100% Sạch</p>
+                      <p className="text-[11px] font-medium text-slate-500">Kiểm duyệt APKPure</p>
                     </div>
                     <div className="px-2">
                       <p className="text-xs sm:text-sm font-extrabold text-slate-900 tabular-nums">Android 7.0+</p>
