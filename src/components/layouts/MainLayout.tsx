@@ -62,6 +62,10 @@ export function Footer() {
         ["Câu hỏi thường gặp (FAQ)", "/about?tab=faq"],
         ["Đăng nhập hệ thống", "/login"],
         ["Đăng ký thành viên", "/login?mode=register"],
+        [
+          "Ứng dụng Android (APKPure)",
+          "https://apkpure.com/ph%C3%B2ng-tr%E1%BB%8D-xanh/vn.phongtroxanh.phong_tro_xanh_mobile",
+        ],
       ] as [string, string][],
     },
   ];
@@ -200,9 +204,20 @@ function FooterCol({ title, items }: { title: string; items: [string, string][] 
       <ul className="mt-4 space-y-2.5">
         {items.map(([label, to]) => (
           <li key={label}>
-            <Link to={to} className="text-sm text-slate-soft transition-colors hover:text-emerald-brand">
-              {label}
-            </Link>
+            {to.startsWith("http") ? (
+              <a
+                href={to}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm text-slate-soft transition-colors hover:text-emerald-brand"
+              >
+                <span>{label}</span>
+              </a>
+            ) : (
+              <Link to={to} className="text-sm text-slate-soft transition-colors hover:text-emerald-brand">
+                {label}
+              </Link>
+            )}
           </li>
         ))}
       </ul>
