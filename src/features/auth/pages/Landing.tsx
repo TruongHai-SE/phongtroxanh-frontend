@@ -26,6 +26,10 @@ import {
   FileCheck2,
   RotateCcw,
   CircleHelp,
+  Smartphone,
+  Download,
+  ExternalLink,
+  QrCode,
 } from "lucide-react";
 import {
   Select,
@@ -162,6 +166,17 @@ function formatShortVND(price: number | string | undefined): string {
 const EASE_OUT_CURVE: [number, number, number, number] = [0.23, 1, 0.32, 1];
 const HERO_ROTATION_MS = 4000;
 const HERO_MANUAL_HOLD_MS = 25000;
+
+const APKPURE_STORE_URL =
+  "https://apkpure.com/ph%C3%B2ng-tr%E1%BB%8D-xanh/vn.phongtroxanh.phong_tro_xanh_mobile";
+const APKPURE_DOWNLOAD_URL =
+  "https://apkpure.com/ph%C3%B2ng-tr%E1%BB%8D-xanh/vn.phongtroxanh.phong_tro_xanh_mobile/download";
+const APKPURE_ICON_CDN_URL =
+  "https://image.winudf.com/v2/image1/ZGV2X2ltYWdlXzQyNzQwNDc2XzI4NTc2NF8yMDI2MTEwMjEzMjQxNzA5OQ/icon.png?w=280&fakeurl=1";
+const APKPURE_ICON_LOCAL_FALLBACK = "/apkpure-app-icon.png";
+const APKPURE_QR_IMAGE_URL =
+  "https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=6&color=064e3b&bgcolor=ffffff&data=" +
+  encodeURIComponent(APKPURE_DOWNLOAD_URL);
 
 /* ── Custom 60fps Smooth Scroll Engine (Bypasses Windows OS reduced-motion instant jump) ── */
 let activeScrollRafId: number | null = null;
@@ -602,9 +617,22 @@ export default function Landing() {
             <div className="grid items-start gap-8 lg:grid-cols-12 lg:items-center lg:gap-10">
               {/* LEFT COLUMN: Value Proposition + System Select Filters + 1-Row Quick Filters */}
               <div className="lg:col-span-6 lg:pb-2">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">
-                  Nền tảng tìm phòng & ghép bạn ở ghép xác thực
-                </p>
+                {/* High-Craft Eyebrow Announcement Pill (Linear/Stripe style — keeps Filters 100% clean) */}
+                <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-emerald-600/20 bg-white/95 p-1 pr-3 shadow-2xs backdrop-blur-xs">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-emerald-800">
+                    <ShieldCheck className="size-3.5 text-emerald-600" />
+                    <span>Nền tảng tìm trọ xác thực</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => smoothScrollToElement("mobile-app", 76)}
+                    className="group inline-flex items-center gap-1 text-xs font-bold text-emerald-700 transition-colors hover:text-emerald-900 active:scale-[0.98] cursor-pointer"
+                  >
+                    <Smartphone className="size-3.5 text-emerald-600" />
+                    <span>Đã có App Android (APKPure)</span>
+                    <ArrowRight className="size-3 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-x-0.5" />
+                  </button>
+                </div>
 
                 <h1 className="font-display mt-3.5 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl lg:text-[3.1rem] lg:leading-[1.14]">
                   Tìm phòng phù hợp.
@@ -705,9 +733,8 @@ export default function Landing() {
                         type="button"
                         onClick={() => {
                           setActiveFilter(chip.id);
-                          const el = document.getElementById("featured-rooms");
-                          if (el && chip.id !== "all") {
-                            el.scrollIntoView({ behavior: "smooth" });
+                          if (chip.id !== "all") {
+                            smoothScrollToElement("featured-rooms", 72);
                           }
                         }}
                         className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all duration-150 active:scale-[0.97] cursor-pointer ${
@@ -2300,6 +2327,192 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* ===== OFFICIAL APKPURE MOBILE APP SHOWCASE SECTION ===== */}
+        <section id="mobile-app" className="mx-auto max-w-7xl px-5 pt-12 pb-4 sm:px-8 lg:pt-16 lg:pb-6">
+          <div className="overflow-hidden rounded-[2rem] border border-emerald-900/10 bg-white p-6 shadow-[0_18px_44px_-18px_rgba(6,95,70,0.12)] sm:p-10">
+            <div className="grid items-center gap-8 lg:grid-cols-12 lg:gap-10">
+              {/* Left 7 Cols: Security Rationale + Official APKPure Links */}
+              <div className="lg:col-span-7">
+                <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-emerald-600/20 bg-[#f2f9f5] px-3.5 py-1 text-xs font-bold text-emerald-900">
+                  <ShieldCheck className="size-3.5 text-emerald-600" />
+                  <span>Phân phối chính thức qua APKPure • Trusted App</span>
+                </div>
+
+                <h2 className="font-display mt-3.5 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl lg:text-[2.15rem] lg:leading-[1.18] text-balance">
+                  Trải nghiệm ứng dụng Phòng Trọ Xanh trên điện thoại Android
+                </h2>
+
+                <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
+                  Để đảm bảo an toàn thiết bị và không tải các tệp trôi nổi từ nguồn thiếu kiểm chứng, ứng dụng di động Phòng Trọ Xanh được kiểm duyệt chữ ký số và phát hành chính thức trên nền tảng{" "}
+                  <strong className="font-semibold text-slate-800">APKPure</strong> với chứng nhận{" "}
+                  <strong className="font-semibold text-emerald-800">Trusted App</strong>.
+                </p>
+
+                {/* 3 Concise Trust & Capability Tiles */}
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-slate-200/80 bg-[#f8faf9] p-3.5">
+                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-800">
+                      <ShieldCheck className="size-4 shrink-0 text-emerald-600" />
+                      <span>Kiểm duyệt an toàn</span>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                      Xác thực chữ ký số Partner Developer & quét mã độc 100% trên APKPure.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200/80 bg-[#f8faf9] p-3.5">
+                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-800">
+                      <MapPin className="size-4 shrink-0 text-emerald-600" />
+                      <span>Tìm trọ & Ghép bạn</span>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                      Định vị bản đồ phòng trọ quanh bạn, quẹt ghép bạn 8 trụ cột & chat trực tiếp.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200/80 bg-[#f8faf9] p-3.5">
+                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-800">
+                      <Smartphone className="size-4 shrink-0 text-emerald-600" />
+                      <span>Tương thích rộng</span>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-600 tabular-nums">
+                      Phiên bản v0.1.0 (86,7 MB), hoạt động mượt mà từ Android 7.0 trở lên.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Single Primary CTA Button + Quiet Verification Metadata (Zero Duplicate CTA Intent) */}
+                <div className="mt-6 flex flex-wrap items-center gap-4">
+                  <a
+                    href={APKPURE_DOWNLOAD_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group inline-flex items-center gap-2.5 rounded-xl bg-emerald-600 px-5 py-3.5 text-xs sm:text-sm font-bold text-white shadow-[0_10px_24px_-8px_rgba(5,150,105,0.45)] transition-all duration-150 hover:bg-emerald-700 active:scale-[0.98]"
+                  >
+                    <Download className="size-4 shrink-0 transition-transform duration-200 group-hover:-translate-y-0.5" />
+                    <span>Tải ứng dụng trên APKPure (86,7 MB)</span>
+                    <ExternalLink className="size-3.5 shrink-0 opacity-90" />
+                  </a>
+
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                    <ShieldCheck className="size-4 shrink-0 text-emerald-600" />
+                    <span>Miễn phí • Chứng nhận Trusted App trên APKPure</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right 5 Cols: Official APKPure Listing Preview + Scan-to-Open QR Card */}
+              <div className="lg:col-span-5">
+                <div className="rounded-3xl border border-emerald-900/10 bg-[#f4faf6] p-5 sm:p-6">
+                  {/* Top App Store Identity Header (Matches Official APKPure Listing & Official Logo) */}
+                  <div className="flex items-start gap-4">
+                    <a
+                      href={APKPURE_DOWNLOAD_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Tải Phòng Trọ Xanh trên APKPure"
+                      className="group relative grid size-16 sm:size-18 shrink-0 place-items-center overflow-hidden rounded-2xl border border-emerald-900/10 bg-white p-1 shadow-xs transition-transform duration-150 hover:scale-[1.03]"
+                    >
+                      <img
+                        src={APKPURE_ICON_CDN_URL}
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (!target.src.endsWith(APKPURE_ICON_LOCAL_FALLBACK)) {
+                            target.src = APKPURE_ICON_LOCAL_FALLBACK;
+                          }
+                        }}
+                        alt="Logo Phòng Trọ Xanh chính thức trên APKPure"
+                        width={68}
+                        height={68}
+                        className="h-full w-full rounded-xl object-contain"
+                      />
+                    </a>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-display text-lg font-extrabold text-slate-900">
+                          Phòng Trọ Xanh
+                        </h3>
+                        <span className="rounded-md border border-emerald-600/40 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-extrabold text-emerald-700">
+                          APK
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs font-medium text-slate-600">
+                        Nguyễn Quang Tùng • Phiên bản <span className="tabular-nums font-semibold text-slate-800">0.1.0</span>
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span className="inline-flex items-center rounded-md bg-amber-50 border border-amber-200/80 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                          Partner Developer
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100/80 border border-emerald-300/60 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
+                          <ShieldCheck className="size-3 text-emerald-600" />
+                          Trusted App
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Middle Metrics Strip */}
+                  <div className="mt-4 grid grid-cols-3 divide-x divide-emerald-900/10 rounded-2xl border border-emerald-900/10 bg-white py-2.5 text-center">
+                    <div className="px-2">
+                      <p className="text-xs sm:text-sm font-extrabold text-slate-900 tabular-nums">86,7 MB</p>
+                      <p className="text-[11px] font-medium text-slate-500">Dung lượng</p>
+                    </div>
+                    <div className="px-2">
+                      <p className="text-xs sm:text-sm font-extrabold text-emerald-700 tabular-nums">1K+</p>
+                      <p className="text-[11px] font-medium text-slate-500">Lượt tải</p>
+                    </div>
+                    <div className="px-2">
+                      <p className="text-xs sm:text-sm font-extrabold text-slate-900 tabular-nums">Android 7.0+</p>
+                      <p className="text-[11px] font-medium text-slate-500">Yêu cầu HĐH</p>
+                    </div>
+                  </div>
+
+                  {/* Bottom QR Scan Box */}
+                  <div className="mt-4 flex flex-col items-center gap-4 rounded-2xl border border-emerald-900/10 bg-white p-3.5 sm:flex-row">
+                    <a
+                      href={APKPURE_DOWNLOAD_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Mở trang tải Phòng Trọ Xanh trên APKPure"
+                      className="group relative shrink-0 overflow-hidden rounded-xl border border-slate-200/90 bg-white p-1.5 shadow-2xs transition-transform duration-150 hover:scale-[1.03]"
+                    >
+                      <img
+                        src={APKPURE_QR_IMAGE_URL}
+                        alt="Mã QR tải ứng dụng Phòng Trọ Xanh trên APKPure"
+                        width={96}
+                        height={96}
+                        loading="lazy"
+                        className="size-24 rounded-lg object-contain"
+                      />
+                    </a>
+                    <div className="text-center sm:text-left">
+                      <div className="inline-flex items-center gap-1.5 text-xs font-extrabold text-slate-900">
+                        <QrCode className="size-3.5 text-emerald-600" />
+                        <span>Quét mã QR bằng điện thoại</span>
+                      </div>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                        Dùng camera hoặc Zalo quét mã để mở trực tiếp trang tải{" "}
+                        <strong className="font-semibold text-slate-800">Phòng Trọ Xanh</strong> trên APKPure và cài đặt an toàn.
+                      </p>
+                      <a
+                        href={APKPURE_STORE_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
+                      >
+                        <span>apkpure.com/phòng-trọ-xanh</span>
+                        <ExternalLink className="size-3" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ===== CLEAN LIGHT ARCHITECTURAL CTA BANNER ===== */}
         <section className="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:py-16">
           <div className="rounded-[2rem] border border-emerald-600/20 bg-[#f2f9f5] p-6 sm:p-10 lg:p-12 shadow-2xs">
@@ -2595,8 +2808,9 @@ function FeaturedRoomCard({
     () => extractRoomImages(room, fallbackSeed),
     [room, fallbackSeed]
   );
+  const displayImages = useMemo(() => images.slice(0, 5), [images]);
   const [imgIdx, setImgIdx] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
+  const safeImgIdx = displayImages.length > 0 ? imgIdx % displayImages.length : 0;
 
   const rawType = room.roomType || room.type || "PHONG_TRO";
   const typeLabel = ROOM_TYPE_LABELS[rawType] || rawType || "Phòng trọ";
@@ -2609,28 +2823,40 @@ function FeaturedRoomCard({
 
   return (
     <article
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       onClick={onSelect}
-      className="group flex flex-col overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-[0_8px_24px_-14px_rgba(15,23,42,0.08)] transition-all duration-200 hover:-translate-y-1 hover:border-emerald-500/40 hover:shadow-[0_18px_36px_-18px_rgba(6,95,70,0.18)] cursor-pointer"
+      className="group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-[0_8px_24px_-14px_rgba(15,23,42,0.08)] transition-[transform,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:border-emerald-500/40 hover:shadow-[0_18px_36px_-18px_rgba(6,95,70,0.18)] cursor-pointer"
     >
-      {/* Image Container with Multi-Photo Controls */}
+      {/* Image Container with GPU-Accelerated Horizontal Filmstrip & Multi-Photo Controls */}
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
-        <ImageWithFallback
-          src={images[imgIdx % images.length]}
-          alt={room.title || "Phòng trọ"}
-          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
-        />
+        <div className="h-full w-full transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:scale-[1.03]">
+          <div
+            style={{ transform: `translate3d(-${safeImgIdx * 100}%, 0, 0)` }}
+            className="flex h-full w-full transition-transform duration-350 ease-[cubic-bezier(0.23,1,0.32,1)] will-change-transform"
+          >
+            {displayImages.map((srcUrl, slideIdx) => (
+              <div
+                key={`${room.id || fallbackSeed}-slide-${slideIdx}`}
+                className="h-full w-full shrink-0 overflow-hidden"
+              >
+                <ImageWithFallback
+                  src={srcUrl}
+                  alt={`${room.title || "Phòng trọ"} - Ảnh ${slideIdx + 1}`}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
 
-        {/* Top Badges — Light White + Emerald harmony (No flashy AI icons) */}
-        <div className="absolute left-3.5 top-3.5 flex flex-wrap items-center gap-1.5">
+        {/* Top Badges — Light White + Emerald harmony */}
+        <div className="absolute left-3.5 top-3.5 z-10 flex flex-wrap items-center gap-1.5">
           <span className="rounded-full border border-emerald-900/10 bg-white/95 px-2.5 py-0.5 text-[11px] font-bold text-emerald-900 shadow-2xs backdrop-blur-md">
             {typeLabel}
           </span>
         </div>
 
         {/* Top-right Verified badge (Strictly truthful KYC verification) */}
-        <div className="absolute right-3.5 top-3.5 flex items-center gap-1.5">
+        <div className="absolute right-3.5 top-3.5 z-10 flex items-center gap-1.5">
           {isVerified && (
             <span
               title="Chủ trọ đã xác minh CCCD"
@@ -2641,17 +2867,17 @@ function FeaturedRoomCard({
           )}
         </div>
 
-        {/* Multi-image Prev/Next arrows on hover when room has multiple photos */}
-        {images.length > 1 && isHovered && (
+        {/* Multi-image Prev/Next arrows — smooth opacity/scale entrance on hover & retargetable clicks */}
+        {displayImages.length > 1 && (
           <>
             <button
               type="button"
               aria-label="Ảnh trước"
               onClick={(e) => {
                 e.stopPropagation();
-                setImgIdx((prev) => (prev - 1 + images.length) % images.length);
+                setImgIdx((prev) => (prev - 1 + displayImages.length) % displayImages.length);
               }}
-              className="absolute inset-y-0 left-2.5 z-10 my-auto grid size-7 place-items-center rounded-full bg-white/95 text-slate-800 shadow-sm transition-colors duration-150 hover:bg-white active:scale-95 cursor-pointer"
+              className="absolute inset-y-0 left-2.5 z-10 my-auto grid size-7.5 place-items-center rounded-full border border-slate-200/70 bg-white/95 text-slate-800 opacity-0 scale-90 pointer-events-none shadow-sm backdrop-blur-xs transition-[transform,opacity,background-color,color,border-color] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto hover:border-emerald-600 hover:bg-emerald-600 hover:text-white active:scale-90 cursor-pointer"
             >
               <ChevronLeft className="size-3.5" />
             </button>
@@ -2660,9 +2886,9 @@ function FeaturedRoomCard({
               aria-label="Ảnh tiếp"
               onClick={(e) => {
                 e.stopPropagation();
-                setImgIdx((prev) => (prev + 1) % images.length);
+                setImgIdx((prev) => (prev + 1) % displayImages.length);
               }}
-              className="absolute inset-y-0 right-2.5 z-10 my-auto grid size-7 place-items-center rounded-full bg-white/95 text-slate-800 shadow-sm transition-colors duration-150 hover:bg-white active:scale-95 cursor-pointer"
+              className="absolute inset-y-0 right-2.5 z-10 my-auto grid size-7.5 place-items-center rounded-full border border-slate-200/70 bg-white/95 text-slate-800 opacity-0 scale-90 pointer-events-none shadow-sm backdrop-blur-xs transition-[transform,opacity,background-color,color,border-color] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto hover:border-emerald-600 hover:bg-emerald-600 hover:text-white active:scale-90 cursor-pointer"
             >
               <ChevronRight className="size-3.5" />
             </button>
@@ -2670,25 +2896,26 @@ function FeaturedRoomCard({
         )}
 
         {/* Bottom Price Pill + Photo Dots */}
-        <div className="absolute inset-x-3.5 bottom-3 flex items-center justify-between gap-2">
+        <div className="absolute inset-x-3.5 bottom-3 z-10 flex items-center justify-between gap-2">
           <span className="rounded-xl border border-emerald-900/10 bg-white/95 px-3 py-1 text-xs font-extrabold text-emerald-800 shadow-xs backdrop-blur tabular-nums sm:text-sm">
             {formatPriceVND(room.price)}
           </span>
 
-          {images.length > 1 && (
+          {displayImages.length > 1 && (
             <div className="flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 shadow-2xs backdrop-blur">
-              {images.slice(0, 5).map((_, dotIdx) => (
+              {displayImages.map((_, dotIdx) => (
                 <button
                   key={dotIdx}
                   type="button"
+                  aria-label={`Xem ảnh ${dotIdx + 1}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     setImgIdx(dotIdx);
                   }}
-                  className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                    imgIdx % images.length === dotIdx
-                      ? "w-3.5 bg-emerald-600"
-                      : "w-1.5 bg-slate-300"
+                  className={`h-1.5 rounded-full transition-[width,background-color,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-90 cursor-pointer ${
+                    safeImgIdx === dotIdx
+                      ? "w-4 bg-emerald-600"
+                      : "w-1.5 bg-slate-300 hover:bg-slate-400"
                   }`}
                 />
               ))}
@@ -2714,29 +2941,29 @@ function FeaturedRoomCard({
           </p>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3.5">
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3.5 whitespace-nowrap">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
             {areaVal > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 tabular-nums">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 tabular-nums">
                 <Maximize2 className="size-3 text-slate-500" />
                 {areaVal} m²
               </span>
             )}
-            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 tabular-nums">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 tabular-nums">
               <Users className="size-3 text-emerald-600" />
               Tối đa {maxOccupants} người
             </span>
             {amenities.slice(0, 1).map((tag) => (
               <span
                 key={tag}
-                className="rounded-full bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800"
+                className="truncate rounded-full bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800"
               >
                 {tag}
               </span>
             ))}
           </div>
 
-          <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 group-hover:translate-x-0.5 transition-transform">
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-emerald-700 group-hover:translate-x-0.5 transition-transform duration-150">
             Xem phòng
             <ArrowRight className="size-3.5" />
           </span>
@@ -2771,6 +2998,7 @@ function LandingNavbar({ user, role }: LandingNavbarProps) {
     { label: "Cách hoạt động", href: "#how" },
     { label: "Chính sách & Cam kết", href: "#policies" },
     { label: "Hỏi đáp (FAQ)", href: "#faq" },
+    { label: "Tải App", href: "#mobile-app" },
   ];
 
   const authLinks =
@@ -2797,7 +3025,7 @@ function LandingNavbar({ user, role }: LandingNavbarProps) {
         ];
 
   useEffect(() => {
-    const sectionIds = ["featured-rooms", "how", "policies", "faq"];
+    const sectionIds = ["featured-rooms", "how", "policies", "faq", "mobile-app"];
     const onScroll = () => {
       const y = window.scrollY;
       setScrolled(y > 12);
@@ -2911,12 +3139,15 @@ function LandingNavbar({ user, role }: LandingNavbarProps) {
                       const offset = item.href === "#faq" ? 96 : 68;
                       smoothScrollToElement(item.href, offset);
                     }}
-                    className={`relative z-10 rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200 active:scale-95 ${
+                    className={`relative z-10 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200 active:scale-95 ${
                       isActive
                         ? "text-emerald-800"
                         : "text-slate-600 hover:bg-emerald-50/70 hover:text-emerald-800"
                     }`}
                   >
+                    {item.href === "#mobile-app" && (
+                      <Smartphone className="size-3.5 text-emerald-600 shrink-0" />
+                    )}
                     <span>{item.label}</span>
                   </a>
                 );
