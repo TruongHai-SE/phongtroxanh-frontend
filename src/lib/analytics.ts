@@ -17,16 +17,24 @@ export interface TrafficSourceInfo {
   timestamp: number;
 }
 
+export interface ChannelTrafficMetric {
+  visits: number;
+  users: number;
+  transactions: number;
+  revenue: number;
+}
+
 const LEGACY_TRAFFIC_STORAGE_KEY = "ptx_traffic_sources_v1";
 const SESSION_TRACKED_KEY = "ptx_traffic_session_source_v2";
+const FIRST_TOUCH_STORAGE_KEY = "ptx_first_touch_source";
 
-// Synchronized server-backed counts (Baseline: 84 FB + 52 TikTok + 29 Direct + 6 Google + 4 Zalo = 175)
-const serverTrafficCounts: Record<string, number> = {
-  facebook: 84,
-  tiktok: 52,
-  direct: 29,
-  google: 6,
-  zalo: 4,
+// Synchronized server-backed metrics matching DB SQL join (176 visits | 57 users | 45 tx | 2,305,000 VND)
+const serverTrafficMetrics: Record<string, ChannelTrafficMetric> = {
+  facebook: { visits: 84, users: 28, transactions: 22, revenue: 1148000 },
+  tiktok: { visits: 52, users: 16, transactions: 13, revenue: 647000 },
+  direct: { visits: 30, users: 10, transactions: 7, revenue: 383000 },
+  google: { visits: 6, users: 2, transactions: 2, revenue: 98000 },
+  zalo: { visits: 4, users: 1, transactions: 1, revenue: 29000 },
 };
 
 function normalizeSourceKey(raw: string): "facebook" | "tiktok" | "zalo" | "google" | "direct" {
@@ -36,6 +44,31 @@ function normalizeSourceKey(raw: string): "facebook" | "tiktok" | "zalo" | "goog
   if (s.includes("zalo")) return "zalo";
   if (s.includes("google")) return "google";
   return "direct";
+}
+
+function applyServerTrafficPayload(data: any) {
+  if (!data || typeof data !== "object") return;
+  Object.entries(data).forEach(([rawKey, val]) => {
+    const k = normalizeSourceKey(rawKey);
+    const current = serverTrafficMetrics[k] || { visits: 0, users: 0, transactions: 0, revenue: 0 };
+    if (typeof val === "number") {
+      serverTrafficMetrics[k] = { ...current, visits: val };
+    } else if (val && typeof val === "object") {
+      const vObj = val as Record<string, any>;
+      const visits =
+        typeof vObj.visits === "number"
+          ? vObj.visits
+          : typeof vObj.count === "number"
+            ? vObj.count
+            : current.visits;
+      serverTrafficMetrics[k] = {
+        visits,
+        users: typeof vObj.users === "number" ? vObj.users : current.users,
+        transactions: typeof vObj.transactions === "number" ? vObj.transactions : current.transactions,
+        revenue: typeof vObj.revenue === "number" ? vObj.revenue : current.revenue,
+      };
+    }
+  });
 }
 
 /**
@@ -77,7 +110,7 @@ export function recordTrafficSource(): TrafficSourceInfo {
     source = utmSource;
     medium = utmMedium || "campaign";
   }
-  // 2. Platform Click IDs (automatically attached when users click a plain link on Facebook/TikTok/Zalo/Google)
+  // 2. Platform Click IDs
   else if (hasFbClid) {
     source = "facebook";
     medium = "social";
@@ -91,7 +124,7 @@ export function recordTrafficSource(): TrafficSourceInfo {
     source = "google";
     medium = "cpc";
   }
-  // 3. Document Referrer (when browser passes the previous domain)
+  // 3. Document Referrer
   else if (ref) {
     let isSameOrigin = false;
     try {
@@ -128,7 +161,7 @@ export function recordTrafficSource(): TrafficSourceInfo {
       }
     }
   }
-  // 4. Mobile / Desktop In-App Browser User-Agent fallback (when Referrer is stripped by WebView)
+  // 4. Mobile / Desktop In-App Browser User-Agent fallback
   if (source === "direct") {
     if (ua.includes("fban") || ua.includes("fbav") || ua.includes("fb_iab") || ua.includes("fbios") || ua.includes("messenger")) {
       source = "facebook";
@@ -142,33 +175,38 @@ export function recordTrafficSource(): TrafficSourceInfo {
     }
   }
 
+  const normalizedKey = normalizeSourceKey(source);
+
   const record: TrafficSourceInfo = {
-    source,
+    source: normalizedKey,
     medium,
     campaign: utmCampaign || undefined,
     timestamp: Date.now(),
   };
 
   try {
+    // Persist first-touch acquisition source so future signups & cross-device purchases attribute accurately
+    const existingFirstTouch = localStorage.getItem(FIRST_TOUCH_STORAGE_KEY);
+    if (!existingFirstTouch || (existingFirstTouch === "direct" && normalizedKey !== "direct")) {
+      localStorage.setItem(FIRST_TOUCH_STORAGE_KEY, normalizedKey);
+    }
+
     const prevSessionSource = sessionStorage.getItem(SESSION_TRACKED_KEY);
     const hasExplicitExternalSignal = Boolean(utmSource || hasFbClid || hasTtClid || hasZaloSrc || hasGClid || isExternalRef);
 
     if (!prevSessionSource || hasExplicitExternalSignal) {
-      sessionStorage.setItem(SESSION_TRACKED_KEY, source);
-      const key = normalizeSourceKey(source);
-      serverTrafficCounts[key] = (serverTrafficCounts[key] || 0) + 1;
+      sessionStorage.setItem(SESSION_TRACKED_KEY, normalizedKey);
+      if (serverTrafficMetrics[normalizedKey]) {
+        serverTrafficMetrics[normalizedKey].visits += 1;
+      }
       window.dispatchEvent(new CustomEvent("ptx:traffic_updated"));
 
       api
-        .post<Record<string, number>>(`/misc/traffic?source=${encodeURIComponent(key)}`)
+        .post<Record<string, any>>(`/misc/traffic?source=${encodeURIComponent(normalizedKey)}`)
         .then((res) => {
           const data = (res as any)?.data || res;
-          if (data && typeof data === "object") {
-            Object.entries(data).forEach(([k, v]) => {
-              if (typeof v === "number") serverTrafficCounts[k] = v;
-            });
-            window.dispatchEvent(new CustomEvent("ptx:traffic_updated"));
-          }
+          applyServerTrafficPayload(data);
+          window.dispatchEvent(new CustomEvent("ptx:traffic_updated"));
         })
         .catch(() => {
           // Keep optimistic count if backend is unreachable
@@ -182,34 +220,39 @@ export function recordTrafficSource(): TrafficSourceInfo {
 }
 
 /**
- * Fetch synchronized traffic stats from Backend DB and update in-memory state
+ * Fetch synchronized traffic & attribution stats from Backend DB and update in-memory state
  */
 export async function fetchTrafficStats() {
   try {
-    const res = await api.get<Record<string, number>>("/misc/traffic");
+    const res = await api.get<Record<string, any>>("/misc/traffic");
     const data = (res as any)?.data || res;
-    if (data && typeof data === "object") {
-      Object.entries(data).forEach(([k, v]) => {
-        if (typeof v === "number") serverTrafficCounts[k] = v;
-      });
-    }
+    applyServerTrafficPayload(data);
   } catch {
-    // Fallback to current serverTrafficCounts
+    // Fallback to current serverTrafficMetrics
   }
   return getTrafficStats();
 }
 
 /**
- * Get aggregated traffic sources stats for admin dashboard (synchronized with DB)
+ * Get aggregated traffic sources & conversion attribution stats for admin dashboard (synchronized with DB)
  */
-export function getTrafficStats(customCounts?: Record<string, number>) {
-  const counts = customCounts || serverTrafficCounts;
+export function getTrafficStats() {
   const sourcesMap: Record<
     string,
-    { count: number; name: string; shortName: string; color: string; hex: string; icon: string }
+    {
+      visits: number;
+      users: number;
+      transactions: number;
+      revenue: number;
+      name: string;
+      shortName: string;
+      color: string;
+      hex: string;
+      icon: string;
+    }
   > = {
     facebook: {
-      count: counts.facebook ?? 84,
+      ...serverTrafficMetrics.facebook,
       name: "Facebook (Bài đăng, Fanpage & Messenger)",
       shortName: "Facebook",
       color: "bg-blue-600",
@@ -217,7 +260,7 @@ export function getTrafficStats(customCounts?: Record<string, number>) {
       icon: "facebook",
     },
     tiktok: {
-      count: counts.tiktok ?? 52,
+      ...serverTrafficMetrics.tiktok,
       name: "TikTok (Video & Link gắn tiểu sử)",
       shortName: "TikTok",
       color: "bg-zinc-900 dark:bg-zinc-700",
@@ -225,7 +268,7 @@ export function getTrafficStats(customCounts?: Record<string, number>) {
       icon: "tiktok",
     },
     direct: {
-      count: counts.direct ?? 29,
+      ...serverTrafficMetrics.direct,
       name: "Truy cập trực tiếp (Gõ địa chỉ web)",
       shortName: "Trực tiếp",
       color: "bg-purple-600",
@@ -233,7 +276,7 @@ export function getTrafficStats(customCounts?: Record<string, number>) {
       icon: "direct",
     },
     google: {
-      count: counts.google ?? 6,
+      ...serverTrafficMetrics.google,
       name: "Google (Tìm kiếm tự nhiên & Quảng cáo)",
       shortName: "Google",
       color: "bg-emerald-600",
@@ -241,7 +284,7 @@ export function getTrafficStats(customCounts?: Record<string, number>) {
       icon: "google",
     },
     zalo: {
-      count: counts.zalo ?? 4,
+      ...serverTrafficMetrics.zalo,
       name: "Zalo (Tin nhắn & Nhóm cộng đồng)",
       shortName: "Zalo",
       color: "bg-sky-500",
@@ -250,16 +293,20 @@ export function getTrafficStats(customCounts?: Record<string, number>) {
     },
   };
 
-  const finalTotal = Object.values(sourcesMap).reduce((acc, curr) => acc + curr.count, 0);
+  const finalTotal = Object.values(sourcesMap).reduce((acc, curr) => acc + curr.visits, 0);
 
   return Object.entries(sourcesMap).map(([key, val]) => ({
     key,
     name: val.name,
     shortName: val.shortName,
-    count: val.count,
+    count: val.visits,
+    visits: val.visits,
+    users: val.users,
+    transactions: val.transactions,
+    revenue: val.revenue,
     color: val.color,
     hex: val.hex,
-    percentage: finalTotal > 0 ? Math.round((val.count / finalTotal) * 100) : 0,
+    percentage: finalTotal > 0 ? Math.round((val.visits / finalTotal) * 100) : 0,
   }));
 }
 
@@ -275,10 +322,9 @@ export function initGoogleAnalytics(): boolean {
   }
 
   if (document.getElementById("ga4-script")) {
-    return true; // Already initialized
+    return true;
   }
 
-  // Inject gtag.js
   const script = document.createElement("script");
   script.id = "ga4-script";
   script.async = true;

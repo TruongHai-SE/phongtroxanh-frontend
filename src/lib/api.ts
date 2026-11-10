@@ -273,9 +273,27 @@ export const api = {
 
   post<T>(endpoint: string, body?: any): Promise<T> {
     getResponseCache.clear();
+    let payload = body;
+    if (
+      payload &&
+      typeof payload === "object" &&
+      !(payload instanceof FormData) &&
+      (endpoint.includes("/auth/register") || endpoint.includes("/auth/oauth/google")) &&
+      !payload.trafficSource
+    ) {
+      try {
+        const src =
+          localStorage.getItem("ptx_first_touch_source") ||
+          sessionStorage.getItem("ptx_traffic_session_source_v2") ||
+          "direct";
+        payload = { ...payload, trafficSource: src };
+      } catch {
+        // ignore storage errors
+      }
+    }
     return request<T>(endpoint, {
       method: "POST",
-      body: body instanceof FormData ? body : JSON.stringify(body),
+      body: payload instanceof FormData ? payload : JSON.stringify(payload),
     });
   },
 
