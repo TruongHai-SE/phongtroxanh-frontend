@@ -147,6 +147,7 @@ export default function AdminOverview() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [trafficList, setTrafficList] = useState(getTrafficStats());
+  const [trafficModalOpen, setTrafficModalOpen] = useState(false);
   const [selectedReview, setSelectedReview] = useState<any | null>(null);
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTabKey>("growth");
 
@@ -155,10 +156,15 @@ export default function AdminOverview() {
     try {
       const res = await api.get<any>("/admin/dashboard");
       const d = res?.data || res;
+      const totalLandlordsVal = d.totalLandlords ?? 0;
+      const totalTenantsVal = d.totalTenants ?? 0;
       setStats({
-        totalUsers: d.totalUsers ?? 0,
-        totalLandlords: d.totalLandlords ?? 0,
-        totalTenants: d.totalTenants ?? 0,
+        totalUsers:
+          totalLandlordsVal + totalTenantsVal > 0
+            ? totalLandlordsVal + totalTenantsVal
+            : (d.totalUsers ?? 0),
+        totalLandlords: totalLandlordsVal,
+        totalTenants: totalTenantsVal,
         totalRooms: d.totalRooms ?? 0,
         activeRooms: d.activeRooms ?? 0,
         totalMatches: d.totalMatches ?? 0,
@@ -377,9 +383,50 @@ export default function AdminOverview() {
   }, [systemFeedbacks, reviewStarFilter, systemRoleFilter, systemCategoryFilter, reviewSearch]);
 
   // ───────────── ANALYTICAL DATA TRANSFORMATIONS ─────────────
+  const reconciledTrafficList = useMemo(() => {
+    if (!stats || (stats.totalUsers === 0 && stats.totalRevenue === 0)) {
+      return trafficList;
+    }
+    const sumUsers = trafficList.reduce((acc, item) => acc + item.users, 0);
+    const sumTx = trafficList.reduce((acc, item) => acc + item.transactions, 0);
+    const sumRev = trafficList.reduce((acc, item) => acc + item.revenue, 0);
+    const diffUsers = stats.totalUsers - sumUsers;
+    const diffTx = stats.totalTransactions - sumTx;
+    const diffRev = stats.totalRevenue - sumRev;
+    if (diffUsers === 0 && diffTx === 0 && diffRev === 0) {
+      return trafficList;
+    }
+    return trafficList.map((item) => {
+      if (item.key === "direct") {
+        return {
+          ...item,
+          users: Math.max(0, item.users + diffUsers),
+          transactions: Math.max(0, item.transactions + diffTx),
+          revenue: Math.max(0, item.revenue + diffRev),
+        };
+      }
+      return item;
+    });
+  }, [trafficList, stats]);
+
   const totalTrafficSessions = useMemo(
-    () => trafficList.reduce((acc, item) => acc + item.count, 0),
-    [trafficList]
+    () => reconciledTrafficList.reduce((acc, item) => acc + item.count, 0),
+    [reconciledTrafficList]
+  );
+
+  const totalTrafficUsers = useMemo(
+    () => reconciledTrafficList.reduce((acc, item) => acc + item.users, 0),
+    [reconciledTrafficList]
+  );
+
+  const totalTrafficTransactions = useMemo(
+    () => reconciledTrafficList.reduce((acc, item) => acc + item.transactions, 0),
+    [reconciledTrafficList]
+  );
+
+  const totalTrafficRevenue = useMemo(
+    () => reconciledTrafficList.reduce((acc, item) => acc + item.revenue, 0),
+    [reconciledTrafficList]
   );
 
   const funnelData = useMemo<CategoryStat[]>(() => {
@@ -667,9 +714,14 @@ export default function AdminOverview() {
                 Phân bổ lượt truy cập theo kênh
               </p>
             </div>
-            <div className="size-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-              <Compass className="size-4" />
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTrafficModalOpen(true)}
+              className="h-7 px-2.5 text-xs cursor-pointer gap-1 shrink-0 rounded-lg active:scale-[0.98] transition-transform"
+            >
+              Chi tiết <ChevronRight className="size-3" />
+            </Button>
           </div>
 
           {/* Clean Total Visits Hero */}
@@ -685,10 +737,15 @@ export default function AdminOverview() {
 
           {/* Clean Channel Breakdown Bars */}
           <div className="space-y-2.5 pt-1 border-t border-border/60 flex-1 flex flex-col justify-center">
-            {trafficList.map((src) => (
-              <div key={src.key} className="space-y-1">
+            {reconciledTrafficList.map((src) => (
+              <div
+                key={src.key}
+                onClick={() => setTrafficModalOpen(true)}
+                className="space-y-1 cursor-pointer group"
+                title={`${src.name}: ${src.count} lượt truy cập • ${src.users} người dùng • ${src.transactions} giao dịch (${formatVND(src.revenue)})`}
+              >
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-foreground truncate max-w-[130px]" title={src.name}>
+                  <span className="font-medium text-foreground group-hover:text-emerald-deep transition-colors truncate max-w-[130px]">
                     {src.shortName}
                   </span>
                   <span className="text-muted-foreground tabular-nums">
@@ -1882,6 +1939,93 @@ export default function AdminOverview() {
               size="sm"
               className="text-xs cursor-pointer"
               onClick={() => setFullReviewsModalOpen(false)}
+            >
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ──────────────── MODAL: CHI TIẾT LƯU LƯỢNG & DOANH THU THEO KÊNH (CHANNEL ATTRIBUTION) ──────────────── */}
+      <Dialog open={trafficModalOpen} onOpenChange={setTrafficModalOpen}>
+        <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
+          <DialogHeader className="p-5 pb-3.5 border-b border-border/70">
+            <DialogTitle className="text-base font-bold text-foreground">
+              Phân bổ lưu lượng &amp; hiệu quả thu hút theo kênh
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Thống kê lượt truy cập, số người dùng đăng ký và doanh thu gói dịch vụ quy đổi theo nguồn thu hút ban đầu (UTM / Referrer).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-5 space-y-4">
+            <div className="rounded-xl ring-1 ring-border overflow-hidden">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="bg-secondary/60 text-muted-foreground border-b border-border/70">
+                    <th className="py-2.5 px-3.5 font-semibold">Kênh (UTM)</th>
+                    <th className="py-2.5 px-3 font-semibold text-right">Lượt truy cập</th>
+                    <th className="py-2.5 px-3 font-semibold text-right">Người dùng</th>
+                    <th className="py-2.5 px-3 font-semibold text-right">Giao dịch</th>
+                    <th className="py-2.5 px-3.5 font-semibold text-right">Doanh thu</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60 bg-card tabular-nums">
+                  {reconciledTrafficList.map((src) => (
+                    <tr key={src.key} className="hover:bg-secondary/25 transition-colors">
+                      <td className="py-2.5 px-3.5">
+                        <div className="flex items-center gap-2">
+                          <span className={cn("size-2 rounded-full shrink-0", src.color)} />
+                          <div>
+                            <div className="font-semibold text-foreground">{src.shortName}</div>
+                            <div className="text-[11px] text-muted-foreground">{src.name}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-medium text-foreground">
+                        {src.count.toLocaleString()}{" "}
+                        <span className="text-[11px] text-muted-foreground font-normal">
+                          ({src.percentage}%)
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-medium text-foreground">
+                        {src.users.toLocaleString()}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-medium text-foreground">
+                        {src.transactions.toLocaleString()}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-right font-semibold text-emerald-deep">
+                        {formatVND(src.revenue)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-mint/35 border-t border-border font-bold text-foreground tabular-nums">
+                    <td className="py-2.5 px-3.5">Tổng cộng</td>
+                    <td className="py-2.5 px-3 text-right">{totalTrafficSessions.toLocaleString()}</td>
+                    <td className="py-2.5 px-3 text-right">{totalTrafficUsers.toLocaleString()}</td>
+                    <td className="py-2.5 px-3 text-right">{totalTrafficTransactions.toLocaleString()}</td>
+                    <td className="py-2.5 px-3.5 text-right text-emerald-deep">
+                      {formatVND(totalTrafficRevenue)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Nguồn thu hút (First-Touch Attribution) được gắn vào hồ sơ tài khoản ngay thời điểm người dùng đăng ký. Các giao dịch nâng cấp gói về sau của tài khoản đó (dù đăng nhập lại trên thiết bị khác hoặc truy cập trực tiếp) vẫn được ghi nhận doanh thu về đúng kênh đã thu hút người dùng ban đầu.
+            </p>
+          </div>
+
+          <DialogFooter className="px-5 py-3 border-t border-border/70 bg-muted/10 flex flex-row items-center justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-xs cursor-pointer rounded-lg"
+              onClick={() => setTrafficModalOpen(false)}
             >
               Đóng
             </Button>
