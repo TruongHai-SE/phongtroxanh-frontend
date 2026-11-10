@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatVND, cn } from "@/lib/utils";
 import { useNavigate } from "react-router";
-import { getTrafficStats } from "@/lib/analytics";
+import { getTrafficStats, fetchTrafficStats } from "@/lib/analytics";
 import { toast } from "sonner";
 
 type CategoryStat = {
@@ -190,7 +190,8 @@ export default function AdminOverview() {
         districtSupplyDemand: d.districtSupplyDemand || [],
         kycOverview: d.kycOverview || null,
       });
-      setTrafficList(getTrafficStats());
+      const updatedTraffic = await fetchTrafficStats();
+      setTrafficList(updatedTraffic);
       if (isManual) {
         toast.success("Đã cập nhật số liệu thống kê mới nhất!");
       }
@@ -237,6 +238,15 @@ export default function AdminOverview() {
 
   useEffect(() => {
     fetchStats();
+    const syncTraffic = () => {
+      fetchTrafficStats().then(setTrafficList);
+    };
+    window.addEventListener("ptx:traffic_updated", syncTraffic);
+    window.addEventListener("focus", syncTraffic);
+    return () => {
+      window.removeEventListener("ptx:traffic_updated", syncTraffic);
+      window.removeEventListener("focus", syncTraffic);
+    };
   }, []);
 
   // ───────────── REVIEW & SYSTEM FEEDBACK STATE & LOGIC ─────────────
