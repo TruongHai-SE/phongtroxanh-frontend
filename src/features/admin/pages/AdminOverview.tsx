@@ -142,12 +142,23 @@ type AnalyticsTabKey = "growth" | "tenants" | "landlords";
 const CHART_COLORS = ["#059669", "#2563eb", "#7c3aed", "#d97706", "#e11d48", "#0891b2"];
 const TRUST_COLORS = ["#f43f5e", "#f59e0b", "#3b82f6", "#10b981"];
 
+const CANONICAL_PACKAGE_NAME_MAP: Record<string, string> = {
+  FREE: "Gói Miễn Phí",
+  PRO_TENANT: "Gói Pro Tìm Bạn & Thuê Phòng",
+  VIP_TENANT: "Gói VIP Ghép Đôi Siêu Tốc",
+  LANDLORD_BASIC: "Gói Đẩy Tin Trải Nghiệm",
+  LANDLORD_VIP: "Gói Chủ Trọ VIP",
+  LANDLORD_PRO: "Gói Chủ Trọ Chuyên Nghiệp",
+};
+
 export default function AdminOverview() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [trafficList, setTrafficList] = useState(getTrafficStats());
   const [trafficModalOpen, setTrafficModalOpen] = useState(false);
+  const [packageModalOpen, setPackageModalOpen] = useState(false);
+  const [packageSearch, setPackageSearch] = useState("");
   const [selectedReview, setSelectedReview] = useState<any | null>(null);
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTabKey>("growth");
 
@@ -429,6 +440,68 @@ export default function AdminOverview() {
     [reconciledTrafficList]
   );
 
+  const normalizedPackageStats = useMemo(() => {
+    if (!stats?.packageStats || stats.packageStats.length === 0) return [];
+    const grouped = new Map<string, { planId: string; planName: string; revenue: number; count: number }>();
+
+    for (const item of stats.packageStats) {
+      const rawKey = (item.planName || item.planId || "Gói dịch vụ").trim();
+      const canonicalName =
+        CANONICAL_PACKAGE_NAME_MAP[rawKey] ||
+        CANONICAL_PACKAGE_NAME_MAP[rawKey.toUpperCase()] ||
+        rawKey;
+      const existing = grouped.get(canonicalName);
+      if (existing) {
+        existing.revenue += Number(item.revenue) || 0;
+        existing.count += Number(item.count) || 0;
+      } else {
+        grouped.set(canonicalName, {
+          planId: canonicalName,
+          planName: canonicalName,
+          revenue: Number(item.revenue) || 0,
+          count: Number(item.count) || 0,
+        });
+      }
+    }
+
+    return Array.from(grouped.values())
+      .filter((pkg) => pkg.revenue > 0 || pkg.count > 0)
+      .sort((a, b) => b.revenue - a.revenue || b.count - a.count || a.planName.localeCompare(b.planName, "vi"));
+  }, [stats?.packageStats]);
+
+  const packagePreviewRows = useMemo(() => {
+    if (normalizedPackageStats.length <= 4) {
+      return { visible: normalizedPackageStats, remainder: null };
+    }
+    const visible = normalizedPackageStats.slice(0, 3);
+    const rest = normalizedPackageStats.slice(3);
+    return {
+      visible,
+      remainder: {
+        hiddenCount: rest.length,
+        count: rest.reduce((acc, item) => acc + item.count, 0),
+        revenue: rest.reduce((acc, item) => acc + item.revenue, 0),
+        names: rest.map((item) => item.planName).join(", "),
+      },
+    };
+  }, [normalizedPackageStats]);
+
+  const filteredModalPackages = useMemo(() => {
+    const q = packageSearch.trim().toLowerCase();
+    if (!q) return normalizedPackageStats;
+    return normalizedPackageStats.filter((pkg) => pkg.planName.toLowerCase().includes(q));
+  }, [normalizedPackageStats, packageSearch]);
+
+  const totalPackageTransactions = useMemo(
+    () => normalizedPackageStats.reduce((acc, pkg) => acc + pkg.count, 0),
+    [normalizedPackageStats]
+  );
+
+  const totalPackageRevenue = useMemo(
+    () => normalizedPackageStats.reduce((acc, pkg) => acc + pkg.revenue, 0),
+    [normalizedPackageStats]
+  );
+
   const funnelData = useMemo<CategoryStat[]>(() => {
     if (stats?.personalizationFunnel && stats.personalizationFunnel.length > 0) {
       return stats.personalizationFunnel;
@@ -653,49 +726,113 @@ export default function AdminOverview() {
                 {stats?.totalTransactions ?? 0} <span className="font-normal text-muted-foreground">giao dịch</span>
               </div>
               <div className="text-emerald-brand font-medium">
-                {stats?.activeRentals ?? 0} <span className="font-normal text-muted-foreground">HĐ đang thuê</span>
+                {stats?.activeRentals ?? 0} <span className="font-normal text-muted-foreground">HĐ thuê</span>
+                <span className="text-muted-foreground/70"> &middot; </span>
+                {stats?.activeBoostedRooms ?? 0} <span className="font-normal text-muted-foreground">đẩy nổi bật</span>
               </div>
             </div>
           </div>
 
-          {/* Package Revenue List */}
-          <div className="flex-1 flex flex-col justify-between space-y-2 pt-1 border-t border-border/60">
-            <div className="flex items-center justify-between text-xs">
+          {/* Package Revenue List (Capped at 4 rows with reconciled overflow rollup + full modal) */}
+          <div className="flex-1 flex flex-col justify-between gap-2.5 pt-2 border-t border-border/60">
+            <div className="flex items-center justify-between gap-2 text-xs">
               <span className="font-semibold text-foreground flex items-center gap-1.5">
-                <CreditCard className="size-3.5 text-primary" /> Doanh thu theo gói
+                <CreditCard className="size-3.5 text-primary shrink-0" /> Doanh thu theo gói
               </span>
-              <span className="text-muted-foreground tabular-nums">
-                {stats?.activeBoostedRooms ?? 0} phòng đang đẩy nổi bật
-              </span>
+              {normalizedPackageStats.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPackageModalOpen(true)}
+                  className="text-emerald-deep hover:text-emerald-brand font-semibold inline-flex items-center gap-0.5 cursor-pointer transition-colors duration-150 active:scale-[0.97] rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 shrink-0"
+                >
+                  Xem tất cả ({normalizedPackageStats.length}) <ChevronRight className="size-3" />
+                </button>
+              )}
             </div>
 
-            {stats?.packageStats && stats.packageStats.length > 0 ? (
-              <div className="divide-y divide-border/50">
-                {stats.packageStats.slice(0, 3).map((pkg, idx) => {
-                  const maxPkgRev = Math.max(...stats.packageStats.map((p) => p.revenue), 1);
-                  const pct = pkg.revenue > 0 ? Math.max(Math.round((pkg.revenue / maxPkgRev) * 100), 6) : 0;
-                  return (
-                    <div key={pkg.planId || idx} className="py-2 first:pt-1 last:pb-0 space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-medium text-foreground truncate max-w-[160px]" title={pkg.planName}>
-                          {pkg.planName}
-                        </span>
-                        <div className="flex items-center gap-2 shrink-0 tabular-nums">
-                          <span className="text-muted-foreground text-[11px]">{pkg.count} lượt</span>
-                          <span className="font-bold text-emerald-deep">
-                            {formatVND(pkg.revenue)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all duration-300"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
+            {normalizedPackageStats.length > 0 ? (
+              <div className="space-y-3 my-auto">
+                {(() => {
+                  const maxPkgRev = Math.max(
+                    ...packagePreviewRows.visible.map((p) => p.revenue),
+                    packagePreviewRows.remainder?.revenue ?? 0,
+                    1
                   );
-                })}
+                  return (
+                    <>
+                      {packagePreviewRows.visible.map((pkg, idx) => {
+                        const pct = pkg.revenue > 0 ? Math.max(Math.round((pkg.revenue / maxPkgRev) * 100), 6) : 0;
+                        const sharePct =
+                          totalPackageRevenue > 0
+                            ? Math.round((pkg.revenue / totalPackageRevenue) * 100)
+                            : 0;
+                        return (
+                          <button
+                            key={pkg.planId || idx}
+                            type="button"
+                            onClick={() => setPackageModalOpen(true)}
+                            className="w-full text-left space-y-1 cursor-pointer group rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-[0.99] transition-transform duration-150 ease-out"
+                            title={`${pkg.planName}: ${pkg.count} giao dịch • ${formatVND(pkg.revenue)} (${sharePct}% tổng doanh thu)`}
+                          >
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                              <span className="font-medium text-foreground group-hover:text-emerald-deep transition-colors duration-150 truncate min-w-0 flex-1">
+                                {pkg.planName}
+                              </span>
+                              <div className="flex items-center gap-2 shrink-0 tabular-nums">
+                                <span className="text-muted-foreground text-[11px]">{pkg.count} lượt</span>
+                                <span className="font-semibold text-emerald-deep min-w-[68px] text-right">
+                                  {formatVND(pkg.revenue)}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </button>
+                        );
+                      })}
+
+                      {packagePreviewRows.remainder && (
+                        <button
+                          type="button"
+                          onClick={() => setPackageModalOpen(true)}
+                          title={`Bao gồm: ${packagePreviewRows.remainder.names}`}
+                          className="w-full text-left space-y-1 cursor-pointer group rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-[0.99] transition-transform duration-150 ease-out"
+                        >
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="font-medium text-muted-foreground group-hover:text-emerald-deep transition-colors duration-150 truncate min-w-0 flex-1 inline-flex items-center gap-1">
+                              +{packagePreviewRows.remainder.hiddenCount} gói dịch vụ khác
+                              <ChevronRight className="size-3 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-[opacity,transform] duration-150 ease-out shrink-0" />
+                            </span>
+                            <div className="flex items-center gap-2 shrink-0 tabular-nums">
+                              <span className="text-muted-foreground text-[11px]">
+                                {packagePreviewRows.remainder.count} lượt
+                              </span>
+                              <span className="font-semibold text-foreground group-hover:text-emerald-deep transition-colors duration-150 min-w-[68px] text-right">
+                                {formatVND(packagePreviewRows.remainder.revenue)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-primary/45 group-hover:bg-primary/75 transition-[width,background-color] duration-200 ease-out"
+                              style={{
+                                width: `${
+                                  packagePreviewRows.remainder.revenue > 0
+                                    ? Math.max(Math.round((packagePreviewRows.remainder.revenue / maxPkgRev) * 100), 6)
+                                    : 0
+                                }%`,
+                              }}
+                            />
+                          </div>
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             ) : (
               <div className="py-6 text-center text-xs text-muted-foreground bg-secondary/25 rounded-xl">
@@ -2026,6 +2163,143 @@ export default function AdminOverview() {
               size="sm"
               className="text-xs cursor-pointer rounded-lg"
               onClick={() => setTrafficModalOpen(false)}
+            >
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ──────────────── MODAL: CHI TIẾT DOANH THU THEO GÓI DỊCH VỤ ──────────────── */}
+      <Dialog
+        open={packageModalOpen}
+        onOpenChange={(open) => {
+          setPackageModalOpen(open);
+          if (!open) setPackageSearch("");
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
+          <DialogHeader className="p-5 pb-3.5 border-b border-border/70">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pr-6">
+              <div>
+                <DialogTitle className="text-base font-bold text-foreground">
+                  Chi tiết doanh thu theo gói dịch vụ
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  Đối soát lượt mua, đơn giá bình quân và tỷ trọng doanh thu của toàn bộ gói trả phí.
+                </DialogDescription>
+              </div>
+              {normalizedPackageStats.length > 4 && (
+                <div className="relative w-full sm:w-52 shrink-0">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                  <Input
+                    value={packageSearch}
+                    onChange={(e) => setPackageSearch(e.target.value)}
+                    placeholder="Tìm tên gói dịch vụ..."
+                    className="pl-8 h-8 text-xs rounded-lg bg-background"
+                  />
+                  {packageSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setPackageSearch("")}
+                      aria-label="Xóa từ khóa tìm kiếm"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs cursor-pointer"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </DialogHeader>
+
+          <div className="p-5 space-y-3">
+            <div className="rounded-xl ring-1 ring-border overflow-hidden">
+              <div className="max-h-[48vh] overflow-y-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead className="sticky top-0 z-10 bg-secondary text-muted-foreground border-b border-border/70">
+                    <tr>
+                      <th className="py-2.5 px-3.5 font-semibold">Gói dịch vụ</th>
+                      <th className="py-2.5 px-3 font-semibold text-right">Đơn giá TB</th>
+                      <th className="py-2.5 px-3 font-semibold text-right">Lượt mua</th>
+                      <th className="py-2.5 px-3 font-semibold text-right">Tỷ trọng</th>
+                      <th className="py-2.5 px-3.5 font-semibold text-right">Doanh thu</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60 bg-card tabular-nums">
+                    {filteredModalPackages.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                          Không tìm thấy gói dịch vụ khớp từ khóa "{packageSearch.trim()}"
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredModalPackages.map((pkg, idx) => {
+                        const avgPrice = pkg.count > 0 ? Math.round(pkg.revenue / pkg.count) : 0;
+                        const sharePct =
+                          totalPackageRevenue > 0
+                            ? ((pkg.revenue / totalPackageRevenue) * 100).toFixed(1)
+                            : "0.0";
+                        return (
+                          <tr key={pkg.planId || idx} className="hover:bg-secondary/25 transition-colors">
+                            <td className="py-2.5 px-3.5 font-semibold text-foreground">
+                              {pkg.planName}
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-muted-foreground">
+                              {formatVND(avgPrice)}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-medium text-foreground">
+                              {pkg.count.toLocaleString()}
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-muted-foreground">
+                              {sharePct}%
+                            </td>
+                            <td className="py-2.5 px-3.5 text-right font-semibold text-emerald-deep">
+                              {formatVND(pkg.revenue)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="bg-mint/35 border-t border-border px-3.5 py-2.5 flex items-center justify-between text-xs font-bold text-foreground tabular-nums">
+                <span>
+                  Tổng cộng ({normalizedPackageStats.length} gói phát sinh doanh thu)
+                </span>
+                <div className="flex items-center gap-5">
+                  <span className="font-semibold text-muted-foreground">
+                    {totalPackageTransactions.toLocaleString()} giao dịch
+                  </span>
+                  <span className="text-emerald-deep text-sm">
+                    {formatVND(totalPackageRevenue)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="px-5 py-3 border-t border-border/70 bg-muted/10 flex flex-row items-center justify-between sm:justify-between gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-xs text-emerald-deep hover:text-emerald-brand hover:bg-mint/30 cursor-pointer rounded-lg gap-1"
+              onClick={() => {
+                setPackageModalOpen(false);
+                navigate("/admin/packages");
+              }}
+            >
+              Quản lý cấu hình gói <ChevronRight className="size-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-xs cursor-pointer rounded-lg"
+              onClick={() => setPackageModalOpen(false)}
             >
               Đóng
             </Button>
